@@ -17,7 +17,7 @@ class OperacionesModel {
       FROM Operador
       WHERE Nombre IN (
         'AEROMEXICO', 'ARAJET', 'DELTA', 'AMERIJET', 
-        'LAN CARGO', 'LATAM', 'FEDEX', 'AIR CANADA', 'AVIANCA', 'TAMPA CARGO'
+        'LAN CARGO', 'LATAM', 'FEDEX', 'AIR CANADA', 'AVIANCA', 'TAMPA', 'TAMPA CARGO'
       )
         AND ISNULL(EstaEliminado, 0) = 0
       ORDER BY Nombre ASC
@@ -54,11 +54,15 @@ class OperacionesModel {
    * @param {string} [params.email] - Correo del usuario autenticado
    */
   static async consultarTarjetasOperaciones({ fecha, operadorId, fecha2, departamentoId, email }) {
+    const fechaIso1 = (fecha || '').toString().trim().substring(0, 10);
+    const fechaIso2 = (fecha2 || '').toString().trim().substring(0, 10);
+
     // 1. Intentar llamar al SP dbo.TarjetasOperaciones (acepta @fecha, @fecha2, @operador, @departamentoId)
+    // IMPORTANTE: Usar medianoche UTC (T00:00:00Z) para que el driver mssql no desplace la fecha por zona horaria local
     try {
       const spParams = [
-        { name: 'fecha', type: sql.DateTime, value: fecha ? new Date(fecha + 'T00:00:00') : new Date() },
-        { name: 'fecha2', type: sql.DateTime, value: fecha2 ? new Date(fecha2 + 'T23:59:59') : null },
+        { name: 'fecha', type: sql.DateTime, value: fechaIso1 ? new Date(`${fechaIso1}T00:00:00Z`) : new Date() },
+        { name: 'fecha2', type: sql.DateTime, value: fechaIso2 ? new Date(`${fechaIso2}T00:00:00Z`) : null },
         { name: 'operador', type: sql.Int, value: parseInt(operadorId, 10) || 0 },
         { name: 'departamentoId', type: sql.Int, value: parseInt(departamentoId, 10) || 5 }
       ];
@@ -71,57 +75,66 @@ class OperacionesModel {
         return spResult.recordset;
       }
     } catch (spError) {
-      console.warn('[SP TarjetasOperaciones] Procedimiento no encontrado o requiere fallback a vista SQL:', spError.message);
+      console.warn('[SP TarjetasOperaciones] Error en SP, ejecutando consulta SQL parametrizada directa:', spError.message);
     }
 
-    // 2. Consulta fallback segura y parametrizada sobre Itinerario / Vuelos
+    // 2. Consulta fallback segura y parametrizada sobre el esquema real de SIO
     let sqlQuery = `
-      SELECT 
+      SELECT DISTINCT
         i.ItinerarioId AS itinerarioId,
-        ISNULL(i.NoCorrelativo, '') AS nocorrelativo,
+        CONVERT(varchar(20), i.NoCorrelativo) AS nocorrelativo,
         i.FechaItinerado,
         o.Nombre AS operador,
-        ISNULL(i.OperadorId, o.OperadorId) AS OperadorId,
-        ISNULL(i.NoVuelo, '') AS novuelo,
-        ISNULL(i.TipoOperacion, 'Comercial') AS tipoOperacion,
-        ISNULL(i.Procedencia, '') AS Procedencia,
-        ISNULL(i.Destino, '') AS Destino,
-        i.ETA AS eta,
-        i.ETD AS etd,
-        i.ATA AS ata,
-        i.ATD AS atd,
-        ISNULL(a.Matricula, i.Matricula) AS Matricula,
-        ISNULL(a.TipoAeronave, i.TipoAeronave) AS tipoAeronave,
-        ISNULL(i.PuertaPosicion, '') AS puertaposicion,
-        ISNULL(i.Faja, 0) AS faja,
-        ISNULL(i.Anulado, 0) AS anulado,
-        ISNULL(i.MotivoAnulacion, '') AS Motivo,
-        ISNULL(i.MotivoCambio, '') AS MotivoCambio,
-        i.CambioOperacionItinerarioId,
-        a.AeronaveId
-      FROM Itinerario i
-      LEFT JOIN Operador o ON i.OperadorId = o.OperadorId
-      LEFT JOIN Aeronave a ON i.AeronaveId = a.AeronaveId
+        i.OperadorId,
+        ISNULL(v.NoVuelo, '') AS novuelo,
+        ISNULL(tp.Nombre, 'COMERCIAL') AS tipoOperacion,
+        ISNULL(rh.Procedencia, '') AS Procedencia,
+        ISNULL(dh.Destino, '') AS Destino,
+        rh.eta,
+        dh.etd,
+        rh.ata,
+        dh.atd,
+        ISNULL(mt.Matricula, '') AS Matricula,
+        ISNULL(ta.Nombre, '') AS tipoAeronave,
+        ISNULL(tpi.Nombre, '') AS puertaposicion,
+        ISNULL(pii.Faja, 0) AS faja,
+        ianu.ItinerarioId AS anulado,
+        ISNULL(ianu.Motivo, '') AS Motivo,
+        ISNULL(coi.Motivo, '') AS MotivoCambio,
+        coi.CambioOperacionItinerarioId,
+        i.MatriculaAeronaveId
+      FROM Itinerario AS i
+      LEFT JOIN MatriculaAeronave AS mt ON i.MatriculaAeronaveId = mt.MatriculaAeronaveId
+      LEFT JOIN Vuelos AS v ON v.VuelosId = i.VuelosId
+      LEFT JOIN Operador AS o ON o.OperadorId = i.OperadorId
+      LEFT JOIN TipoAeronave AS ta ON ta.TipoAeronaveId = mt.TipoAeronaveId
+      LEFT JOIN DespachoHorarios AS dh ON dh.ItinerarioId = i.ItinerarioId
+      LEFT JOIN RecepcionHorarios AS rh ON rh.ItinerarioId = i.ItinerarioId
+      LEFT JOIN TipoOperacion AS tp ON tp.TipoOperacionId = i.TipoOperacionId
+      LEFT JOIN PosicionItinerario AS pii ON pii.ItinerarioId = i.ItinerarioId
+      LEFT JOIN TipoPosicion AS tpi ON tpi.TipoPosicionId = pii.TipoPosicionId
+      LEFT JOIN ItinerarioAnulado AS ianu ON ianu.ItinerarioId = i.ItinerarioId
+      LEFT JOIN CambioOperacionItinerario AS coi ON coi.ItinerarioId = i.ItinerarioId
       WHERE ISNULL(i.EstaEliminado, 0) = 0
     `;
 
     const queryParams = [];
 
-    if (fecha2 && fecha2.trim() !== '') {
-      sqlQuery += ` AND CAST(i.FechaItinerado AS DATE) BETWEEN CAST(@fecha1 AS DATE) AND CAST(@fecha2 AS DATE)`;
-      queryParams.push({ name: 'fecha1', type: sql.Date, value: fecha });
-      queryParams.push({ name: 'fecha2', type: sql.Date, value: fecha2 });
+    if (fechaIso2) {
+      sqlQuery += ` AND i.FechaItinerado BETWEEN @fecha1 AND @fecha2`;
+      queryParams.push({ name: 'fecha1', type: sql.DateTime, value: new Date(`${fechaIso1}T00:00:00Z`) });
+      queryParams.push({ name: 'fecha2', type: sql.DateTime, value: new Date(`${fechaIso2}T00:00:00Z`) });
     } else {
-      sqlQuery += ` AND CAST(i.FechaItinerado AS DATE) = CAST(@fecha1 AS DATE)`;
-      queryParams.push({ name: 'fecha1', type: sql.Date, value: fecha });
+      sqlQuery += ` AND i.FechaItinerado = @fecha1`;
+      queryParams.push({ name: 'fecha1', type: sql.DateTime, value: new Date(`${fechaIso1}T00:00:00Z`) });
     }
 
-    if (operadorId && operadorId > 0) {
+    if (operadorId && parseInt(operadorId, 10) > 0) {
       sqlQuery += ` AND i.OperadorId = @operadorId`;
-      queryParams.push({ name: 'operadorId', type: sql.Int, value: operadorId });
+      queryParams.push({ name: 'operadorId', type: sql.Int, value: parseInt(operadorId, 10) });
     }
 
-    sqlQuery += ` ORDER BY i.FechaItinerado DESC, i.NoCorrelativo ASC`;
+    sqlQuery += ` ORDER BY i.FechaItinerado ASC`;
 
     try {
       const directResult = await executeQuery(sqlQuery, queryParams);
@@ -140,30 +153,39 @@ class OperacionesModel {
     const query = `
       SELECT TOP 1
         i.ItinerarioId AS itinerarioId,
-        ISNULL(i.NoCorrelativo, '') AS nocorrelativo,
+        CONVERT(varchar(20), i.NoCorrelativo) AS nocorrelativo,
         i.FechaItinerado,
         o.Nombre AS operador,
         i.OperadorId,
-        ISNULL(i.NoVuelo, '') AS novuelo,
-        ISNULL(i.TipoOperacion, 'Comercial') AS tipoOperacion,
-        ISNULL(i.Procedencia, '') AS Procedencia,
-        ISNULL(i.Destino, '') AS Destino,
-        i.ETA AS eta,
-        i.ETD AS etd,
-        i.ATA AS ata,
-        i.ATD AS atd,
-        ISNULL(a.Matricula, i.Matricula) AS Matricula,
-        ISNULL(a.TipoAeronave, i.TipoAeronave) AS tipoAeronave,
-        ISNULL(i.PuertaPosicion, '') AS puertaposicion,
-        ISNULL(i.Faja, 0) AS faja,
-        ISNULL(i.Anulado, 0) AS anulado,
-        ISNULL(i.MotivoAnulacion, '') AS Motivo,
-        ISNULL(i.MotivoCambio, '') AS MotivoCambio,
-        i.CambioOperacionItinerarioId,
-        a.AeronaveId
-      FROM Itinerario i
-      LEFT JOIN Operador o ON i.OperadorId = o.OperadorId
-      LEFT JOIN Aeronave a ON i.AeronaveId = a.AeronaveId
+        ISNULL(v.NoVuelo, '') AS novuelo,
+        ISNULL(tp.Nombre, 'COMERCIAL') AS tipoOperacion,
+        ISNULL(rh.Procedencia, '') AS Procedencia,
+        ISNULL(dh.Destino, '') AS Destino,
+        rh.eta,
+        dh.etd,
+        rh.ata,
+        dh.atd,
+        ISNULL(mt.Matricula, '') AS Matricula,
+        ISNULL(ta.Nombre, '') AS tipoAeronave,
+        ISNULL(tpi.Nombre, '') AS puertaposicion,
+        ISNULL(pii.Faja, 0) AS faja,
+        ianu.ItinerarioId AS anulado,
+        ISNULL(ianu.Motivo, '') AS Motivo,
+        ISNULL(coi.Motivo, '') AS MotivoCambio,
+        coi.CambioOperacionItinerarioId,
+        i.MatriculaAeronaveId
+      FROM Itinerario AS i
+      LEFT JOIN MatriculaAeronave AS mt ON i.MatriculaAeronaveId = mt.MatriculaAeronaveId
+      LEFT JOIN Vuelos AS v ON v.VuelosId = i.VuelosId
+      LEFT JOIN Operador AS o ON o.OperadorId = i.OperadorId
+      LEFT JOIN TipoAeronave AS ta ON ta.TipoAeronaveId = mt.TipoAeronaveId
+      LEFT JOIN DespachoHorarios AS dh ON dh.ItinerarioId = i.ItinerarioId
+      LEFT JOIN RecepcionHorarios AS rh ON rh.ItinerarioId = i.ItinerarioId
+      LEFT JOIN TipoOperacion AS tp ON tp.TipoOperacionId = i.TipoOperacionId
+      LEFT JOIN PosicionItinerario AS pii ON pii.ItinerarioId = i.ItinerarioId
+      LEFT JOIN TipoPosicion AS tpi ON tpi.TipoPosicionId = pii.TipoPosicionId
+      LEFT JOIN ItinerarioAnulado AS ianu ON ianu.ItinerarioId = i.ItinerarioId
+      LEFT JOIN CambioOperacionItinerario AS coi ON coi.ItinerarioId = i.ItinerarioId
       WHERE i.ItinerarioId = @itinerarioId
         AND ISNULL(i.EstaEliminado, 0) = 0
     `;

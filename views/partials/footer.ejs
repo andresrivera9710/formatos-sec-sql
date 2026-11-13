@@ -1,3 +1,19 @@
+<!-- Pantalla Global de Carga Corporativa LAATS -->
+<div id="sioLoadingOverlay" class="sio-loading-overlay" role="status" aria-live="polite" aria-hidden="true">
+  <div class="sio-loading-card">
+    <div class="sio-spinner-wrap">
+      <div class="sio-spinner-ring"></div>
+      <i class="fas fa-plane sio-spinner-icon"></i>
+    </div>
+    <div id="sioLoadingTitle" class="sio-loading-title">Procesando solicitud...</div>
+    <div id="sioLoadingSubtitle" class="sio-loading-subtitle">Conectando con la base de datos de SIO LAATS, por favor espere.</div>
+    <div class="sio-loading-status">
+      <i class="fas fa-circle-notch fa-spin"></i>
+      <span id="sioLoadingTimer">Ejecutando consulta (0.0s)</span>
+    </div>
+  </div>
+</div>
+
 <footer style="padding: 18px 32px; background: var(--surface); border-top: 1px solid var(--border); font-size: 11px; color: var(--text-3); display: flex; justify-content: space-between; align-items: center;">
   <div>
     <strong>SIO LAATS</strong> — Sistema de Información Operacional & Seguridad SEC &copy; <%= new Date().getFullYear() %>

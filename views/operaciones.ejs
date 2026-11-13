@@ -49,9 +49,15 @@
             </label>
           </div>
 
-          <button class="btn btn-primary" onclick="consultarOperaciones()" style="height: 42px; min-width: 130px;">
+          <button id="btnConsultarOperaciones" class="btn btn-primary" onclick="consultarOperaciones()" style="height: 42px; min-width: 145px;">
             <i class="fas fa-search"></i> Consultar
           </button>
+        </div>
+
+        <!-- Barra de estado de resultados -->
+        <div id="barraResumenOperaciones" style="display: none; margin-bottom: 16px; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-2); background: var(--surface); padding: 10px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-2);">
+          <span id="textoResumenOperaciones"><i class="fas fa-info-circle" style="color: var(--brand);"></i> Listo</span>
+          <span id="badgeTiempoConsulta" class="badge badge-gold">Azure SQL En Vivo</span>
         </div>
 
         <!-- Contenedor de Resultados -->
