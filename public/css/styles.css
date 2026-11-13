@@ -287,3 +287,177 @@
   border-top: 1px solid var(--border-2);
 }
 
+/* Cuadro Combinado con Búsqueda (Searchable Combobox) */
+.sio-combo {
+  position: relative;
+  width: 100%;
+}
+
+.sio-combo-native {
+  position: absolute !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+.sio-combo-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 41px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.sio-combo-trigger.is-placeholder .sio-combo-value {
+  color: var(--text-3);
+}
+
+.sio-combo-trigger.is-invalid {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.16);
+}
+
+.sio-combo-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sio-combo-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  color: var(--text-3);
+}
+
+.sio-combo-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 11px;
+  color: var(--text-3);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.sio-combo-clear:hover {
+  background-color: var(--danger-light);
+  color: var(--danger);
+}
+
+.sio-combo-chevron {
+  font-size: 11px;
+  transition: transform 0.18s ease;
+}
+
+.sio-combo.open .sio-combo-chevron {
+  transform: rotate(180deg);
+}
+
+.sio-combo-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  z-index: 250;
+  display: none;
+  overflow: hidden;
+}
+
+.sio-combo.open .sio-combo-dropdown {
+  display: block;
+}
+
+.sio-combo-search-wrap {
+  position: relative;
+  padding: 8px;
+  background-color: var(--bg);
+  border-bottom: 1px solid var(--border-2);
+}
+
+.sio-combo-search-icon {
+  position: absolute;
+  left: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  color: var(--text-3);
+  pointer-events: none;
+}
+
+.sio-combo-search {
+  width: 100%;
+  padding: 8px 12px 8px 30px;
+  font-size: 13px;
+  font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background-color: var(--surface);
+  color: var(--text);
+  outline: none;
+}
+
+.sio-combo-search:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px rgba(39, 91, 136, 0.14);
+}
+
+.sio-combo-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.sio-combo-option {
+  padding: 9px 14px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.sio-combo-option:hover,
+.sio-combo-option.is-highlighted {
+  background-color: rgba(39, 91, 136, 0.1);
+  color: var(--brand);
+}
+
+.sio-combo-option.is-selected {
+  background-color: rgba(39, 91, 136, 0.14);
+  font-weight: 700;
+  color: var(--brand-deep);
+}
+
+body.dark-mode .sio-combo-option.is-selected {
+  color: var(--gold);
+}
+
+.sio-combo-empty {
+  padding: 14px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-3);
+}
+

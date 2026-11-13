@@ -5,6 +5,7 @@
 
 let _sioLoadingInterval = null;
 let _sioLoadingStart = 0;
+let _comboOperador = null;
 const _operacionesCache = new Map();
 
 /**
@@ -114,9 +115,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const formFiltros = document.getElementById('formFiltrosOperaciones');
   const inputFecha1 = document.getElementById('filtroFecha1');
   const inputFecha2 = document.getElementById('filtroFecha2');
+  const selectOperador = document.getElementById('filtroOperador');
   const checkRango = document.getElementById('checkRangoFechas');
   const grupoFecha2 = document.getElementById('grupoFecha2');
   const btnConsultar = document.getElementById('btnConsultarOperaciones');
+
+  if (selectOperador && typeof window.SioSearchableCombo === 'function') {
+    _comboOperador = new window.SioSearchableCombo(selectOperador, {
+      placeholder: '-- Seleccione una aerolínea / operador --',
+      searchPlaceholder: 'Buscar aerolínea / operador...',
+      emptyText: 'No se encontraron aerolíneas con ese criterio.'
+    });
+
+    selectOperador.addEventListener('change', () => {
+      if (!selectOperador.value) {
+        renderizarEstadoInicialOperaciones();
+      }
+    });
+  }
 
   if (inputFecha1 && !inputFecha1.value) {
     inputFecha1.value = obtenerFechaLocalISO();
@@ -156,9 +172,6 @@ document.addEventListener('DOMContentLoaded', () => {
         seleccionarOperacion(vuelo);
       }
     });
-
-    // Consulta inicial automática al cargar /operaciones
-    consultarOperaciones();
   }
 
   // 3. Módulo de Formatos (/formatos)
@@ -189,6 +202,29 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
+ * Restaura el estado inicial sin vuelos en /operaciones
+ */
+function renderizarEstadoInicialOperaciones() {
+  const container = document.getElementById('gridOperaciones');
+  const barraResumen = document.getElementById('barraResumenOperaciones');
+  _operacionesCache.clear();
+
+  if (barraResumen) {
+    barraResumen.style.display = 'none';
+  }
+
+  if (container) {
+    container.innerHTML = `
+      <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; background: var(--surface); border-radius: 12px; border: 1px solid var(--border);">
+        <i class="fas fa-search-location fa-3x" style="color: var(--brand);"></i>
+        <h3 style="margin-top: 16px; color: var(--text);">Itinerarios sin vuelos cargados</h3>
+        <p style="color: var(--text-3); margin-top: 8px;">Seleccione una fecha y busque una aerolínea / operador en el cuadro combinado, luego presione Consultar para visualizar los vuelos.</p>
+      </div>
+    `;
+  }
+}
+
+/**
  * Realiza la búsqueda de tarjetas de operaciones e itinerarios vía API
  */
 async function consultarOperaciones() {
@@ -202,10 +238,25 @@ async function consultarOperaciones() {
   const badgeTiempo = document.getElementById('badgeTiempoConsulta');
 
   const fecha = fechaEl?.value;
-  const operadorRaw = operadorEl?.value ?? '0';
-  const operadorId = parseInt(operadorRaw, 10) || 0;
-  const operadorNombre = operadorEl?.options?.[operadorEl.selectedIndex]?.text || 'Todos los Operadores';
+  const operadorRaw = String(operadorEl?.value || '').trim();
+  const operadorId = parseInt(operadorRaw, 10);
+  const operadorNombre = operadorEl?.options?.[operadorEl.selectedIndex]?.text || '';
   const fecha2 = (fecha2Check && fecha2El?.value) ? fecha2El.value : null;
+
+  if (!operadorRaw || !Number.isFinite(operadorId) || operadorId <= 0) {
+    if (_comboOperador) _comboOperador.setInvalid(true);
+    Swal.fire({
+      icon: 'warning',
+      title: 'Aerolínea Requerida',
+      text: 'Debe seleccionar una aerolínea / operador en el cuadro combinado antes de consultar los itinerarios.',
+      confirmButtonColor: '#275B88'
+    }).then(() => {
+      if (_comboOperador) _comboOperador.open();
+    });
+    return;
+  }
+
+  if (_comboOperador) _comboOperador.setInvalid(false);
 
   if (!fecha) {
     Swal.fire({

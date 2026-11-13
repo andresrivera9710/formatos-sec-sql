@@ -24,7 +24,7 @@
           <div class="form-group">
             <label for="filtroOperador"><i class="fas fa-plane"></i> Aerolínea / Operador</label>
             <select id="filtroOperador" name="operadorId" class="form-control">
-              <option value="0">-- Todos los Operadores --</option>
+              <option value="">-- Seleccione una aerolínea / operador --</option>
               <% if (operadores && operadores.length > 0) { %>
                 <% operadores.forEach(op => { %>
                   <option value="<%= op.OperadorId %>"><%= op.Nombre %></option>
@@ -55,8 +55,8 @@
         <div id="gridOperaciones" class="operations-grid">
           <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; background: var(--surface); border-radius: 12px; border: 1px solid var(--border);">
             <i class="fas fa-search-location fa-3x" style="color: var(--brand);"></i>
-            <h3 style="margin-top: 16px; color: var(--text);">Consulte los itinerarios del día</h3>
-            <p style="color: var(--text-3); margin-top: 8px;">Seleccione una fecha y aerolínea para visualizar los vuelos y comenzar a diligenciar formatos de seguridad.</p>
+            <h3 style="margin-top: 16px; color: var(--text);">Itinerarios sin vuelos cargados</h3>
+            <p style="color: var(--text-3); margin-top: 8px;">Seleccione una fecha y busque una aerolínea / operador en el cuadro combinado, luego presione Consultar para visualizar los vuelos.</p>
           </div>
         </div>
       </main>

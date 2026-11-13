@@ -59,7 +59,13 @@ class OperacionesController {
         });
       }
 
-      const parsedOperadorId = Number.isFinite(parseInt(operadorId, 10)) ? parseInt(operadorId, 10) : 0;
+      const parsedOperadorId = parseInt(operadorId, 10);
+      if (!Number.isFinite(parsedOperadorId) || parsedOperadorId <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Debe seleccionar una aerolínea / operador específico para consultar los itinerarios.'
+        });
+      }
 
       // Capa 8 Anti-IDOR: Servidor impone el departamento válido
       const departamentoId = resolveDepartmentId(req, requestedDeptId);
