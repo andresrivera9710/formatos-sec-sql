@@ -189,3 +189,4 @@ class OperacionesModel {
 }
 
 module.exports = OperacionesModel;
+

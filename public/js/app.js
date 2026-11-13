@@ -273,3 +273,4 @@ function cerrarModalReanudar() {
   const modal = document.getElementById('modalReanudar');
   if (modal) modal.style.display = 'none';
 }
+

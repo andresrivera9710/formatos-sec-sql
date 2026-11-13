@@ -44,3 +44,4 @@ router.get('/formatos/:formatoId', FormatosController.renderDetalleFormato);
 router.post('/api/formatos/procesar', apiLimiter, FormatosController.apiProcesarGuardado);
 
 module.exports = router;
+

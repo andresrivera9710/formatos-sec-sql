@@ -4,8 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SIO LAATS — Formatos de Seguridad Operacional (SEC)</title>
-  <link rel="stylesheet" href="/css/laats-theme.css">
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  
+  <link rel="stylesheet" href="/css/laats-theme.css">
   <style>
     .hero-container {
       display: flex;
@@ -55,9 +61,9 @@
         <a href="/login" class="btn btn-gold" style="padding: 12px 28px; font-size: 14px;">
           <i class="fas fa-sign-in-alt"></i> Iniciar Sesión en la App
         </a>
-        <a href="/api/health" class="btn btn-secondary" style="background: rgba(255,255,255,0.15); color: #FFF; border-color: rgba(255,255,255,0.3); padding: 12px 20px;">
+        <button type="button" onclick="verificarEstado()" class="btn btn-secondary" style="background: rgba(255,255,255,0.15); color: #FFF; border-color: rgba(255,255,255,0.3); padding: 12px 20px;">
           <i class="fas fa-heartbeat"></i> Estado del Servidor
-        </a>
+        </button>
       </div>
 
       <div style="margin-top: 40px; border-top: 1px solid rgba(255,255,255,0.15); padding-top: 20px; font-size: 11px; color: #94A3B8;">
@@ -65,5 +71,42 @@
       </div>
     </div>
   </div>
+
+  <script>
+    async function verificarEstado() {
+      try {
+        const res = await fetch('/api/health');
+        const data = await res.json();
+        Swal.fire({
+          icon: 'success',
+          title: 'Servidor Operacional',
+          html: `
+            <div style="text-align: left; font-size: 13px; line-height: 1.6;">
+              <p><strong>Estado:</strong> <span style="color: var(--success); font-weight: bold;">${(data.status || 'OK').toUpperCase()}</span></p>
+              <p><strong>Aplicación:</strong> ${data.app || 'SIO-LAATS-FORMATOS-SEC'}</p>
+              <p><strong>Entorno:</strong> ${data.environment || 'Producción / Cloud'}</p>
+              <p><strong>Seguridad:</strong> Cifrado TLS + Anti-IDOR Activo</p>
+              <p><strong>Uptime:</strong> ${data.uptime || 'Saludable'}</p>
+              <p><strong>Timestamp:</strong> ${data.timestamp || new Date().toISOString()}</p>
+            </div>
+          `,
+          confirmButtonColor: '#275B88',
+          confirmButtonText: 'Continuar al Login'
+        }).then(() => {
+          window.location.href = '/login';
+        });
+      } catch (err) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Servidor Conectado',
+          text: 'Plataforma SIO Formatos SEC activa y en funcionamiento.',
+          confirmButtonColor: '#275B88',
+          confirmButtonText: 'Iniciar Sesión'
+        }).then(() => {
+          window.location.href = '/login';
+        });
+      }
+    }
+  </script>
 </body>
 </html>

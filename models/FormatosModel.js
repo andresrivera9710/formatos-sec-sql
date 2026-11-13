@@ -116,3 +116,4 @@ class FormatosModel {
 }
 
 module.exports = FormatosModel;
+

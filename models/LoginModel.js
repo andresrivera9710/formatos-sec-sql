@@ -96,3 +96,4 @@ class LoginModel {
 }
 
 module.exports = LoginModel;
+

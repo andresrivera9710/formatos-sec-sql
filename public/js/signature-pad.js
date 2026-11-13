@@ -88,3 +88,4 @@ class SioSignaturePad {
 }
 
 window.SioSignaturePad = SioSignaturePad;
+

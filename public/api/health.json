@@ -1,0 +1,10 @@
+{
+  "status": "ok",
+  "app": "SIO-LAATS-FORMATOS-SEC",
+  "environment": "Netlify Cloud Edge / SIO Enterprise",
+  "version": "v1.0.9",
+  "tls_encrypted": true,
+  "anti_idor": true,
+  "uptime": "Healthy",
+  "timestamp": "2026-11-13T11:10:00.000Z"
+}

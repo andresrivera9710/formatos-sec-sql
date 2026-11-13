@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tarjetas de Operaciones | SIO Formatos SEC</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  
+  <link rel="stylesheet" href="/css/laats-theme.css">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div style="font-size: 24px; color: var(--gold); margin-bottom: 6px;"><i class="fas fa-shield-alt"></i></div>
+        <h2>SIO — LAATS</h2>
+        <span>Seguridad Operacional (SEC)</span>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="/operaciones" class="nav-item active">
+          <i class="fas fa-plane-departure"></i>
+          <span>Operaciones</span>
+        </a>
+
+        <a href="/formatos" class="nav-item">
+          <i class="fas fa-file-signature"></i>
+          <span>Formatos SEC</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-user">
+        <div>
+          <div id="sidebarUserName" style="font-weight: 700; font-size: 12px; color: var(--brand-deep); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            ANDRES RIVERA
+          </div>
+          <div id="sidebarUserRole" class="user-badge">
+            SUPERVISOR
+          </div>
+        </div>
+        <a href="/login" title="Cerrar Sesión" style="color: var(--danger); font-size: 16px; padding: 6px;">
+          <i class="fas fa-sign-out-alt"></i>
+        </a>
+      </div>
+    </aside>
+
+    <div class="workspace">
+      <header class="top-header">
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <h1 style="font-size: 18px; color: var(--brand-deep); margin: 0;">
+            Tarjetas de Operaciones
+          </h1>
+          <div id="activeFlightBadge" style="display: none; align-items: center; gap: 8px; background: var(--gold-light); border: 1px solid var(--gold); border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 700; color: var(--brand-deep);">
+            <i class="fas fa-plane" style="color: var(--brand);"></i>
+            <span id="activeFlightBadgeText"></span>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <button id="btnDarkModeToggle" class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" title="Alternar Modo Oscuro">
+            <i class="fas fa-moon"></i>
+          </button>
+        </div>
+      </header>
+
+      <main class="content-body">
+        <!-- Barra de Filtros de Itinerario -->
+        <div class="filter-bar">
+          <div class="form-group" style="max-width: 200px;">
+            <label for="filtroFecha1"><i class="far fa-calendar-alt"></i> Fecha de Operación</label>
+            <input type="date" id="filtroFecha1" class="form-control" required>
+          </div>
+
+          <div class="form-group" id="grupoFecha2" style="max-width: 200px; display: none;">
+            <label for="filtroFecha2"><i class="far fa-calendar-alt"></i> Hasta (Rango)</label>
+            <input type="date" id="filtroFecha2" class="form-control">
+          </div>
+
+          <div class="form-group">
+            <label for="filtroOperador"><i class="fas fa-plane"></i> Aerolínea / Operador</label>
+            <select id="filtroOperador" class="form-control">
+              <option value="0">-- Todos los Operadores --</option>
+              <option value="1">AEROMEXICO</option>
+              <option value="2">ARAJET</option>
+              <option value="3">DELTA</option>
+              <option value="4">AIR CANADA</option>
+              <option value="5">LAN CARGO / LATAM</option>
+              <option value="6">FEDEX</option>
+              <option value="7">AMERIJET</option>
+              <option value="8">AVIANCA</option>
+            </select>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <input type="checkbox" id="checkRangoFechas" style="width: 16px; height: 16px; cursor: pointer;">
+            <label for="checkRangoFechas" style="font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text-2);">
+              Activar Rango
+            </label>
+          </div>
+
+          <button class="btn btn-primary" onclick="consultarOperaciones()" style="height: 42px; min-width: 130px;">
+            <i class="fas fa-search"></i> Consultar
+          </button>
+        </div>
+
+        <!-- Contenedor de Resultados -->
+        <div id="gridOperaciones" class="operations-grid">
+          <!-- Inyectado dinámicamente -->
+        </div>
+      </main>
+
+      <footer style="padding: 18px 32px; background: var(--surface); border-top: 1px solid var(--border); font-size: 11px; color: var(--text-3); display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <strong>SIO LAATS</strong> — Sistema de Información Operacional & Seguridad SEC &copy; 2026
+        </div>
+        <div>
+          <span>Versión: v1.0.9 | Ambiente Seguro (TLS + Anti-IDOR)</span>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <script src="/js/signature-pad.js"></script>
+  <script src="/js/app.js"></script>
+  <script>
+    // Cargar datos de usuario guardados
+    const userStr = sessionStorage.getItem('sio_user');
+    if (userStr) {
+      const u = JSON.parse(userStr);
+      if (document.getElementById('sidebarUserName')) document.getElementById('sidebarUserName').innerText = u.nombreCompleto || u.usuario;
+      if (document.getElementById('sidebarUserRole')) document.getElementById('sidebarUserRole').innerText = u.puestoSec || 'AGENTE';
+    }
+
+    const vueloStr = sessionStorage.getItem('sio_vuelo');
+    if (vueloStr) {
+      const v = JSON.parse(vueloStr);
+      const b = document.getElementById('activeFlightBadge');
+      const t = document.getElementById('activeFlightBadgeText');
+      if (b && t) {
+        t.innerText = `${v.operador} (${v.novuelo}) | Matrícula: ${v.Matricula || 'S/N'}`;
+        b.style.display = 'inline-flex';
+      }
+    }
+
+    // Toggle de segundo campo de fecha
+    const checkRango = document.getElementById('checkRangoFechas');
+    const grupoFecha2 = document.getElementById('grupoFecha2');
+    if (checkRango && grupoFecha2) {
+      checkRango.addEventListener('change', () => {
+        grupoFecha2.style.display = checkRango.checked ? 'flex' : 'none';
+      });
+    }
+
+    // Datos simulados de alta fidelidad si no hay backend activo en Netlify
+    const MOCK_VUELOS = [
+      {
+        itinerarioId: 501,
+        nocorrelativo: '1042',
+        FechaItinerado: new Date().toISOString(),
+        operador: 'AEROMEXICO',
+        novuelo: 'AMX-408',
+        tipoOperacion: 'Comercial',
+        Procedencia: 'MEX',
+        Destino: 'GUA',
+        eta: '2026-11-13T09:15:00',
+        etd: '2026-11-13T10:45:00',
+        ata: '2026-11-13T09:10:00',
+        atd: '2026-11-13T10:50:00',
+        Matricula: 'XA-AMX',
+        tipoAeronave: 'B737-800',
+        puertaposicion: 'Puerta 6',
+        faja: 3,
+        anulado: 0
+      },
+      {
+        itinerarioId: 502,
+        nocorrelativo: '1043',
+        FechaItinerado: new Date().toISOString(),
+        operador: 'DELTA',
+        novuelo: 'DAL-905',
+        tipoOperacion: 'Comercial',
+        Procedencia: 'ATL',
+        Destino: 'GUA',
+        eta: '2026-11-13T11:30:00',
+        etd: '2026-11-13T12:55:00',
+        ata: '2026-11-13T11:28:00',
+        atd: '2026-11-13T13:00:00',
+        Matricula: 'N374DA',
+        tipoAeronave: 'B757-200',
+        puertaposicion: 'Puerta 4',
+        faja: 2,
+        anulado: 0
+      },
+      {
+        itinerarioId: 503,
+        nocorrelativo: '1044',
+        FechaItinerado: new Date().toISOString(),
+        operador: 'ARAJET',
+        novuelo: 'ARA-120',
+        tipoOperacion: 'Comercial',
+        Procedencia: 'SDQ',
+        Destino: 'GUA',
+        eta: '2026-11-13T14:10:00',
+        etd: '2026-11-13T15:30:00',
+        ata: '2026-11-13T14:15:00',
+        atd: '2026-11-13T15:40:00',
+        Matricula: 'HI-1026',
+        tipoAeronave: 'B737-MAX8',
+        puertaposicion: 'Puerta 7',
+        faja: 4,
+        anulado: 0
+      },
+      {
+        itinerarioId: 504,
+        nocorrelativo: '1045',
+        FechaItinerado: new Date().toISOString(),
+        operador: 'AIR CANADA',
+        novuelo: 'ACA-982',
+        tipoOperacion: 'Comercial',
+        Procedencia: 'YYZ',
+        Destino: 'GUA',
+        eta: '2026-11-13T16:00:00',
+        etd: '2026-11-13T17:40:00',
+        ata: '2026-11-13T15:55:00',
+        atd: '2026-11-13T17:45:00',
+        Matricula: 'C-FGBP',
+        tipoAeronave: 'A321-200',
+        puertaposicion: 'Puerta 5',
+        faja: 1,
+        anulado: 0
+      },
+      {
+        itinerarioId: 505,
+        nocorrelativo: '1046',
+        FechaItinerado: new Date().toISOString(),
+        operador: 'FEDEX',
+        novuelo: 'FDX-512',
+        tipoOperacion: 'Carga',
+        Procedencia: 'MEM',
+        Destino: 'GUA',
+        eta: '2026-11-13T18:20:00',
+        etd: '2026-11-13T19:50:00',
+        ata: '2026-11-13T18:15:00',
+        atd: '2026-11-13T20:00:00',
+        Matricula: 'N742FD',
+        tipoAeronave: 'B767-300F',
+        puertaposicion: 'Rampa Carga',
+        faja: 0,
+        anulado: 0
+      }
+    ];
+
+    // Override consultarOperaciones para soportar Netlify autónomo
+    const originalConsultar = window.consultarOperaciones;
+    window.consultarOperaciones = async function() {
+      try {
+        await originalConsultar();
+      } catch (_) {
+        // En caso de estar en Netlify estático, renderizamos MOCK_VUELOS
+        const opVal = document.getElementById('filtroOperador')?.value;
+        let vuelos = MOCK_VUELOS;
+        if (opVal && opVal != '0') {
+          const opText = document.getElementById('filtroOperador').options[document.getElementById('filtroOperador').selectedIndex].text;
+          vuelos = vuelos.filter(v => v.operador.toUpperCase().includes(opText.toUpperCase()));
+        }
+        renderizarTarjetas(vuelos);
+      }
+    };
+
+    // Override seleccionarOperacion para persistir en sessionStorage
+    const originalSeleccionar = window.seleccionarOperacion;
+    window.seleccionarOperacion = async function(vuelo) {
+      sessionStorage.setItem('sio_vuelo', JSON.stringify(vuelo));
+      try {
+        await originalSeleccionar(vuelo);
+      } catch (_) {
+        window.location.href = '/formatos';
+      }
+    };
+
+    window.addEventListener('load', () => {
+      // Carga inicial
+      const opVal = document.getElementById('filtroOperador')?.value;
+      renderizarTarjetas(MOCK_VUELOS);
+    });
+  </script>
+</body>
+</html>
