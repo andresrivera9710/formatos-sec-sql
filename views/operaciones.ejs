@@ -10,34 +10,25 @@
 
       <main class="content-body">
         <!-- Barra de Filtros de Itinerario -->
-        <div class="filter-bar">
+        <form id="formFiltrosOperaciones" class="filter-bar">
           <div class="form-group" style="max-width: 200px;">
             <label for="filtroFecha1"><i class="far fa-calendar-alt"></i> Fecha de Operación</label>
-            <input type="date" id="filtroFecha1" class="form-control" required>
+            <input type="date" id="filtroFecha1" name="fecha" class="form-control" required>
           </div>
 
           <div class="form-group" id="grupoFecha2" style="max-width: 200px; display: none;">
             <label for="filtroFecha2"><i class="far fa-calendar-alt"></i> Hasta (Rango)</label>
-            <input type="date" id="filtroFecha2" class="form-control">
+            <input type="date" id="filtroFecha2" name="fecha2" class="form-control">
           </div>
 
           <div class="form-group">
             <label for="filtroOperador"><i class="fas fa-plane"></i> Aerolínea / Operador</label>
-            <select id="filtroOperador" class="form-control">
+            <select id="filtroOperador" name="operadorId" class="form-control">
               <option value="0">-- Todos los Operadores --</option>
               <% if (operadores && operadores.length > 0) { %>
                 <% operadores.forEach(op => { %>
                   <option value="<%= op.OperadorId %>"><%= op.Nombre %></option>
                 <% }) %>
-              <% } else { %>
-                <option value="1">AEROMEXICO</option>
-                <option value="2">ARAJET</option>
-                <option value="3">DELTA</option>
-                <option value="4">AIR CANADA</option>
-                <option value="5">LAN CARGO / LATAM</option>
-                <option value="6">FEDEX</option>
-                <option value="7">AMERIJET</option>
-                <option value="8">AVIANCA</option>
               <% } %>
             </select>
           </div>
@@ -49,10 +40,10 @@
             </label>
           </div>
 
-          <button id="btnConsultarOperaciones" class="btn btn-primary" onclick="consultarOperaciones()" style="height: 42px; min-width: 145px;">
+          <button type="submit" id="btnConsultarOperaciones" class="btn btn-primary" style="height: 42px; min-width: 145px;">
             <i class="fas fa-search"></i> Consultar
           </button>
-        </div>
+        </form>
 
         <!-- Barra de estado de resultados -->
         <div id="barraResumenOperaciones" style="display: none; margin-bottom: 16px; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-2); background: var(--surface); padding: 10px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-2);">
@@ -73,22 +64,6 @@
       <%- include('partials/footer') %>
     </div>
   </div>
-
-  <script>
-    // Toggle de segundo campo de fecha
-    const checkRango = document.getElementById('checkRangoFechas');
-    const grupoFecha2 = document.getElementById('grupoFecha2');
-    if (checkRango && grupoFecha2) {
-      checkRango.addEventListener('change', () => {
-        grupoFecha2.style.display = checkRango.checked ? 'flex' : 'none';
-      });
-    }
-
-    // Ejecuta consulta inicial al cargar si hay fecha preseleccionada
-    window.addEventListener('load', () => {
-      consultarOperaciones();
-    });
-  </script>
 </body>
 </html>
 

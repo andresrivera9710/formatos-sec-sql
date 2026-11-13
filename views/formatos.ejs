@@ -43,10 +43,10 @@
         </div>
 
         <!-- Grid de Formatos -->
-        <div class="formats-grid">
+        <div id="formatsGrid" class="formats-grid">
           <% if (formatos && formatos.length > 0) { %>
             <% formatos.forEach(fmt => { %>
-              <div class="format-card" onclick="abrirFormato('<%= fmt.id %>', '<%= fmt.nombre %>', <%= vuelo.itinerarioId %>)">
+              <div class="format-card" data-formato-id="<%= fmt.id %>" data-formato-nombre="<%= fmt.nombre %>" data-itinerario-id="<%= vuelo.itinerarioId %>">
                 <div>
                   <div style="font-size: 30px; color: var(--brand); margin-bottom: 14px;">
                     <i class="fas fa-<%= fmt.icono || 'file-signature' %>"></i>
@@ -98,8 +98,8 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="cerrarModalReanudar()">Cancelar</button>
-        <button id="btnCrearNuevoFormato" class="btn btn-gold">
+        <button type="button" id="btnCancelarModalReanudar" class="btn btn-secondary">Cancelar</button>
+        <button type="button" id="btnCrearNuevoFormato" class="btn btn-gold">
           <i class="fas fa-plus-circle"></i> Crear Nuevo
         </button>
       </div>

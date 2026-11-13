@@ -67,13 +67,12 @@ class OperacionesModel {
         { name: 'departamentoId', type: sql.Int, value: parseInt(departamentoId, 10) || 5 }
       ];
       const spResult = await executeStoredProcedure('dbo.TarjetasOperaciones', spParams);
-      if (spResult.recordset && spResult.recordset.length > 0) {
-        // En caso que no haya resultados el SP retorna { mensaje: 'no se encontraron resultados' }
-        if (spResult.recordset[0].mensaje) {
-          return [];
-        }
-        return spResult.recordset;
+      const rows = spResult.recordset || [];
+      // En caso que no haya resultados el SP retorna { mensaje: 'no se encontraron resultados' }
+      if (rows.length > 0 && rows[0].mensaje) {
+        return [];
       }
+      return rows;
     } catch (spError) {
       console.warn('[SP TarjetasOperaciones] Error en SP, ejecutando consulta SQL parametrizada directa:', spError.message);
     }

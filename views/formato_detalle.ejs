@@ -124,7 +124,7 @@
           <div class="card">
             <div class="card-header">
               <h3 style="font-size: 15px;"><i class="fas fa-pen-nib"></i> Firma Digital del Agente / Supervisor</h3>
-              <button type="button" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="limpiarFirma()">
+              <button type="button" id="btnLimpiarFirma" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;">
                 <i class="fas fa-eraser"></i> Limpiar Firma
               </button>
             </div>
@@ -137,10 +137,10 @@
 
           <!-- Botones de Acción -->
           <div style="display: flex; justify-content: flex-end; gap: 14px; margin-bottom: 40px;">
-            <button type="button" class="btn btn-secondary" onclick="procesarFormato(false)" style="padding: 12px 24px;">
+            <button type="button" id="btnVistaPreliminar" class="btn btn-secondary" style="padding: 12px 24px;">
               <i class="fas fa-eye"></i> Vista Preliminar (Auditoría)
             </button>
-            <button type="button" class="btn btn-primary" onclick="procesarFormato(true)" style="padding: 12px 28px;">
+            <button type="button" id="btnGuardarDefinitivo" class="btn btn-primary" style="padding: 12px 28px;">
               <i class="fas fa-save"></i> Guardar Definitivo
             </button>
           </div>
@@ -151,96 +151,7 @@
     </div>
   </div>
 
-  <script>
-    let sigPad;
-    window.addEventListener('load', () => {
-      const canvas = document.getElementById('canvasFirma');
-      if (canvas && window.SioSignaturePad) {
-        sigPad = new SioSignaturePad(canvas);
-      }
-    });
-
-    function limpiarFirma() {
-      if (sigPad) sigPad.clear();
-    }
-
-    async function procesarFormato(guardar) {
-      const form = document.getElementById('formCapturaFormato');
-      const formData = new FormData(form);
-      const payload = Object.fromEntries(formData.entries());
-
-      payload.guardar = guardar;
-      payload.datos = {
-        fecha: payload.fecha,
-        agente: payload.agente,
-        supervisor: payload.supervisor,
-        horaInicio: payload.horaInicio,
-        horaFin: payload.horaFin,
-        posicion: payload.posicion,
-        noUnidad: payload.noUnidad,
-        resultado: payload.resultado,
-        observaciones: payload.observaciones,
-        firma: (sigPad && !sigPad.isEmpty()) ? sigPad.toDataURL() : null
-      };
-
-      Swal.fire({
-        title: guardar ? 'Guardando Formato...' : 'Generando Auditoría Preliminar...',
-        text: 'Por favor espere un momento.',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-      });
-
-      try {
-        const response = await fetch('/api/formatos/procesar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        const res = await response.json();
-
-        if (res.success) {
-          if (!guardar) {
-            Swal.fire({
-              icon: 'info',
-              title: 'Vista Preliminar Aprobada',
-              html: `
-                <div style="text-align: left; font-size: 13px;">
-                  <p><strong>Formato:</strong> ${res.resumen.formato}</p>
-                  <p><strong>Aerolínea:</strong> ${res.resumen.aerolinea}</p>
-                  <p><strong>Resultado:</strong> ${payload.datos.resultado}</p>
-                  <p><strong>Supervisor:</strong> ${payload.datos.supervisor}</p>
-                  <p style="margin-top: 10px; color: var(--success); font-weight: 700;">El formato cumple las validaciones de negocio en memoria.</p>
-                </div>
-              `,
-              confirmButtonColor: '#275B88'
-            });
-          } else {
-            Swal.fire({
-              icon: 'success',
-              title: '¡Guardado Exitoso!',
-              text: res.mensaje || 'Formato registrado con éxito en la base de datos.',
-              confirmButtonColor: '#275B88'
-            }).then(() => {
-              window.location.href = '/formatos';
-            });
-          }
-        } else {
-          Swal.fire({
-            icon: 'error',
-            title: 'Error de Validación',
-            text: res.message || 'No se pudo guardar el formato.'
-          });
-        }
-      } catch (err) {
-        Swal.fire({
-          icon: 'error',
-          title: 'Error de Red',
-          text: 'Fallo al comunicar con el servidor.'
-        });
-      }
-    }
-  </script>
+  <script src="/js/formato-detalle.js"></script>
 </body>
 </html>
 

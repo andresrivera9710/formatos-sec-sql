@@ -49,19 +49,32 @@ class OperacionesController {
         });
       }
 
+      const cleanFecha = String(fecha).trim().substring(0, 10);
+      const cleanFecha2 = fecha2 && String(fecha2).trim() !== '' ? String(fecha2).trim().substring(0, 10) : null;
+
+      if (cleanFecha2 && cleanFecha2 < cleanFecha) {
+        return res.status(400).json({
+          success: false,
+          message: 'La fecha final del rango no puede ser anterior a la fecha inicial.'
+        });
+      }
+
+      const parsedOperadorId = Number.isFinite(parseInt(operadorId, 10)) ? parseInt(operadorId, 10) : 0;
+
       // Capa 8 Anti-IDOR: Servidor impone el departamento válido
       const departamentoId = resolveDepartmentId(req, requestedDeptId);
 
       const tarjetas = await OperacionesModel.consultarTarjetasOperaciones({
-        fecha,
-        operadorId: operadorId ? parseInt(operadorId, 10) : 0,
-        fecha2: fecha2 || null,
+        fecha: cleanFecha,
+        operadorId: parsedOperadorId,
+        fecha2: cleanFecha2,
         departamentoId,
         email: req.session.user?.usuario ? `${req.session.user.usuario}@laats.com` : 'operaciones@laats.com'
       });
 
       return res.json({
         success: true,
+        operadorId: parsedOperadorId,
         count: tarjetas.length,
         data: tarjetas
       });
