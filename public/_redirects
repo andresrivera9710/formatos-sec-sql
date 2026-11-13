@@ -3,4 +3,5 @@
 /operaciones      /operaciones.html       200
 /formatos         /formatos.html          200
 /formatos/*       /formato_detalle.html   200
-/*                /index.html             200
+/                 /login.html             200
+/*                /login.html             200
