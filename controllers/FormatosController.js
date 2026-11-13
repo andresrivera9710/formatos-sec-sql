@@ -6,6 +6,7 @@
 const FormatosModel = require('../models/FormatosModel');
 const OperacionesService = require('../services/OperacionesService');
 const FormatosService = require('../services/FormatosService');
+const HtmlPreviewService = require('../services/HtmlPreviewService');
 
 class FormatosController {
   /**
@@ -127,24 +128,82 @@ class FormatosController {
         return res.status(resultado.statusCode || 400).json(resultado);
       }
 
-      if (resultado.modo === 'preliminar' && String(payload?.formatoId || '').endsWith('-cp')) {
+      if (resultado.modo === 'preliminar') {
+        const formatoId = String(payload?.formatoId || '');
         const vuelo = req.session.vueloSeleccionado || {};
-        const puerta = vuelo.puertaposicion || '--';
-        const horaInicio = resultado.preview?.horaInicio || '--:--';
-        const docPreview = {
-          ...resultado.preview,
-          aerolinea: vuelo.operador || resultado.preview?.aerolinea || '',
-          vuelo: vuelo.novuelo || '--',
-          matricula: vuelo.Matricula || 'Pendiente',
-          puerta,
-          horaInicioPuerta: `${horaInicio} / ${puerta}`,
-          ruta: vuelo.ruta || `${vuelo.origen || '---'} -> ${vuelo.destino || '---'}`
-        };
+        req.session.formatPreviews = req.session.formatPreviews || {};
 
-        req.session.cpPreviews = req.session.cpPreviews || {};
-        req.session.cpPreviews[payload.formatoId] = docPreview;
-        resultado.preview = docPreview;
-        resultado.previewUrl = `/formatos/${encodeURIComponent(payload.formatoId)}/vista-preliminar`;
+        if (HtmlPreviewService.hasControlledTemplate(formatoId)) {
+          let vars;
+          let meta = {};
+
+          if (formatoId.endsWith('-cp')) {
+            const puerta = vuelo.puertaposicion || '--';
+            const horaInicio = resultado.preview?.horaInicio || '--:--';
+            const cpDoc = {
+              ...resultado.preview,
+              aerolinea: vuelo.operador || resultado.preview?.aerolinea || '',
+              vuelo: vuelo.novuelo || '--',
+              matricula: vuelo.Matricula || 'Pendiente',
+              puerta,
+              horaInicioPuerta: `${horaInicio} / ${puerta}`
+            };
+            vars = HtmlPreviewService.buildCpData({
+              cpDoc,
+              vuelo,
+              user: req.session.user
+            });
+            meta = { pendientesSalidaCount: cpDoc.pendientesSalidaCount || 0 };
+          } else {
+            let hydrated = { datos: [], complementos: [] };
+            if (payload.encabezadoId) {
+              try {
+                hydrated = await FormatosService.prepararFormato({
+                  formatoId,
+                  itinerarioId: vuelo.itinerarioId,
+                  encabezadoId: payload.encabezadoId,
+                  user: req.session.user
+                });
+              } catch (err) {
+                console.warn('[PREVIEW HYDRATION WARNING]', err.message);
+              }
+            }
+            vars = HtmlPreviewService.buildAeromexicoOtherData({
+              formatoId,
+              formDatos: payload.datos || {},
+              vuelo,
+              user: req.session.user,
+              datosPrevios: hydrated.datos || [],
+              complementos: hydrated.complementos || []
+            });
+          }
+
+          req.session.formatPreviews[formatoId] = {
+            type: 'controlled-html',
+            vars,
+            meta
+          };
+          resultado.previewUrl = `/formatos/${encodeURIComponent(formatoId)}/vista-preliminar`;
+        } else if (formatoId.endsWith('-cp')) {
+          const puerta = vuelo.puertaposicion || '--';
+          const horaInicio = resultado.preview?.horaInicio || '--:--';
+          const docPreview = {
+            ...resultado.preview,
+            aerolinea: vuelo.operador || resultado.preview?.aerolinea || '',
+            vuelo: vuelo.novuelo || '--',
+            matricula: vuelo.Matricula || 'Pendiente',
+            puerta,
+            horaInicioPuerta: `${horaInicio} / ${puerta}`,
+            ruta: vuelo.ruta || `${vuelo.origen || '---'} -> ${vuelo.destino || '---'}`
+          };
+
+          req.session.formatPreviews[formatoId] = {
+            type: 'cp-ejs',
+            doc: docPreview
+          };
+          resultado.preview = docPreview;
+          resultado.previewUrl = `/formatos/${encodeURIComponent(formatoId)}/vista-preliminar`;
+        }
       }
 
       return res.json(resultado);
@@ -158,17 +217,29 @@ class FormatosController {
   }
 
   /**
-   * Renderiza la vista preliminar HTML imprimible del Control de Perimétrica
-   * basada en la estructura de FORMATOS_SECHTML.
+   * Renderiza la vista preliminar HTML imprimible del formato (HTML controlado o fallback CP).
    */
   static async renderVistaPreliminarCP(req, res) {
     const { formatoId } = req.params;
-    const doc = req.session?.cpPreviews?.[formatoId];
+    const entry = req.session?.formatPreviews?.[formatoId];
 
-    if (!doc) {
+    if (!entry) {
       return res.redirect(`/formatos/${encodeURIComponent(formatoId)}`);
     }
 
+    if (entry.type === 'controlled-html') {
+      const html = HtmlPreviewService.renderHtmlPreview({
+        formatoId,
+        vars: entry.vars,
+        meta: entry.meta
+      });
+      if (!html) {
+        return res.redirect(`/formatos/${encodeURIComponent(formatoId)}`);
+      }
+      return res.type('html').send(html);
+    }
+
+    const doc = entry.doc;
     res.render('formato_cp_preview', {
       title: `Vista Preliminar — ${doc.formatoNombre} | ${doc.aerolinea}`,
       user: req.session.user,

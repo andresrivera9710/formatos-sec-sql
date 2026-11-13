@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EQUIPAJES EN MAL ESTADO</title>
+    <style>
+        @page { margin: 0; }
+        * { box-sizing: border-box; font-family: Arial, sans-serif; margin: 0; padding: 0; }
+        body { display: flex; justify-content: center; background-color: #525659; padding: 20px; }
+        .page {
+            width: 210mm; 
+            min-height: 297mm; 
+            background: white;
+            padding: 15mm; 
+            display: flex; 
+            flex-direction: column;
+        }
+
+        /* ENCABEZADO */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: -50px;
+        }
+
+        .logo-placeholder {
+            width: 400px; 
+            height: 190px; 
+            display: flex;
+            align-items: flex-start;
+            margin-top: -70px;
+        }
+
+        /* TÍTULO PRINCIPAL DEL FORMATO */
+        .header-title {
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin-top: 10px;
+            margin-bottom: 12px;
+        }
+
+        table { width: 100%; border-collapse: collapse; }
+        td, th { border: 1px solid black; padding: 4px; font-size: 12px; }
+        
+        .section-title { text-align: center; font-weight: bold; font-size: 15px; letter-spacing: 0.5px; padding: 6px !important; background-color: #f0f0f0; }
+        .sub-title { text-align: center; font-weight: bold; font-size: 13px; padding: 4px !important; background-color: #f9f9f9; }
+        .col-header { text-align: center; font-size: 11px; font-weight: bold; background-color: #e0e0e0; }
+        
+        .data-row td { height: 26px; text-align: center; } 
+        
+        .signatures-container { margin-top: auto; padding-top: 30px; }
+        .sign-table { width: 100%; border: none; table-layout: fixed; }
+        .sign-table td { border: none; padding: 0; }
+        .sign-box { text-align: center; padding: 0 30px; }
+        .sign-img { width: 100%; max-height: 60px; object-fit: contain; margin-bottom: 2px; }
+        .sign-line { border-top: 1.5px solid black; font-weight: bold; font-size: 11px; padding-top: 4px; text-transform: uppercase; }
+        .sign-title { font-size: 10px; font-weight: normal; margin-top: 2px; color: #333; }
+        
+        @media print { body { background: none; padding: 0; } .page { box-shadow: none; min-height: auto; padding-top: 0; } }
+    </style>
+</head>
+<body>
+<div class="page">
+    
+    <!-- ENCABEZADO LOGO AEROMEXICO -->
+    <div class="header">
+        <div class="logo-placeholder">
+            <img src="data:image/png;base64,@{variables('varLogoAeromexico')} " alt="Logo" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
+        </div>
+    </div>
+
+    <!-- TÍTULO DEL FORMATO -->
+    <div class="header-title">EQUIPAJES EN MAL ESTADO</div>
+
+    <!-- TABLA 1: FECHA Y VUELO -->
+    <table style="table-layout: fixed;">
+        <tr>
+            <td style="width: 15%; font-weight: bold; padding-left: 10px; background-color: #f0f0f0;">FECHA</td>
+            <td style="width: 35%; text-align: center; font-weight: bold;">@{body('Parse_JSON_9')?['Fecha']}</td>
+            <td style="width: 15%; font-weight: bold; padding-left: 10px; background-color: #f0f0f0;">VUELO</td>
+            <td style="width: 35%; text-align: center; font-weight: bold;">@{body('Parse_JSON_9')?['NoVuelo']}</td>
+        </tr>
+    </table>
+
+    <!-- TABLA 2: REVISIONES AVSEC -->
+    <table style="border-top: none; table-layout: fixed;">
+        <tr>
+            <td colspan="4" class="section-title" style="border-top: none;">REVISIONES AVSEC</td>
+        </tr>
+        <tr>
+            <td class="col-header" style="width: 25%;">CONTROL</td>
+            <td class="col-header" style="width: 25%;">COLILLA</td>
+            <td class="col-header" style="width: 25%;">CONTROL</td>
+            <td class="col-header" style="width: 25%;">COLILLA</td>
+        </tr>
+        <tbody class="data-row">
+            @{body('Parse_JSON_9')?['TablaRevision']}
+        </tbody>
+    </table>
+
+    <!-- TABLA 3 Y 4 UNIDAS: EQUIPAJE EN MAL ESTADO -->
+    <table style="border-top: none; table-layout: fixed;">
+        <tr>
+            <td colspan="4" class="section-title" style="border-top: none;">EQUIPAJE EN MAL ESTADO</td>
+        </tr>
+        <tr>
+            <td colspan="4" class="sub-title">MALETA CON FIRMA (desde Mostrador)</td>
+        </tr>
+        <tr>
+            <td class="col-header" style="width: 30%;">PASAJERO</td>
+            <td class="col-header" style="width: 25%;">COLILLA</td>
+            <td class="col-header" style="width: 20%;">CONTROL</td>
+            <td class="col-header" style="width: 25%;">DESTINO</td>
+        </tr>
+        <tbody class="data-row">
+            @{body('Parse_JSON_9')?['TablaConFirma']}
+        </tbody>
+        
+        <tr>
+            <td colspan="4" class="section-title">DAÑADA EN TOBOGAN (Al bajar de Mostrador)</td>
+        </tr>
+        <tbody class="data-row">
+            @{body('Parse_JSON_9')?['TablaSinFirma']}
+        </tbody>
+    </table>
+
+    <!-- FIRMAS AL FINAL CON NOMBRES DINÁMICOS -->
+    <div class="signatures-container">
+        <table class="sign-table">
+            <tr>
+                <td style="width: 50%;"></td>
+                <td style="width: 50%; vertical-align: bottom;">
+                    <div class="sign-box">
+                        <img src="@{body('Parse_JSON_9')?['FirmaAgente']}" class="sign-img" />
+                        <div class="sign-line">@{body('Parse_JSON_9')?['NombreAgente']}</div>
+                        <div class="sign-title">AGENTE DE SECURITY, LAATS</div>
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td style="width: 50%; vertical-align: bottom; padding-top: 30px;">
+                    <div class="sign-box">
+                        <img src="@{body('Parse_JSON_9')?['FirmaCCO']}" class="sign-img" />
+                        <div class="sign-line">@{body('Parse_JSON_9')?['NombreCCO']}</div>
+                        <div class="sign-title">FIRMA CCO</div>
+                    </div>
+                </td>
+                <td style="width: 50%; vertical-align: bottom; padding-top: 30px;">
+                    <div class="sign-box">
+                        <img src="@{body('Parse_JSON_9')?['FirmaSupervisor']}" class="sign-img" />
+                        <div class="sign-line">@{body('Parse_JSON_9')?['NombreSupervisor']}</div>
+                        <div class="sign-title">SUPERVISOR SECURITY LAATS</div>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+</div>
+</body>
+</html>

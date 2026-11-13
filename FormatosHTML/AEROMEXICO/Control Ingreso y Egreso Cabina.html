@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CONTROL DE INGRESO Y EGRESO A CABINA</title>
+    <style>
+        * { box-sizing: border-box; font-family: Arial, sans-serif; margin: 0; padding: 0; }
+        body { display: flex; justify-content: center; background-color: #525659; padding: 20px; }
+        .page { width: 210mm; min-height: 297mm; background: white; padding: 10mm; display: flex; flex-direction: column; }
+        
+        .main-table { width: 100%; border-collapse: collapse; border: 2px solid black; }
+        .main-table td, .main-table th { border: 1px solid black; }
+        
+        /* ENCABEZADO LOGO AEROMEXICO */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: -50px;
+        }
+
+        .logo-placeholder {
+            width: 400px; 
+            height: 190px; 
+            display: flex;
+            align-items: flex-start;
+            margin-top: -70px;
+        }
+        
+        .blank-top { height: 45px; border-bottom: 2px solid black !important; padding-left: 10px; vertical-align: middle; }
+        
+        .gray-title { background-color: #e0e0e0; text-align: center; font-weight: 900; font-style: italic; font-size: 18px; padding: 6px; border-bottom: 1px solid black !important; letter-spacing: 0.5px;}
+        
+        .info-td { padding: 10px 15px; border-bottom: 2px solid black !important; }
+        .solid-line { border-bottom: 1px solid black; flex-grow: 1; margin-left: 8px; height: 16px;}
+        
+        .col-headers th { background-color: #e0e0e0; font-size: 11px; padding: 4px; text-align: center; border-bottom: 1px solid black;}
+        
+        .grid-row td { height: 18px; text-align: center; font-size: 11px; }
+        
+        .bottom-sec td { font-size: 11px; height: 18px; padding-left: 4px;}
+        .bottom-sec .bold-center { font-weight: bold; text-align: center; padding-left: 0; }
+        .bottom-sec .bold-left { font-weight: bold; }
+        
+        .obs-td td { height: 19px; padding-left: 4px; font-size: 11px; vertical-align: top; padding-top: 2px;}
+        
+        .thick-bottom { border-bottom: 2px solid black !important; }
+        
+        @media print { body { background: none; padding: 0; } .page { padding: 10mm; width: 100%; height: 100vh;} }
+    </style>
+</head>
+<body>
+<div class="page">
+    
+    <!-- ENCABEZADO LOGO AEROMEXICO -->
+    <div class="header">
+        <div class="logo-placeholder">
+            <img src="data:image/png;base64,@{variables('varLogoAeromexico')} " alt="Logo" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
+        </div>
+    </div>
+
+    <table class="main-table" style="margin-top: 10px;">
+        <tr>
+            <td colspan="7" class="gray-title">CONTROL DE INGRESO y EGRESO A CABINA</td>
+        </tr>
+        <tr>
+            <td colspan="7" class="info-td">
+                <div style="display: flex; justify-content: space-between; font-size: 12px;">
+                    <div style="width: 48%; display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; align-items: flex-end;">FECHA: <div class="solid-line">@{formatDateTime(body('Parse_JSON_8')?['Fecha'], 'dd/MM/yyyy')}</div></div>
+                        <div style="display: flex; align-items: flex-end;">HORA (INICIA PUESTO): <div class="solid-line">@{body('Parse_JSON_8')?['HoraInicio']}</div></div>
+                        <div style="display: flex; align-items: flex-end;">VUELO: <div class="solid-line">@{body('Parse_JSON_8')?['Vuelo']}</div></div>
+                    </div>
+                    <div style="width: 48%; display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; align-items: flex-end;">SUPERVISOR: <div class="solid-line">@{body('Parse_JSON_8')?['Supervisor']}</div></div>
+                        <div style="display: flex; align-items: flex-end;">AGENTE: <div class="solid-line">@{body('Parse_JSON_8')?['Agente']}</div></div>
+                        <div style="display: flex; align-items: flex-end;">MATRICULA: <div class="solid-line">@{body('Parse_JSON_8')?['Matricula']}</div></div>
+                    </div>
+                </div>
+            </td>
+        </tr>
+        <tr class="col-headers">
+            <th style="width: 4%;">No.</th>
+            <th style="width: 32%;">NOMBRE</th>
+            <th style="width: 9%;">No. DE<br>TIA</th>
+            <th style="width: 14%;">EMPRESA</th>
+            <th style="width: 10%;">ENTRADA</th>
+            <th style="width: 21%;">MOTIVO</th>
+            <th style="width: 10%;">SALIDA</th>
+        </tr>
+        <!-- AQUI INYECTAMOS colRegistrosInOut DESDE POWER APPS -->
+        @{body('Parse_JSON_8')?['FilasInOutHTML']}
+
+        <tr class="bottom-sec">
+            <td colspan="2">Arribo de Vuelo:</td>
+            <td>@{body('Parse_JSON_8')?['ArriboVuelo']}</td>
+            <td colspan="2" class="bold-center">EQUIPAJE DE PUERTA</td>
+            <td>1er. Pax Abordo:</td>
+            <td>@{body('Parse_JSON_8')?['PrimerPax']}</td>
+        </tr>
+        <tr class="bottom-sec">
+            <td colspan="2">Aeronave Asegurada:</td>
+            <td>@{body('Parse_JSON_8')?['AeronaveAsegurada']}</td>
+            <!-- ESPACIO RESERVADO LIBRE -->
+            <td colspan="2" rowspan="4"></td>
+            <td>Ult. Pax. Abordo:</td>
+            <td>@{body('Parse_JSON_8')?['UltimoPax']}</td>
+        </tr>
+        <tr class="bottom-sec">
+            <td colspan="2">Pasarela Acoplada:</td>
+            <td>@{body('Parse_JSON_8')?['PasarelaAcoplada']}</td>
+            <td>Pax Abordos:</td>
+            <td>@{body('Parse_JSON_8')?['PaxAbordos']}</td>
+        </tr>
+        <tr class="bottom-sec">
+            <td colspan="2">Puerta Abierta:</td>
+            <td>@{body('Parse_JSON_8')?['PuertaAbierta']}</td>
+            <td>Puerta Cerrada:</td>
+            <td>@{body('Parse_JSON_8')?['PuertaCerrada']}</td>
+        </tr>
+        <tr class="bottom-sec">
+            <td colspan="2">Egreso de Tripulación:</td>
+            <td>@{body('Parse_JSON_8')?['EgresoTripulacion']}</td>
+            <td>Desacople pasarela:</td>
+            <td>@{body('Parse_JSON_8')?['DesacoplePasarela']}</td>
+        </tr>
+        <tr class="bottom-sec">
+            <td colspan="2">Ingreso de Tripulación:</td>
+            <td>@{body('Parse_JSON_8')?['IngresoTripulacion']}</td>
+            <td colspan="2" class="bold-center">TOTAL EQ. @{body('Parse_JSON_8')?['TotalEquipajePuerta']}</td>
+            <td>PushBack:</td>
+            <td>@{body('Parse_JSON_8')?['PushBack']}</td>
+        </tr>
+        <tr class="bottom-sec">
+            <td colspan="2">Pax Entrando a GUA:</td>
+            <td>@{body('Parse_JSON_8')?['PaxEntrandoGUA']}</td>
+            <td colspan="2"></td>
+            <td>Despegue:</td>
+            <td>@{body('Parse_JSON_8')?['Despegue']}</td>
+        </tr>
+        
+        <!-- SECCIÓN DE OBSERVACIONES CON SECUENCIAS INCLUIDAS -->
+        <tr class="obs-td"><td colspan="7"><strong>OBSERVACIONES:</strong> @{body('Parse_JSON_8')?['Observaciones']}</td></tr>
+        <tr class="obs-td"><td colspan="7"><strong>SECUENCIAS EQ. PUERTA:</strong> @{body('Parse_JSON_8')?['EquipajePuertaHTML']}</td></tr>
+        <tr class="obs-td"><td colspan="7"></td></tr>
+        
+        <tr class="bottom-sec">
+            <td colspan="3">Tractorista y No. Unidad: @{body('Parse_JSON_8')?['TractoristaUnidad']}</td>
+            <td colspan="2">Aleros: @{join(xpath(xml(json(concat('{"root":{"item":', coalesce(body('Parse_JSON_8')?['Aleros'], json('[]')), '}}'))), '//Usuario/text()'), ', ')}</td>
+            <td colspan="2" class="bold-center" style="font-size: 14px;">@{body('Parse_JSON_8')?['FirmaOperador']}</td>
+        </tr>
+    </table>
+</div>
+</body>
+</html>
