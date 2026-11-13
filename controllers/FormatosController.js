@@ -126,6 +126,27 @@ class FormatosController {
       if (!resultado.success) {
         return res.status(resultado.statusCode || 400).json(resultado);
       }
+
+      if (resultado.modo === 'preliminar' && String(payload?.formatoId || '').endsWith('-cp')) {
+        const vuelo = req.session.vueloSeleccionado || {};
+        const puerta = vuelo.puertaposicion || '--';
+        const horaInicio = resultado.preview?.horaInicio || '--:--';
+        const docPreview = {
+          ...resultado.preview,
+          aerolinea: vuelo.operador || resultado.preview?.aerolinea || '',
+          vuelo: vuelo.novuelo || '--',
+          matricula: vuelo.Matricula || 'Pendiente',
+          puerta,
+          horaInicioPuerta: `${horaInicio} / ${puerta}`,
+          ruta: vuelo.ruta || `${vuelo.origen || '---'} -> ${vuelo.destino || '---'}`
+        };
+
+        req.session.cpPreviews = req.session.cpPreviews || {};
+        req.session.cpPreviews[payload.formatoId] = docPreview;
+        resultado.preview = docPreview;
+        resultado.previewUrl = `/formatos/${encodeURIComponent(payload.formatoId)}/vista-preliminar`;
+      }
+
       return res.json(resultado);
     } catch (err) {
       console.error('[API GUARDAR FORMATO ERROR]', err);
@@ -134,6 +155,25 @@ class FormatosController {
         message: err.message || 'Error al persistir el formato de seguridad.'
       });
     }
+  }
+
+  /**
+   * Renderiza la vista preliminar HTML imprimible del Control de Perimétrica
+   * basada en la estructura de FORMATOS_SECHTML.
+   */
+  static async renderVistaPreliminarCP(req, res) {
+    const { formatoId } = req.params;
+    const doc = req.session?.cpPreviews?.[formatoId];
+
+    if (!doc) {
+      return res.redirect(`/formatos/${encodeURIComponent(formatoId)}`);
+    }
+
+    res.render('formato_cp_preview', {
+      title: `Vista Preliminar — ${doc.formatoNombre} | ${doc.aerolinea}`,
+      user: req.session.user,
+      doc
+    });
   }
 }
 

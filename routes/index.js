@@ -40,6 +40,7 @@ router.post('/api/operaciones/seleccionar', apiLimiter, OperacionesController.ap
 // Selección y captura de Formatos SEC
 router.get('/formatos', FormatosController.renderFormatos);
 router.post('/api/formatos/verificar', apiLimiter, FormatosController.apiVerificarExistentes);
+router.get('/formatos/:formatoId/vista-preliminar', FormatosController.renderVistaPreliminarCP);
 router.get('/formatos/:formatoId', FormatosController.renderDetalleFormato);
 router.post('/api/formatos/procesar', apiLimiter, FormatosController.apiProcesarGuardado);
 

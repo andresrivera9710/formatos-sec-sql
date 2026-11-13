@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="/css/cp-preview.css">
+</head>
+<body>
+  <div class="preview-toolbar no-print">
+    <div class="toolbar-left">
+      <span class="badge-draft">
+        <i class="fas fa-eye"></i> VISTA PRELIMINAR (SIN PERSISTIR EN BD)
+      </span>
+      <% if (doc.pendientesSalidaCount > 0) { %>
+        <span class="badge-warn">
+          <i class="fas fa-exclamation-triangle"></i>
+          <%= doc.pendientesSalidaCount %> persona(s) sin hora de salida — requerida antes de guardar
+        </span>
+      <% } %>
+    </div>
+
+    <div class="toolbar-actions">
+      <button type="button" id="btnPrintPreview" class="toolbar-btn print">
+        <i class="fas fa-print"></i> Imprimir / Guardar PDF
+      </button>
+      <button type="button" id="btnClosePreview" class="toolbar-btn close">
+        <i class="fas fa-times"></i> Cerrar Ventana
+      </button>
+    </div>
+  </div>
+
+  <div class="sheet">
+    <!-- Encabezado Institucional (FORMATOS_SECHTML) -->
+    <div class="doc-header">
+      <div class="doc-brand">
+        <small>LAATS — Seguridad Operacional (SEC)</small>
+        <h1>CONTROL DE PERIMÉTRICA (UNIFICADO)</h1>
+      </div>
+      <div class="doc-meta-box">
+        <div class="doc-airline-pill"><%= doc.aerolinea || 'OPERACIÓN SEC' %></div>
+        <div>
+          <strong>Folio / Encabezado:</strong>
+          <%= doc.encabezadoId ? `#${doc.encabezadoId}` : 'BORRADOR' %>
+          &nbsp;|&nbsp;
+          <strong>Correlativo Itinerario:</strong> #<%= doc.itinerarioId || '--' %>
+        </div>
+      </div>
+    </div>
+
+    <!-- Datos Generales de la Aeronave y Turno (_jsonFinal) -->
+    <table class="meta-table">
+      <tbody>
+        <tr>
+          <th>Fecha</th>
+          <td><%= doc.fechaFormatoUS || doc.fechaIso || '--' %></td>
+          <th>No. Vuelo / Matrícula</th>
+          <td><%= doc.vuelo || '--' %> &nbsp;|&nbsp; <%= doc.matricula || 'Pendiente' %></td>
+        </tr>
+        <tr>
+          <th>Hora Revisión / Puerta</th>
+          <td><%= doc.horaInicioPuerta || '--' %></td>
+          <th>Supervisor</th>
+          <td><%= doc.supervisor || 'Sin seleccionar' %></td>
+        </tr>
+        <tr>
+          <th>Arribo del Vuelo</th>
+          <td><%= doc.arriboVuelo || '--:--' %></td>
+          <th>Agente</th>
+          <td><%= doc.agente || '--' %></td>
+        </tr>
+        <tr>
+          <th>Aeronave Asegurada</th>
+          <td><%= doc.aeronaveAsegurada || '--:--' %></td>
+          <th>Registros Cargados</th>
+          <td><%= doc.totalRegistros %> persona(s)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Tabla Principal de Control Perimétrico (Mínimo 25 filas como FORMATOS_SECHTML) -->
+    <div class="section-caption">Registro de Ingreso y Salida de Personal en Área Perimétrica</div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>No.</th>
+          <th>Nombre</th>
+          <th>No. TIA</th>
+          <th>Hora Ingreso</th>
+          <th>Empresa</th>
+          <th>Motivo</th>
+          <th>Hora Salida</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% (doc.filasTabla || []).forEach(fila => { %>
+          <tr class="<%= !fila.nombre ? 'row-empty' : '' %>">
+            <td class="col-no"><%= fila.numero %></td>
+            <td><%= fila.nombre %></td>
+            <td class="col-tia"><%= fila.noTia %></td>
+            <td class="col-time"><%= fila.horaIngreso %></td>
+            <td><%= fila.empresa %></td>
+            <td><%= fila.motivo %></td>
+            <td class="col-time">
+              <% if (fila.nombre && fila.estaPendiente) { %>
+                <span class="pending-text">Pendiente</span>
+              <% } else { %>
+                <%= fila.horaSalida %>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+
+    <!-- Bloque PushBack, Aleros y Observaciones (_jsonFinal) -->
+    <table class="bottom-grid">
+      <tbody>
+        <tr>
+          <th>Tractorista / No. Unidad</th>
+          <td colspan="3"><%= doc.tractoristaUnidad || 'Sin asignar' %></td>
+        </tr>
+        <tr>
+          <th>Alero 1</th>
+          <td><%= doc.alero1 || 'Sin asignar' %></td>
+          <th>Alero 2</th>
+          <td><%= doc.alero2 || 'Sin asignar' %></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="obs-box">
+      <strong>Observaciones:</strong>
+      <div><%= doc.observaciones || 'Sin observaciones registradas.' %></div>
+    </div>
+
+    <div class="doc-footer">
+      <span>Generado en Vista Preliminar por: <strong><%= user?.usuario || doc.agente %></strong></span>
+      <span>Fecha/Hora generación: <%= new Date(doc.generadoEn || Date.now()).toLocaleString('es-GT') %></span>
+    </div>
+  </div>
+
+  <script src="/js/formato-cp-preview.js"></script>
+</body>
+</html>

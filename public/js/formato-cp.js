@@ -465,51 +465,70 @@ document.addEventListener('DOMContentLoaded', () => {
     const arriboDelVuelo = rawArribo && rawArribo !== '--:--' ? extractHHMM(rawArribo) : '00:00';
     const horaAsegurado = extractHHMM(inputHoraAsegurado?.value || '');
     const tractoristaEmpleadoId = parseInt(selTractorista?.value || '0', 10) || 0;
+    const tractoristaNombre = tractoristaEmpleadoId > 0 && selTractorista && selTractorista.selectedIndex >= 0
+      ? String(selTractorista.options[selTractorista.selectedIndex]?.textContent || '').trim()
+      : '';
     const maquinariaEquipoId = parseInt(selNoUnidad?.value || '0', 10) || 0;
+    const noUnidadLabel = maquinariaEquipoId > 0 && selNoUnidad && selNoUnidad.selectedIndex >= 0
+      ? String(selNoUnidad.options[selNoUnidad.selectedIndex]?.textContent || '').trim()
+      : '';
     const observaciones = String(inputObservaciones?.value || '').trim();
 
-    if (!horaInicio) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Hora de Revisión Requerida',
-        text: 'Debe ingresar una Hora de Revisión válida (HH:mm).',
-        confirmButtonColor: '#275B88'
-      });
-      inputHoraRevision?.focus();
-      return;
+    if (guardar) {
+      if (!horaInicio) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Hora de Revisión Requerida',
+          text: 'Debe ingresar una Hora de Revisión válida (HH:mm).',
+          confirmButtonColor: '#275B88'
+        });
+        inputHoraRevision?.focus();
+        return;
+      }
+
+      if (supervisorEmpleadoId <= 0) {
+        if (comboSupervisor) comboSupervisor.setInvalid(true);
+        Swal.fire({
+          icon: 'warning',
+          title: 'Supervisor Requerido',
+          text: 'Debe seleccionar un Supervisor de Turno del cuadro combinado.',
+          confirmButtonColor: '#275B88'
+        });
+        return;
+      }
+
+      const pendientes = registros.filter((r) => !r.HoraSalida || r.HoraSalida.trim() === '');
+      if (pendientes.length > 0) {
+        Swal.fire({
+          icon: 'error',
+          title: '¡ALERTA DE SEGURIDAD!',
+          text: 'Hay una o más personas que aún NO han salido de la aeronave. Por favor, registra su hora de salida antes de guardar.',
+          confirmButtonColor: '#275B88'
+        });
+        return;
+      }
+
+      if (maquinariaEquipoId > 0 && tractoristaEmpleadoId <= 0) {
+        if (comboTractorista) comboTractorista.setInvalid(true);
+        Swal.fire({
+          icon: 'warning',
+          title: 'Tractorista Requerido',
+          text: 'Debe seleccionar al Tractorista cuando asigna un No. Unidad.',
+          confirmButtonColor: '#275B88'
+        });
+        return;
+      }
     }
 
-    if (supervisorEmpleadoId <= 0) {
-      if (comboSupervisor) comboSupervisor.setInvalid(true);
-      Swal.fire({
-        icon: 'warning',
-        title: 'Supervisor Requerido',
-        text: 'Debe seleccionar un Supervisor de Turno del cuadro combinado.',
-        confirmButtonColor: '#275B88'
-      });
-      return;
-    }
-
-    const pendientes = registros.filter((r) => !r.HoraSalida || r.HoraSalida.trim() === '');
-    if (pendientes.length > 0) {
-      Swal.fire({
-        icon: 'error',
-        title: '¡ALERTA DE SEGURIDAD!',
-        text: 'Hay una o más personas que aún NO han salido de la aeronave. Por favor, registra su hora de salida antes de guardar.',
-        confirmButtonColor: '#275B88'
-      });
-      return;
-    }
-
-    if (maquinariaEquipoId > 0 && tractoristaEmpleadoId <= 0) {
-      if (comboTractorista) comboTractorista.setInvalid(true);
-      Swal.fire({
-        icon: 'warning',
-        title: 'Tractorista Requerido',
-        text: 'Debe seleccionar al Tractorista cuando asigna un No. Unidad.',
-        confirmButtonColor: '#275B88'
-      });
-      return;
+    // Abrir ventana de forma síncrona al hacer clic para evitar bloqueo de popups en Vista Preliminar
+    let previewWin = null;
+    if (!guardar) {
+      previewWin = window.open('', '_blank');
+      if (previewWin) {
+        try {
+          previewWin.document.title = 'Generando Vista Preliminar...';
+        } catch (_) {}
+      }
     }
 
     const payload = {
@@ -526,8 +545,11 @@ document.addEventListener('DOMContentLoaded', () => {
           arriboDelVuelo,
           horaAsegurado,
           tractoristaEmpleadoId,
+          tractoristaNombre,
           maquinariaEquipoId,
+          noUnidadLabel,
           alerosIds: aleros.map((a) => a.EmpleadoId),
+          alerosNombres: aleros.map((a) => a.Nombre),
           agentesEmpleadoIds: String(inputAgentesIds?.value || '').trim(),
           observaciones,
           registros
@@ -539,7 +561,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (typeof mostrarPantallaCarga === 'function') {
         mostrarPantallaCarga(
           guardar ? 'Guardando Control de Perimétrica...' : 'Generando Vista Preliminar...',
-          'Sincronizando encabezado, complementos y registros en Azure SQL.'
+          guardar
+            ? 'Sincronizando encabezado, complementos y registros en Azure SQL.'
+            : 'Armando hoja visual del formato (FORMATOS_SECHTML).'
         );
       }
 
@@ -557,20 +581,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (res.success) {
         if (!guardar) {
-          Swal.fire({
-            icon: 'info',
-            title: 'Vista Preliminar Aprobada',
-            html: `
-              <div style="text-align: left; font-size: 13px; line-height: 1.6;">
-                <p><strong>Formato:</strong> ${esc(res.resumen?.formato || '')}</p>
-                <p><strong>Fecha:</strong> ${esc(res.resumen?.fecha || '')} | <strong>Hora Revisión:</strong> ${esc(res.resumen?.horaInicio || '')}</p>
-                <p><strong>Supervisor:</strong> ${esc(res.resumen?.supervisor || '')}</p>
-                <p><strong>Personas Registradas:</strong> ${esc(res.resumen?.totalRegistros ?? 0)} | <strong>Aleros:</strong> ${esc(res.resumen?.totalAleros ?? 0)}</p>
-                <p style="margin-top: 10px; color: var(--success); font-weight: 700;">Todos los registros cuentan con hora de salida válida.</p>
-              </div>
-            `,
-            confirmButtonColor: '#275B88'
-          });
+          if (res.previewUrl) {
+            if (previewWin && !previewWin.closed) {
+              previewWin.location.href = res.previewUrl;
+              previewWin.focus();
+            } else {
+              Swal.fire({
+                icon: 'info',
+                title: 'Vista Preliminar Lista',
+                html: `
+                  <p style="font-size: 13px; margin-bottom: 14px;">
+                    El navegador bloqueó la apertura automática de la pestaña. Haz clic en el botón para ver el formato armado:
+                  </p>
+                  <a href="${esc(res.previewUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
+                    <i class="fas fa-external-link-alt"></i> Abrir Vista Preliminar
+                  </a>
+                `,
+                showConfirmButton: true,
+                confirmButtonText: 'Cerrar',
+                confirmButtonColor: '#275B88'
+              });
+            }
+          }
         } else {
           Swal.fire({
             icon: 'success',
@@ -582,6 +614,7 @@ document.addEventListener('DOMContentLoaded', () => {
           });
         }
       } else {
+        if (previewWin && !previewWin.closed) previewWin.close();
         Swal.fire({
           icon: 'error',
           title: 'Error de Validación',
@@ -590,6 +623,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }
     } catch (_) {
+      if (previewWin && !previewWin.closed) previewWin.close();
       if (typeof ocultarPantallaCarga === 'function') ocultarPantallaCarga();
       Swal.fire({
         icon: 'error',
@@ -614,3 +648,4 @@ document.addEventListener('DOMContentLoaded', () => {
   renderRegistros();
   renderAleros();
 });
+

@@ -213,10 +213,101 @@ class FormatosService {
     const alerosIds = Array.isArray(cp.alerosIds)
       ? cp.alerosIds.map(id => parseInt(id, 10)).filter(id => Number.isFinite(id) && id > 0).slice(0, 2)
       : [];
+    const alerosNombres = Array.isArray(cp.alerosNombres)
+      ? cp.alerosNombres.map(n => String(n || '').trim()).filter(Boolean).slice(0, 2)
+      : [];
 
     const registros = Array.isArray(cp.registros) ? cp.registros : [];
+    const pendientesSalida = registros.filter(r => !r.HoraSalida || String(r.HoraSalida).trim() === '');
 
-    // Validaciones de negocio
+    const resumenPreliminar = {
+      valido: pendientesSalida.length === 0 && Boolean(horaInicio) && Number.isFinite(supervisorId) && supervisorId > 0,
+      formato: formatoMeta.nombre,
+      aerolinea: formatoMeta.aerolinea,
+      itinerarioId,
+      encabezadoId: encabezadoId || 'NUEVO',
+      fecha: fechaIso || new Date().toISOString().substring(0, 10),
+      horaInicio: horaInicio || '--:--',
+      supervisor: supervisorNombre || (supervisorId > 0 ? `ID #${supervisorId}` : 'Sin seleccionar'),
+      totalRegistros: registros.length,
+      pendientesSalida: pendientesSalida.length,
+      totalAleros: alerosIds.length,
+      timestamp: new Date().toISOString(),
+      usuario: user.usuario
+    };
+
+    if (!guardar) {
+      const filasNormalizadas = registros.map((r, idx) => {
+        const hIn = FormatosService.normalizarHora5(r.HoraIngreso, '');
+        const hOut = FormatosService.normalizarHora5(r.HoraSalida || r.HoraSalidaReal || r.HoraSalidaEstimada, '');
+        return {
+          numero: idx + 1,
+          nombre: String(r.Nombre || '').trim(),
+          noTia: String(r.NoTIA || '').trim(),
+          horaIngreso: hIn,
+          empresa: String(r.Empresa || '').trim(),
+          motivo: String(r.Motivo || '').trim(),
+          horaSalida: hOut,
+          estaPendiente: !hOut
+        };
+      });
+
+      const minFilas = Math.max(25, filasNormalizadas.length);
+      const filasTabla = [];
+      for (let i = 0; i < minFilas; i++) {
+        if (i < filasNormalizadas.length) {
+          filasTabla.push(filasNormalizadas[i]);
+        } else {
+          filasTabla.push({
+            numero: i + 1,
+            nombre: '',
+            noTia: '',
+            horaIngreso: '',
+            empresa: '',
+            motivo: '',
+            horaSalida: '',
+            estaPendiente: false
+          });
+        }
+      }
+
+      const [yyyy, mm, dd] = (resumenPreliminar.fecha || '').split('-');
+      const fechaFormatoUS = yyyy && mm && dd ? `${mm}/${dd}/${yyyy}` : resumenPreliminar.fecha;
+      const tractoristaNombre = String(cp.tractoristaNombre || '').trim();
+      const noUnidadLabel = String(cp.noUnidadLabel || '').trim();
+
+      return {
+        success: true,
+        modo: 'preliminar',
+        resumen: resumenPreliminar,
+        preview: {
+          aerolinea: formatoMeta.aerolinea,
+          formatoNombre: formatoMeta.nombre,
+          formatoId: formatoMeta.id,
+          encabezadoId: parseInt(encabezadoId, 10) || null,
+          itinerarioId,
+          fechaIso: resumenPreliminar.fecha,
+          fechaFormatoUS,
+          horaInicio: horaInicio || '',
+          supervisor: supervisorNombre || '',
+          agente: user.usuario || user.nombreCompleto || '',
+          arriboVuelo: FormatosService.normalizarHora5(cp.arriboDelVuelo, ''),
+          aeronaveAsegurada: horaAsegurado || '',
+          tractoristaNombre,
+          noUnidadLabel,
+          tractoristaUnidad: [tractoristaNombre, noUnidadLabel].filter(Boolean).join(' / '),
+          alero1: alerosNombres[0] || '',
+          alero2: alerosNombres[1] || '',
+          observaciones,
+          totalRegistros: filasNormalizadas.length,
+          pendientesSalidaCount: pendientesSalida.length,
+          filasTabla,
+          generadoEn: new Date().toISOString()
+        }
+      };
+    }
+
+    // Validaciones de negocio estrictas para guardado definitivo
     if (!fechaIso || !/^\d{4}-\d{2}-\d{2}$/.test(fechaIso)) {
       return { success: false, statusCode: 400, message: 'La fecha de operación es obligatoria.' };
     }
@@ -228,7 +319,6 @@ class FormatosService {
     }
 
     // Regla estricta: bloquear guardado si alguna persona aún no tiene hora de salida
-    const pendientesSalida = registros.filter(r => !r.HoraSalida || String(r.HoraSalida).trim() === '');
     if (pendientesSalida.length > 0) {
       return {
         success: false,
@@ -242,30 +332,6 @@ class FormatosService {
         success: false,
         statusCode: 400,
         message: 'Debe seleccionar al Tractorista cuando asigna un No. Unidad.'
-      };
-    }
-
-    const resumenPreliminar = {
-      valido: true,
-      formato: formatoMeta.nombre,
-      aerolinea: formatoMeta.aerolinea,
-      itinerarioId,
-      encabezadoId: encabezadoId || 'NUEVO',
-      fecha: fechaIso,
-      horaInicio,
-      supervisor: supervisorNombre || `ID #${supervisorId}`,
-      totalRegistros: registros.length,
-      totalAleros: alerosIds.length,
-      timestamp: new Date().toISOString(),
-      usuario: user.usuario
-    };
-
-    if (!guardar) {
-      return {
-        success: true,
-        modo: 'preliminar',
-        resumen: resumenPreliminar,
-        preview: cp
       };
     }
 
