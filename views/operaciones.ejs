@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<%- include('partials/head', { title: 'Tarjetas de Operaciones | SIO Formatos SEC' }) %>
+<body>
+  <div class="app-container">
+    <%- include('partials/sidebar', { activeTab: 'operaciones', currentUser: user }) %>
+
+    <div class="workspace">
+      <%- include('partials/header', { pageTitle: 'Tarjetas de Operaciones', vueloActivo: vueloActivo }) %>
+
+      <main class="content-body">
+        <!-- Barra de Filtros de Itinerario -->
+        <div class="filter-bar">
+          <div class="form-group" style="max-width: 200px;">
+            <label for="filtroFecha1"><i class="far fa-calendar-alt"></i> Fecha de Operación</label>
+            <input type="date" id="filtroFecha1" class="form-control" required>
+          </div>
+
+          <div class="form-group" id="grupoFecha2" style="max-width: 200px; display: none;">
+            <label for="filtroFecha2"><i class="far fa-calendar-alt"></i> Hasta (Rango)</label>
+            <input type="date" id="filtroFecha2" class="form-control">
+          </div>
+
+          <div class="form-group">
+            <label for="filtroOperador"><i class="fas fa-plane"></i> Aerolínea / Operador</label>
+            <select id="filtroOperador" class="form-control">
+              <option value="0">-- Todos los Operadores --</option>
+              <% if (operadores && operadores.length > 0) { %>
+                <% operadores.forEach(op => { %>
+                  <option value="<%= op.OperadorId %>"><%= op.Nombre %></option>
+                <% }) %>
+              <% } else { %>
+                <option value="1">AEROMEXICO</option>
+                <option value="2">ARAJET</option>
+                <option value="3">DELTA</option>
+                <option value="4">AIR CANADA</option>
+                <option value="5">LAN CARGO / LATAM</option>
+                <option value="6">FEDEX</option>
+                <option value="7">AMERIJET</option>
+                <option value="8">AVIANCA</option>
+              <% } %>
+            </select>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <input type="checkbox" id="checkRangoFechas" style="width: 16px; height: 16px; cursor: pointer;">
+            <label for="checkRangoFechas" style="font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text-2);">
+              Activar Rango
+            </label>
+          </div>
+
+          <button class="btn btn-primary" onclick="consultarOperaciones()" style="height: 42px; min-width: 130px;">
+            <i class="fas fa-search"></i> Consultar
+          </button>
+        </div>
+
+        <!-- Contenedor de Resultados -->
+        <div id="gridOperaciones" class="operations-grid">
+          <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; background: var(--surface); border-radius: 12px; border: 1px solid var(--border);">
+            <i class="fas fa-search-location fa-3x" style="color: var(--brand);"></i>
+            <h3 style="margin-top: 16px; color: var(--text);">Consulte los itinerarios del día</h3>
+            <p style="color: var(--text-3); margin-top: 8px;">Seleccione una fecha y aerolínea para visualizar los vuelos y comenzar a diligenciar formatos de seguridad.</p>
+          </div>
+        </div>
+      </main>
+
+      <%- include('partials/footer') %>
+    </div>
+  </div>
+
+  <script>
+    // Toggle de segundo campo de fecha
+    const checkRango = document.getElementById('checkRangoFechas');
+    const grupoFecha2 = document.getElementById('grupoFecha2');
+    if (checkRango && grupoFecha2) {
+      checkRango.addEventListener('change', () => {
+        grupoFecha2.style.display = checkRango.checked ? 'flex' : 'none';
+      });
+    }
+
+    // Ejecuta consulta inicial al cargar si hay fecha preseleccionada
+    window.addEventListener('load', () => {
+      consultarOperaciones();
+    });
+  </script>
+</body>
+</html>

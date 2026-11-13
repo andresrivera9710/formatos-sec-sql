@@ -1,0 +1,294 @@
+/**
+ * Sistema de Diseño Corporativo LAATS
+ * Estándar visual para SIO: Seguridad, Operaciones y Formatos
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
+
+:root {
+  /* Paleta Institucional LAATS */
+  --brand-deep: #0F2744;
+  --blue-deep: #0F2744;
+  --brand: #275B88;
+  --blue-main: #275B88;
+  --brand-hover: #1E466A;
+  --blue-mid: #1E4A72;
+  --gold: #D4AF37;
+  --gold-accent: #C9A84C;
+  --gold-light: #FBF8EE;
+  --gold-soft: #E2C47A;
+  --bg: #F4F7FB;
+  --surface: #FFFFFF;
+  --border: #CBD5E1;
+  --border-2: #E2E8F0;
+  --text: #0F172A;
+  --text-2: #334155;
+  --text-3: #64748B;
+  --text-muted: #94A3B8;
+  --success: #16A34A;
+  --success-dark: #15803D;
+  --danger: #DC2626;
+  --danger-light: #FEF2F2;
+  --warning: #F59E0B;
+  --info: #0284C7;
+
+  /* Sombras y Elevación */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-gold: 0 4px 14px 0 rgba(212, 175, 55, 0.35);
+
+  /* Bordes Redondeados */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+}
+
+/* Modo Oscuro Opcional */
+body.dark-mode {
+  --bg: #0B132B;
+  --surface: #1C2541;
+  --border: #3A506B;
+  --border-2: #2C3E55;
+  --text: #F8FAFC;
+  --text-2: #CBD5E1;
+  --text-3: #94A3B8;
+  --gold-light: #1E293B;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  background-color: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Tipografía de Encabezados */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 700;
+  color: var(--brand-deep);
+}
+
+body.dark-mode h1,
+body.dark-mode h2,
+body.dark-mode h3 {
+  color: #FFFFFF;
+}
+
+/* Layout Principal Workspace */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.sidebar {
+  width: 250px;
+  background-color: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 100;
+}
+
+.sidebar-header {
+  padding: 24px 20px;
+  background: linear-gradient(135deg, var(--brand-deep) 0%, var(--brand) 100%);
+  border-bottom: 3px solid var(--gold);
+  color: #FFFFFF;
+  text-align: center;
+}
+
+.sidebar-header h2 {
+  color: #FFFFFF;
+  font-size: 16px;
+  letter-spacing: 1px;
+}
+
+.sidebar-header span {
+  font-size: 11px;
+  color: var(--gold);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: 20px 0;
+  overflow-y: auto;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  color: var(--text-2);
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border-left: 4px solid transparent;
+}
+
+.nav-item:hover {
+  background-color: var(--bg);
+  color: var(--brand);
+}
+
+.nav-item.active {
+  background-color: var(--gold-light);
+  color: var(--brand-deep);
+  font-weight: 700;
+  border-left: 4px solid var(--gold);
+}
+
+.sidebar-user {
+  padding: 16px 20px;
+  background-color: var(--bg);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.user-badge {
+  font-size: 10px;
+  background-color: var(--brand);
+  color: #FFFFFF;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.workspace {
+  margin-left: 250px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.top-header {
+  height: 64px;
+  background-color: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.content-body {
+  padding: 28px 32px;
+  flex: 1;
+}
+
+/* Botones LAATS */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 18px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  text-decoration: none;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-deep) 100%);
+  color: #FFFFFF;
+  border-color: var(--brand-deep);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--brand-hover) 0%, #081628 100%);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-gold {
+  background: linear-gradient(135deg, var(--gold) 0%, #B8972D 100%);
+  color: var(--brand-deep);
+  font-weight: 700;
+  border-color: var(--gold-accent);
+}
+
+.btn-gold:hover {
+  box-shadow: var(--shadow-gold);
+}
+
+.btn-secondary {
+  background-color: var(--surface);
+  color: var(--text-2);
+  border-color: var(--border);
+}
+
+.btn-secondary:hover {
+  background-color: var(--bg);
+  border-color: var(--border-2);
+}
+
+/* Tarjetas y Contenedores */
+.card {
+  background-color: var(--surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-2);
+}
+
+/* Badges e Indicadores */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 20px;
+  text-transform: uppercase;
+}
+
+.badge-success {
+  background-color: #DCFCE7;
+  color: var(--success);
+}
+
+.badge-danger {
+  background-color: var(--danger-light);
+  color: var(--danger);
+}
+
+.badge-gold {
+  background-color: var(--gold-light);
+  color: #927517;
+  border: 1px solid var(--gold);
+}

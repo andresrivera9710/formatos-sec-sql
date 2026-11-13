@@ -1,0 +1,33 @@
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div style="font-size: 24px; color: var(--gold); margin-bottom: 6px;"><i class="fas fa-shield-alt"></i></div>
+    <h2>SIO — LAATS</h2>
+    <span>Seguridad Operacional (SEC)</span>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a href="/operaciones" class="nav-item <%= (typeof activeTab !== 'undefined' && activeTab === 'operaciones') ? 'active' : '' %>">
+      <i class="fas fa-plane-departure"></i>
+      <span>Operaciones</span>
+    </a>
+
+    <a href="/formatos" class="nav-item <%= (typeof activeTab !== 'undefined' && activeTab === 'formatos') ? 'active' : '' %>">
+      <i class="fas fa-file-signature"></i>
+      <span>Formatos SEC</span>
+    </a>
+  </nav>
+
+  <div class="sidebar-user">
+    <div>
+      <div style="font-weight: 700; font-size: 12px; color: var(--brand-deep); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+        <%= (typeof currentUser !== 'undefined' && currentUser.nombreCompleto) ? currentUser.nombreCompleto : 'Usuario SEC' %>
+      </div>
+      <div class="user-badge">
+        <%= (typeof currentUser !== 'undefined' && currentUser.puestoSec) ? currentUser.puestoSec : 'AGENTE' %>
+      </div>
+    </div>
+    <a href="/logout" title="Cerrar Sesión" style="color: var(--danger); font-size: 16px; padding: 6px;">
+      <i class="fas fa-sign-out-alt"></i>
+    </a>
+  </div>
+</aside>

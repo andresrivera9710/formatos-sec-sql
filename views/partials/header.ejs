@@ -1,0 +1,20 @@
+<header class="top-header">
+  <div style="display: flex; align-items: center; gap: 16px;">
+    <h1 style="font-size: 18px; color: var(--brand-deep); margin: 0;">
+      <%= typeof pageTitle !== 'undefined' ? pageTitle : 'Sistema de Información Operacional' %>
+    </h1>
+
+    <% if (typeof vueloActivo !== 'undefined' && vueloActivo) { %>
+      <div style="display: inline-flex; align-items: center; gap: 8px; background: var(--gold-light); border: 1px solid var(--gold); border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 700; color: var(--brand-deep);">
+        <i class="fas fa-plane" style="color: var(--brand);"></i>
+        <span><%= vueloActivo.operador %> (<%= vueloActivo.novuelo %>) | Matrícula: <%= vueloActivo.Matricula || 'S/N' %></span>
+      </div>
+    <% } %>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 14px;">
+    <button id="btnDarkModeToggle" class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" title="Alternar Modo Oscuro">
+      <i class="fas fa-moon"></i>
+    </button>
+  </div>
+</header>

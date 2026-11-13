@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="es">
+<%- include('partials/head', { title: 'Página no encontrada | SIO LAATS' }) %>
+<body style="background: var(--bg); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;">
+  <div style="background: var(--surface); max-width: 520px; width: 100%; padding: 40px; border-radius: var(--radius-lg); border: 1px solid var(--border); box-shadow: var(--shadow-lg); text-align: center;">
+    <div style="font-size: 54px; color: var(--gold); margin-bottom: 12px;">
+      <i class="fas fa-exclamation-triangle"></i>
+    </div>
+    <h1 style="font-size: 24px; color: var(--brand-deep); margin-bottom: 8px;">
+      <%= typeof title !== 'undefined' ? title : 'Aviso del Sistema' %>
+    </h1>
+    <p style="font-size: 13px; color: var(--text-2); margin-bottom: 24px; line-height: 1.6;">
+      <%= typeof errorMessage !== 'undefined' ? errorMessage : 'El recurso solicitado no fue encontrado o no posee los permisos requeridos.' %>
+    </p>
+    <a href="/operaciones" class="btn btn-primary" style="padding: 10px 24px;">
+      <i class="fas fa-home"></i> Volver al Inicio
+    </a>
+  </div>
+</body>
+</html>
