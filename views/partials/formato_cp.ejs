@@ -1,0 +1,309 @@
+<%
+  const comp = (cpState && cpState.complemento) ? cpState.complemento : null;
+  const initialRegistros = (cpState && Array.isArray(cpState.detalles)) ? cpState.detalles : [];
+  const empresasCP = (cpState && Array.isArray(cpState.empresas)) ? cpState.empresas : [
+    'LAATS', 'GODARD(Cocinas)', 'ODA (Combustible)', 'OIRSA',
+    'DGAC (Operaciones)', 'AEROEXPRESS', 'AEROMEXICO', 'OTROS...'
+  ];
+
+  const extractHHMM = (val) => {
+    if (!val) return '';
+    const s = String(val).trim();
+    if (s.includes('T') && s.length >= 16) return s.substring(11, 16);
+    const m = s.match(/(\d{2}:\d{2})/);
+    return m ? m[1] : '';
+  };
+
+  let fechaValue = new Date().toISOString().substring(0, 10);
+  if (comp && comp.Fecha) {
+    const d = new Date(comp.Fecha);
+    if (!Number.isNaN(d.getTime())) fechaValue = d.toISOString().substring(0, 10);
+  } else if (vuelo && vuelo.FechaItinerado) {
+    fechaValue = String(vuelo.FechaItinerado).substring(0, 10);
+  }
+
+  const arriboValue = extractHHMM(comp && comp.ArriboDelVuelo) || extractHHMM(vuelo && vuelo.ata) || '';
+  const aseguradoValue = extractHHMM(comp && comp.HoraAsegurado) || '';
+  const horaRevisionValue = extractHHMM(comp && comp.HoraInicio) || '';
+  const supSelectedId = comp && comp.EncabezadoEmpleadoId ? String(comp.EncabezadoEmpleadoId) : '';
+  const trSelectedId = comp && comp.MaquinariaEmpleadoId ? String(comp.MaquinariaEmpleadoId) : '';
+  const unitSelectedId = comp && comp.MaquinariaEquipoId ? String(comp.MaquinariaEquipoId) : '';
+  const supExistsInList = !supSelectedId || (supervisores || []).some(s => String(s.EmpleadoId) === supSelectedId);
+
+  const aleroIdsRaw = comp && comp.AlerosEmpleadoIds
+    ? String(comp.AlerosEmpleadoIds).split(',').map(x => x.trim()).filter(Boolean)
+    : [];
+  const initialAleros = aleroIdsRaw.map(idStr => {
+    const emp = (empleados || []).find(e => String(e.EmpleadoId) === idStr);
+    return {
+      EmpleadoId: parseInt(idStr, 10),
+      Nombre: emp ? emp.Nombre : `Empleado #${idStr}`
+    };
+  }).filter(a => Number.isFinite(a.EmpleadoId) && a.EmpleadoId > 0);
+%>
+
+<form id="formControlPerimetrica" novalidate>
+  <input type="hidden" id="cpFormatoId" name="formatoId" value="<%= formato.id %>">
+  <input type="hidden" id="cpItinerarioId" name="itinerarioId" value="<%= vuelo.itinerarioId %>">
+  <input type="hidden" id="cpEncabezadoId" name="encabezadoId" value="<%= encabezadoId || '' %>">
+  <input type="hidden" id="cpAgentesEmpleadoIds" value="<%= comp && comp.AgentesEmpleadoIds ? comp.AgentesEmpleadoIds : (user.empleadoId || '') %>">
+
+  <div
+    id="cpBootstrapData"
+    data-registros="<%= JSON.stringify(initialRegistros) %>"
+    data-aleros="<%= JSON.stringify(initialAleros) %>"
+    hidden
+  ></div>
+
+  <!-- Bloque 1: Tiempos de Aeronave -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="cp-section-title"><i class="fas fa-plane-arrival"></i> Tiempos de Aeronave</h3>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
+      <div class="form-group">
+        <label for="cpArriboVuelo"><i class="far fa-clock"></i> Arribo del Vuelo</label>
+        <input
+          type="text"
+          id="cpArriboVuelo"
+          name="arriboDelVuelo"
+          class="form-control"
+          value="<%= arriboValue || '--:--' %>"
+          readonly
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="cpHoraAsegurado"><i class="fas fa-shield-alt"></i> Aeronave Asegurada</label>
+        <div class="cp-time-row">
+          <input
+            type="time"
+            id="cpHoraAsegurado"
+            name="horaAsegurado"
+            class="form-control"
+            value="<%= aseguradoValue %>"
+          >
+          <button type="button" id="btnCpHoraAseguradaActual" class="cp-clock-btn" title="Establecer hora actual">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bloque 2: Ingrese los Datos (Cabecera de Inspección) -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="cp-section-title"><i class="fas fa-clipboard-list"></i> Ingrese los Datos</h3>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px;">
+      <div class="form-group">
+        <label for="cpFecha"><i class="far fa-calendar-alt"></i> Fecha</label>
+        <input type="date" id="cpFecha" name="fecha" class="form-control" value="<%= fechaValue %>" readonly required>
+      </div>
+
+      <div class="form-group">
+        <label for="cpHoraRevision"><i class="far fa-clock"></i> Hora de Revisión</label>
+        <div class="cp-time-row">
+          <input type="time" id="cpHoraRevision" name="horaInicio" class="form-control" value="<%= horaRevisionValue %>" required>
+          <button type="button" id="btnCpHoraRevisionActual" class="cp-clock-btn" title="Establecer hora actual">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label><i class="fas fa-door-open"></i> Puerta</label>
+        <input type="text" class="form-control" value="<%= vuelo.puertaposicion || '--' %>" readonly>
+      </div>
+
+      <div class="form-group">
+        <label><i class="fas fa-plane"></i> No. Vuelo</label>
+        <input type="text" class="form-control" value="<%= vuelo.novuelo || '--' %>" readonly>
+      </div>
+
+      <div class="form-group">
+        <label><i class="fas fa-barcode"></i> Matrícula</label>
+        <input type="text" class="form-control" value="<%= vuelo.Matricula || 'Pendiente' %>" readonly>
+      </div>
+
+      <div class="form-group">
+        <label for="cpSupervisor"><i class="fas fa-user-tie"></i> Supervisor de Turno (LoginSEC)</label>
+        <select id="cpSupervisor" name="supervisorEmpleadoId" class="form-control" required>
+          <option value="">-- Seleccione el Supervisor --</option>
+          <% (supervisores || []).forEach(sup => { %>
+            <option
+              value="<%= sup.EmpleadoId %>"
+              <%= String(sup.EmpleadoId) === supSelectedId ? 'selected' : '' %>
+            ><%= sup.Usuario %></option>
+          <% }) %>
+          <% if (!supExistsInList && supSelectedId) { %>
+            <option value="<%= supSelectedId %>" selected>Supervisor ID #<%= supSelectedId %></option>
+          <% } %>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="cpAgente"><i class="fas fa-user-shield"></i> Agente</label>
+        <input type="text" id="cpAgente" class="form-control" value="<%= user.usuario || user.nombreCompleto %>" readonly>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bloque 3: REGISTRO (Ingreso de Personas a Perimétrica) -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="cp-section-title"><i class="fas fa-user-plus"></i> REGISTRO (Ingreso de Personal)</h3>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+      <div class="form-group">
+        <label for="cpRegNombre">Nombre *</label>
+        <input type="text" id="cpRegNombre" class="form-control" placeholder="Ingrese Nombre" autocomplete="off">
+      </div>
+
+      <div class="form-group">
+        <label for="cpRegNoTIA">No. TIA *</label>
+        <input type="text" id="cpRegNoTIA" class="form-control" placeholder="Ingrese No. TIA" autocomplete="off">
+      </div>
+
+      <div class="form-group">
+        <label for="cpRegHoraIngreso">Hora de Ingreso *</label>
+        <div class="cp-time-row">
+          <input type="time" id="cpRegHoraIngreso" class="form-control">
+          <button type="button" id="btnCpHoraIngresoActual" class="cp-clock-btn" title="Establecer hora actual">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="cpRegEmpresa">Empresa *</label>
+        <select id="cpRegEmpresa" class="form-control">
+          <option value="">-- Seleccione la Empresa --</option>
+          <% empresasCP.forEach(emp => { %>
+            <option value="<%= emp %>"><%= emp %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="form-group" id="grupoCpEmpresaOtros" style="display: none;">
+        <label for="cpRegEmpresaOtros">Especificar Nueva Empresa *</label>
+        <input type="text" id="cpRegEmpresaOtros" class="form-control" placeholder="Ingrese la nueva empresa" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-top: 14px;">
+      <label for="cpRegMotivo">Motivo *</label>
+      <textarea id="cpRegMotivo" rows="2" class="form-control" placeholder="Ingrese Motivo de ingreso..."></textarea>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+      <button type="button" id="btnCpAgregarRegistro" class="btn btn-primary" style="min-width: 190px;">
+        <i class="fas fa-plus-circle"></i> GUARDAR REGISTRO
+      </button>
+    </div>
+  </div>
+
+  <!-- Bloque 4: Buscador y Lista de Registros -->
+  <div class="card">
+    <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
+      <h3 class="cp-section-title"><i class="fas fa-users"></i> Registros en Perimétrica</h3>
+      <div id="cpRegistrosEstadoBadge"></div>
+    </div>
+
+    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 12px;">
+      <div style="position: relative; flex: 1;">
+        <i class="fas fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-3);"></i>
+        <input
+          type="text"
+          id="cpBuscador"
+          class="form-control"
+          style="padding-left: 36px; width: 100%;"
+          placeholder="Buscador: Ingrese nombre, empresa, TIA, motivo u hora a buscar..."
+          autocomplete="off"
+        >
+      </div>
+      <button type="button" id="btnCpLimpiarBuscador" class="btn btn-secondary" title="Limpiar filtro">
+        <i class="fas fa-sync-alt"></i> Limpiar
+      </button>
+    </div>
+
+    <div id="cpRegistrosLista" class="cp-registros-grid"></div>
+  </div>
+
+  <!-- Bloque 5: Tractorista, No. Unidad, Aleros y Observaciones -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="cp-section-title"><i class="fas fa-truck-pickup"></i> Maquinaria PushBack, Aleros y Observaciones</h3>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
+      <div class="form-group">
+        <label for="cpTractorista"><i class="fas fa-hard-hat"></i> Tractorista</label>
+        <select id="cpTractorista" name="tractoristaEmpleadoId" class="form-control">
+          <option value="">-- Seleccione a la persona que realiza PushBack --</option>
+          <% (empleados || []).forEach(emp => { %>
+            <option
+              value="<%= emp.EmpleadoId %>"
+              <%= String(emp.EmpleadoId) === trSelectedId ? 'selected' : '' %>
+            ><%= emp.Nombre %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="cpNoUnidad"><i class="fas fa-tractor"></i> No. Unidad</label>
+        <select id="cpNoUnidad" name="maquinariaEquipoId" class="form-control">
+          <option value="">-- Seleccione la unidad --</option>
+          <% (maquinaria || []).forEach(m => { %>
+            <option
+              value="<%= m.MaquinariaEquipoId %>"
+              <%= String(m.MaquinariaEquipoId) === unitSelectedId ? 'selected' : '' %>
+            ><%= m.NoUnidad %><%= m.TipoMaquinaria ? ` — ${m.TipoMaquinaria}` : '' %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="cpAleroSelect"><i class="fas fa-user-friends"></i> Aleros (Máximo 2)</label>
+        <select id="cpAleroSelect" class="form-control">
+          <option value="">-- Seleccionar agentes para aleros --</option>
+          <% (empleados || []).forEach(emp => { %>
+            <option value="<%= emp.EmpleadoId %>"><%= emp.Nombre %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+    <div style="margin-top: 18px;">
+      <label style="font-size: 12px; font-weight: 600; color: var(--text-2); display: block; margin-bottom: 8px;">
+        <i class="fas fa-users"></i> Aleros Seleccionados:
+      </label>
+      <div id="cpAlerosLista"></div>
+    </div>
+
+    <div class="form-group" style="margin-top: 18px;">
+      <label for="cpObservaciones"><i class="fas fa-comment-alt"></i> Observaciones</label>
+      <textarea
+        id="cpObservaciones"
+        name="observaciones"
+        rows="3"
+        class="form-control"
+        placeholder="Ingrese Observaciones (Opcional)..."
+      ><%= comp && comp.Observaciones ? comp.Observaciones : '' %></textarea>
+    </div>
+  </div>
+
+  <!-- Botones Finales -->
+  <div style="display: flex; justify-content: flex-end; gap: 14px; margin-bottom: 40px; flex-wrap: wrap;">
+    <button type="button" id="btnCpVistaPreliminar" class="btn btn-secondary" style="padding: 12px 24px;">
+      <i class="fas fa-eye"></i> Vista Preliminar (Auditoría)
+    </button>
+    <button type="button" id="btnCpGuardarDefinitivo" class="btn btn-primary" style="padding: 12px 28px;">
+      <i class="fas fa-save"></i> <%= esNuevo ? 'Crear Formato' : 'Actualizar Formato' %>
+    </button>
+  </div>
+</form>

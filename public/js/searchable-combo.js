@@ -22,7 +22,12 @@ class SioSearchableCombo {
     this.filteredItems = [];
 
     this.allItems = Array.from(this.select.options)
-      .filter((opt) => String(opt.value).trim() !== '' && Number(opt.value) > 0)
+      .filter((opt) => {
+        const v = String(opt.value).trim();
+        if (v === '') return false;
+        const num = Number(v);
+        return Number.isNaN(num) || num > 0;
+      })
       .map((opt) => ({
         value: String(opt.value),
         label: String(opt.textContent || '').trim(),

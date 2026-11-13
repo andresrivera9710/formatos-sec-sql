@@ -104,7 +104,11 @@ class FormatosController {
         esNuevo: formatoData.esNuevo,
         encabezadoId: formatoData.encabezadoId,
         datosPrevios: formatoData.datos,
-        complementos: formatoData.complementos
+        complementos: formatoData.complementos,
+        supervisores: formatoData.supervisores || [],
+        empleados: formatoData.empleados || [],
+        maquinaria: formatoData.maquinaria || [],
+        cpState: formatoData.cpState || null
       });
     } catch (err) {
       console.error('[RENDER DETALLE FORMATO ERROR]', err);
@@ -119,6 +123,9 @@ class FormatosController {
     try {
       const payload = req.body;
       const resultado = await FormatosService.procesarGuardado(payload, req.session.user);
+      if (!resultado.success) {
+        return res.status(resultado.statusCode || 400).json(resultado);
+      }
       return res.json(resultado);
     } catch (err) {
       console.error('[API GUARDAR FORMATO ERROR]', err);

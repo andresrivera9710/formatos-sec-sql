@@ -85,6 +85,40 @@ class FormatosModel {
   }
 
   /**
+   * Obtiene empleados activos para catálogos de Tractorista / Aleros
+   */
+  static async obtenerEmpleadosActivos() {
+    const query = `
+      SELECT
+        EmpleadoId,
+        Nombre,
+        Codigo
+      FROM Empleado
+      WHERE ISNULL(EstaEliminado, 0) = 0
+      ORDER BY Nombre ASC
+    `;
+    const result = await executeQuery(query, []);
+    return result.recordset || [];
+  }
+
+  /**
+   * Obtiene maquinaria activa desde MaquinariaLAATS para selección de No. Unidad
+   */
+  static async obtenerMaquinariaActiva() {
+    const query = `
+      SELECT
+        MaquinariaEquipoId,
+        NoUnidad,
+        TipoMaquinaria
+      FROM MaquinariaLAATS
+      WHERE ISNULL(EstaEliminado, 0) = 0
+      ORDER BY NoUnidad ASC
+    `;
+    const result = await executeQuery(query, []);
+    return result.recordset || [];
+  }
+
+  /**
    * Ejecuta Soft Delete sobre un formato de seguridad
    * @param {string} tableName - Tabla de la entidad
    * @param {string} idColumn - Columna clave primaria

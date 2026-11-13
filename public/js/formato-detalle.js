@@ -12,6 +12,15 @@ document.addEventListener('DOMContentLoaded', () => {
     sigPad = new SioSignaturePad(canvas);
   }
 
+  const campoSupervisor = document.getElementById('campoSupervisor');
+  if (campoSupervisor && campoSupervisor.tagName === 'SELECT' && window.SioSearchableCombo) {
+    new window.SioSearchableCombo(campoSupervisor, {
+      placeholder: '-- Seleccione el Supervisor --',
+      searchPlaceholder: 'Buscar supervisor en LoginSEC...',
+      emptyText: 'No se encontró el supervisor.'
+    });
+  }
+
   const btnLimpiar = document.getElementById('btnLimpiarFirma');
   if (btnLimpiar) {
     btnLimpiar.addEventListener('click', () => {
@@ -112,3 +121,4 @@ document.addEventListener('DOMContentLoaded', () => {
     btnGuardar.addEventListener('click', () => procesarFormato(true));
   }
 });
+

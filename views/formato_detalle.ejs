@@ -48,6 +48,9 @@
           </div>
         </div>
 
+        <% if (formato && formato.id && formato.id.endsWith('-cp')) { %>
+          <%- include('partials/formato_cp') %>
+        <% } else { %>
         <!-- Formulario de Inspección de Seguridad -->
         <form id="formCapturaFormato">
           <input type="hidden" name="formatoId" value="<%= formato.id %>">
@@ -71,8 +74,13 @@
               </div>
 
               <div class="form-group">
-                <label for="campoSupervisor"><i class="fas fa-user-tie"></i> Supervisor de Turno</label>
-                <input type="text" id="campoSupervisor" name="supervisor" class="form-control" placeholder="Nombre del Supervisor" required>
+                <label for="campoSupervisor"><i class="fas fa-user-tie"></i> Supervisor de Turno (LoginSEC)</label>
+                <select id="campoSupervisor" name="supervisor" class="form-control" required>
+                  <option value="">-- Seleccione el Supervisor --</option>
+                  <% (supervisores || []).forEach(sup => { %>
+                    <option value="<%= sup.Usuario %>"><%= sup.Usuario %></option>
+                  <% }) %>
+                </select>
               </div>
 
               <div class="form-group">
@@ -145,13 +153,18 @@
             </button>
           </div>
         </form>
+        <% } %>
       </main>
 
       <%- include('partials/footer') %>
     </div>
   </div>
 
-  <script src="/js/formato-detalle.js"></script>
+  <% if (formato && formato.id && formato.id.endsWith('-cp')) { %>
+    <script src="/js/formato-cp.js"></script>
+  <% } else { %>
+    <script src="/js/formato-detalle.js"></script>
+  <% } %>
 </body>
 </html>
 

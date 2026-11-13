@@ -461,3 +461,281 @@ body.dark-mode .sio-combo-option.is-selected {
   color: var(--text-3);
 }
 
+/* ============================================================================
+   Módulo Control de Perimétrica (CP) - Tarjetas y Controles
+   ============================================================================ */
+.cp-section-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--brand-deep);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+body.dark-mode .cp-section-title {
+  color: var(--gold);
+}
+
+.cp-time-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.cp-time-row .form-control {
+  flex: 1;
+}
+
+.cp-clock-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg);
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.cp-clock-btn:hover {
+  background-color: var(--brand);
+  border-color: var(--brand);
+  color: #FFFFFF;
+}
+
+.cp-registros-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.cp-reg-card {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.cp-reg-topbar {
+  height: 6px;
+  width: 100%;
+}
+
+.cp-reg-topbar.is-pending {
+  background-color: #DC2626;
+}
+
+.cp-reg-topbar.is-done {
+  background-color: #16A34A;
+}
+
+.cp-reg-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cp-reg-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cp-reg-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cp-reg-num {
+  min-width: 52px;
+  padding: 8px 6px;
+  border-radius: var(--radius-sm);
+  background-color: var(--bg);
+  border: 1px solid var(--border-2);
+  text-align: center;
+}
+
+.cp-reg-num small {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-3);
+  letter-spacing: 0.5px;
+}
+
+.cp-reg-num strong {
+  display: block;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.cp-reg-num.is-pending strong {
+  color: #DC2626;
+}
+
+.cp-reg-num.is-done strong {
+  color: #16A34A;
+}
+
+.cp-reg-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.cp-icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.15s ease;
+}
+
+.cp-icon-btn.clock {
+  color: var(--brand);
+}
+
+.cp-icon-btn.clock:hover:not(:disabled) {
+  background-color: var(--brand);
+  border-color: var(--brand);
+  color: #FFFFFF;
+}
+
+.cp-icon-btn.clock:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.cp-icon-btn.trash {
+  color: var(--danger);
+}
+
+.cp-icon-btn.trash:hover {
+  background-color: var(--danger);
+  border-color: var(--danger);
+  color: #FFFFFF;
+}
+
+.cp-reg-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cp-tag-pill {
+  background-color: var(--bg);
+  border: 1px solid var(--border-2);
+  color: var(--text-2);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cp-reg-times {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  background-color: var(--bg);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+
+.cp-reg-time-col small {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-3);
+  text-transform: uppercase;
+}
+
+.cp-reg-time-val {
+  margin-top: 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cp-badge-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background-color: #FEF2F2;
+  border: 1px solid #FECACA;
+  color: #B91C1C;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cp-reg-motivo {
+  background-color: var(--bg);
+  border-left: 4px solid var(--brand);
+  padding: 8px 12px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-size: 12px;
+  color: var(--text-2);
+  font-style: italic;
+}
+
+.cp-aleros-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.cp-alero-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 5px solid var(--brand);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  box-shadow: var(--shadow-sm);
+}
+
+.cp-empty-dashed {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-md);
+  background-color: var(--bg);
+  padding: 22px;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 13px;
+  font-weight: 700;
+}
+

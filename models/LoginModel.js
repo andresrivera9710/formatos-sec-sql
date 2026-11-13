@@ -77,6 +77,26 @@ class LoginModel {
   }
 
   /**
+   * Obtiene la lista de supervisores autorizados desde LoginSEC (Puesto = SUPERVISOR)
+   */
+  static async obtenerSupervisores() {
+    const query = `
+      SELECT
+        L.LoginId,
+        L.Usuario,
+        L.EmpleadoId,
+        L.Puesto,
+        ISNULL(E.Nombre, L.Usuario) AS NombreCompleto
+      FROM LoginSEC L
+      LEFT JOIN Empleado E ON L.EmpleadoId = E.EmpleadoId
+      WHERE UPPER(LTRIM(RTRIM(ISNULL(L.Puesto, '')))) = 'SUPERVISOR'
+      ORDER BY L.Usuario ASC
+    `;
+    const result = await executeQuery(query, []);
+    return result.recordset || [];
+  }
+
+  /**
    * Verifica la versión actual de la aplicación en VersionamientoApps
    */
   static async verificarVersion() {
