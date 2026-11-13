@@ -36,11 +36,11 @@ class LoginModel {
     const query = `
       SELECT TOP 1
         Usuario,
-        Puesto,
-        ISNULL(EstaEliminado, 0) AS EstaEliminado
+        EmpleadoId,
+        Password,
+        Puesto
       FROM LoginSEC
       WHERE UPPER(RTRIM(Usuario)) = UPPER(@usuario)
-        AND ISNULL(EstaEliminado, 0) = 0
     `;
     const params = [
       { name: 'usuario', type: sql.NVarChar(100), value: usuario.trim() }
@@ -58,11 +58,10 @@ class LoginModel {
       SELECT TOP 1
         e.EmpleadoId,
         e.Nombre,
-        e.Apellido,
         e.DepartamentoId,
         d.Nombre AS DepartamentoNombre,
         di.DepartamentoInternoId,
-        di.Nombre AS DepartamentoInternoNombre
+        di.DepartamentoInterno AS DepartamentoInternoNombre
       FROM Empleado e
       LEFT JOIN Departamento d ON e.DepartamentoId = d.DepartamentoId
       LEFT JOIN DepartamentoDepInterno ddi ON d.DepartamentoId = ddi.DepartamentoId
