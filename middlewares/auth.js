@@ -36,6 +36,11 @@ function requireAuth(req, res, next) {
  * significa que fue completado por un bot automatizado.
  */
 function verifyHoneypot(req, res, next) {
+  // En desarrollo o localhost, no bloquear por autofill de navegadores
+  if (process.env.NODE_ENV !== 'production') {
+    return next();
+  }
+
   const honeypot = req.body.hp_token_website;
   if (honeypot && honeypot.trim() !== '') {
     console.warn(`[HONEYPOT TRIGGERED] Intento de bot detectado desde IP: ${req.ip}`);

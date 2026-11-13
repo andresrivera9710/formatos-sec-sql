@@ -70,11 +70,11 @@ class AuthController {
       req.session.user = {
         usuario: usuarioLogin.Usuario,
         empleadoId: usuarioLogin.EmpleadoId,
-        nombreCompleto: datosEmpleado ? `${datosEmpleado.Nombre} ${datosEmpleado.Apellido}`.trim() : usuarioLogin.Usuario,
+        nombreCompleto: datosEmpleado?.Nombre || usuarioLogin.Usuario,
         puestoSec: registroSEC.Puesto || 'AGENTE',
         departamentoId: datosEmpleado?.DepartamentoId || 5,
-        departamentoInternoId: datosEmpleado?.DepartamentoInternoId || 1,
-        departamentoNombre: datosEmpleado?.DepartamentoNombre || 'SEGURIDAD'
+        departamentoInternoId: datosEmpleado?.DepartamentoInternoId || 5,
+        departamentoNombre: datosEmpleado?.DepartamentoNombre || 'E8. SEGURIDAD AEROPORTUARIA'
       };
 
       if (isApiRequest) {

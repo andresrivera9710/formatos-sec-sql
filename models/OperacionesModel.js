@@ -13,31 +13,17 @@ class OperacionesModel {
     const query = `
       SELECT 
         OperadorId,
-        Nombre,
-        ISNULL(CodigoIATA, '') AS CodigoIATA,
-        ISNULL(CodigoICAO, '') AS CodigoICAO
-      FROM OperadoresView
+        Nombre
+      FROM Operador
       WHERE Nombre IN (
         'AEROMEXICO', 'ARAJET', 'DELTA', 'AMERIJET', 
         'LAN CARGO', 'LATAM', 'FEDEX', 'AIR CANADA', 'AVIANCA', 'TAMPA CARGO'
       )
+        AND ISNULL(EstaEliminado, 0) = 0
       ORDER BY Nombre ASC
     `;
-    try {
-      const result = await executeQuery(query, []);
-      return result.recordset;
-    } catch (err) {
-      console.warn('[OPERADORES VIEW WARN] Intentando consulta directa sobre tabla Operador:', err.message);
-      const fallbackQuery = `
-        SELECT OperadorId, Nombre 
-        FROM Operador 
-        WHERE Nombre IN ('AEROMEXICO', 'ARAJET', 'DELTA', 'AMERIJET', 'LAN CARGO', 'LATAM', 'FEDEX', 'AIR CANADA', 'AVIANCA')
-          AND ISNULL(EstaEliminado, 0) = 0
-        ORDER BY Nombre ASC
-      `;
-      const fallbackResult = await executeQuery(fallbackQuery, []);
-      return fallbackResult.recordset;
-    }
+    const result = await executeQuery(query, []);
+    return result.recordset;
   }
 
   /**
@@ -46,12 +32,13 @@ class OperacionesModel {
   static async obtenerAeronaves() {
     const query = `
       SELECT 
-        AeronaveId,
-        Matricula,
-        ISNULL(TipoAeronave, '') AS TipoAeronave
-      FROM Aeronave
-      WHERE ISNULL(EstaEliminado, 0) = 0
-      ORDER BY Matricula ASC
+        a.AeronaveId,
+        a.Matricula,
+        ISNULL(ta.Nombre, '') AS TipoAeronave
+      FROM Aeronave a
+      LEFT JOIN TipoAeronave ta ON a.TipoAeronaveId = ta.TipoAeronaveId
+      WHERE ISNULL(a.EstaEliminado, 0) = 0
+      ORDER BY a.Matricula ASC
     `;
     const result = await executeQuery(query, []);
     return result.recordset;
@@ -64,24 +51,22 @@ class OperacionesModel {
    * @param {number} params.operadorId - ID del Operador (o 0 si aplica todos)
    * @param {string} [params.fecha2] - Segunda fecha para rango (opcional)
    * @param {number} params.departamentoId - ID de departamento resuelto por Anti-IDOR
-   * @param {string} params.email - Correo del usuario autenticado
+   * @param {string} [params.email] - Correo del usuario autenticado
    */
   static async consultarTarjetasOperaciones({ fecha, operadorId, fecha2, departamentoId, email }) {
-    // 1. Intentar llamar al SP dbo.TarjetasOperaciones si existe en la BD
+    // 1. Intentar llamar al SP dbo.TarjetasOperaciones (acepta @fecha, @fecha2, @operador, @departamentoId)
     try {
       const spParams = [
-        { name: 'fecha', type: sql.NVarChar(50), value: fecha },
-        { name: 'operador', type: sql.Int, value: operadorId || 0 },
-        { name: 'fecha2', type: sql.NVarChar(50), value: fecha2 || '' },
-        { name: 'departamentoId', type: sql.Int, value: departamentoId },
-        { name: 'emailBandejaCompartida', type: sql.NVarChar(150), value: email || '' }
+        { name: 'fecha', type: sql.DateTime, value: fecha ? new Date(fecha + 'T00:00:00') : new Date() },
+        { name: 'fecha2', type: sql.DateTime, value: fecha2 ? new Date(fecha2 + 'T23:59:59') : null },
+        { name: 'operador', type: sql.Int, value: parseInt(operadorId, 10) || 0 },
+        { name: 'departamentoId', type: sql.Int, value: parseInt(departamentoId, 10) || 5 }
       ];
       const spResult = await executeStoredProcedure('dbo.TarjetasOperaciones', spParams);
       if (spResult.recordset && spResult.recordset.length > 0) {
-        // En caso que el SP devuelva JSON string en columna 'sioto'
-        const first = spResult.recordset[0];
-        if (first.sioto && typeof first.sioto === 'string') {
-          return JSON.parse(first.sioto);
+        // En caso que no haya resultados el SP retorna { mensaje: 'no se encontraron resultados' }
+        if (spResult.recordset[0].mensaje) {
+          return [];
         }
         return spResult.recordset;
       }

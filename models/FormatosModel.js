@@ -14,10 +14,14 @@ class FormatosModel {
   static async obtenerFormatosPorItinerario(itinerarioId) {
     try {
       const params = [
-        { name: 'ItinerarioId', type: sql.BigInt, value: itinerarioId }
+        { name: 'ItinerarioId', type: sql.Int, value: parseInt(itinerarioId, 10) }
       ];
       const result = await executeStoredProcedure('dbo.ObtenerFormatosSEC', params);
-      return result.recordsets[0] || [];
+      const rows = result.recordsets[0] || [];
+      if (rows.length > 0 && (rows[0].Mensaje || rows[0].mensaje)) {
+        return [];
+      }
+      return rows;
     } catch (err) {
       console.warn('[SP ObtenerFormatosSEC WARN] Procedimiento no disponible, usando fallback directo:', err.message);
       // Fallback si la tabla FormatoEncabezadoSEC existe
