@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEQUENCE OF EVENTS LOG - DELTA</title>
+    <style>
+        * { 
+            box-sizing: border-box; 
+            font-family: Arial, Helvetica, sans-serif; 
+            margin: 0; 
+            padding: 0; 
+        }
+        html, body {
+            height: 100%;
+        }
+        body { 
+            display: flex; 
+            justify-content: center; 
+            background-color: #525659; 
+            padding: 0; 
+        }
+        .page { 
+            width: 210mm; 
+            height: 297mm; 
+            max-height: 297mm;
+            background: white; 
+            padding: 12mm 15mm 10mm 15mm; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: space-between; 
+            overflow: hidden;
+        }
+        
+        .content-wrap {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+
+        /* LOGO DELTA + SKYTEAM */
+        .header {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            margin-bottom: 12px;
+            margin-left: 5px;
+        }
+        .logo {
+            height: 26mm; 
+            width: auto;
+        }
+
+        /* CAJA DEL TÍTULO CENTRAL */
+        .title-box-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+        .title-box {
+            border: 2px solid #000;
+            border-radius: 12px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 22px;
+            padding: 6px 40px;
+            letter-spacing: 0.5px;
+            display: inline-block;
+        }
+        
+        /* MARCO DE TABLA PRINCIPAL (Ajuste Flex) */
+        .table-container {
+            border: 2px solid #000;
+            border-radius: 10px;
+            overflow: hidden;
+            width: 100%;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .main-table { 
+            width: 100%; 
+            height: 100%;
+            border-collapse: collapse; 
+            table-layout: fixed;
+        }
+
+        .main-table td { 
+            border-bottom: 1px solid #000; 
+            font-size: 11.5px; 
+            padding: 5px 10px; 
+            vertical-align: middle;
+            color: #000;
+        }
+        
+        .main-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .border-right {
+            border-right: 1px solid #000;
+        }
+        
+        .lbl { 
+            font-weight: bold; 
+            text-transform: uppercase;
+        }
+        
+        .val { 
+            font-weight: normal; 
+            margin-left: 5px;
+            word-break: break-word;
+        }
+        
+        /* SECCIÓN COMENTARIOS (Flexibilidad total) */
+        .comments-tr {
+            height: 100%;
+        }
+        .comments-cell {
+            padding: 8px 10px !important;
+            vertical-align: top !important;
+            height: 100%;
+        }
+        .comments-content {
+            height: calc(100% - 20px);
+            line-height: 24px;
+            background: linear-gradient(transparent 23px, #000 24px);
+            background-size: 100% 24px;
+            font-size: 11.5px;
+        }
+
+        /* FIRMA DEL SUPERVISOR */
+        .signature-cell {
+            height: 50px;
+            vertical-align: middle !important;
+        }
+
+        .img-firma {
+            max-height: 40px;
+            max-width: 220px;
+            vertical-align: middle;
+            margin-left: 12px;
+            display: inline-block;
+        }
+
+        /* PIE DE PÁGINA (5) */
+        .footer {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            font-size: 9.5px;
+            font-weight: bold;
+            padding-top: 6px;
+            padding-right: 5px;
+        }
+        
+        @media print { 
+            body { background: none; padding: 0; } 
+            .page { padding: 10mm 12mm 8mm 12mm; width: 100%; height: 100vh; } 
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+    <div class="content-wrap">
+        <!-- LOGO DELTA -->
+        <div class="header">
+            <img src="data:image/png;base64, @{variables('varLogoDelta')}" alt="Delta SkyTeam Logo" class="logo" />
+        </div>
+
+        <!-- TÍTULO EN CAJA REDONDEADA -->
+        <div class="title-box-container">
+            <div class="title-box">
+                Sequence of Events Log
+            </div>
+        </div>
+
+        <!-- MARCO DE TABLA PRINCIPAL -->
+        <div class="table-container">
+            <table class="main-table">
+                <!-- FILA 1 -->
+                <tr>
+                    <td style="width: 50%;" class="border-right" colspan="2">
+                        <span class="lbl">FLIGHT #:</span> <span class="val">@{body('Parse_JSON_5')?['Flight']}</span>
+                    </td>
+                    <td style="width: 50%;">
+                        <span class="lbl">DATE:</span> <span class="val">@{body('Parse_JSON_5')?['Date']}</span>
+                    </td>
+                </tr>
+
+                <!-- FILA 2 -->
+                <tr>
+                    <td style="width: 40%;" class="border-right">
+                        <span class="lbl">AIRCRAFT ARRIVED:</span> <span class="val">@{body('Parse_JSON_5')?['AircraftArrived']}</span>
+                    </td>
+                    <td style="width: 25%;" class="border-right">
+                        <span class="lbl">TIME:</span> <span class="val">@{body('Parse_JSON_5')?['Time']}</span>
+                    </td>
+                    <td style="width: 35%;">
+                        <span class="lbl">GUARD:</span> <span class="val">@{body('Parse_JSON_5')?['Guard']}</span>
+                    </td>
+                </tr>
+
+                <!-- FILAS A ANCHO COMPLETO -->
+                <tr>
+                    <td colspan="3"><span class="lbl">PASSENGER LINE CLOSED:</span> <span class="val">@{body('Parse_JSON_5')?['PassengerLineClosed']}</span></td>
+                </tr>
+                <tr>
+                    <td colspan="3"><span class="lbl">NUMBER OF PASSENGERS IN LINE:</span> <span class="val">@{body('Parse_JSON_5')?['NumPassengersInLine']}</span></td>
+                </tr>
+                <tr>
+                    <td colspan="3"><span class="lbl">LAST PASSENGER IN LINE CHECKED IN:</span> <span class="val">@{body('Parse_JSON_5')?['LastPassengerCheckedIn']}</span></td>
+                </tr>
+                <tr>
+                    <td colspan="3"><span class="lbl">FIRST BAGS SNIFFED:</span> <span class="val">@{body('Parse_JSON_5')?['FirstBagsSniffed']}</span></td>
+                </tr>
+                <tr>
+                    <td colspan="3"><span class="lbl">LAST BAGS SNIFFED:</span> <span class="val">@{body('Parse_JSON_5')?['LastBagsSniffed']}</span></td>
+                </tr>
+                <tr>
+                    <td colspan="3"><span class="lbl">FIRST BAGS ARRIVE AT GATE:</span> <span class="val">@{body('Parse_JSON_5')?['FirstBagsArriveGate']}</span></td>
+                </tr>
+                <tr>
+                    <td colspan="3"><span class="lbl">LAST BAGS ARRIVE AT GATE:</span> <span class="val">@{body('Parse_JSON_5')?['LastBagsArriveGate']}</span></td>
+                </tr>
+                <tr>
+                    <td colspan="3"><span class="lbl">PASSENGERS ARRIVED AT BOARDING GATE:</span> <span class="val">@{body('Parse_JSON_5')?['PassengersArrivedGate']}</span></td>
+                </tr>
+                <tr>
+                    <td colspan="3"><span class="lbl">PASSENGERS COMMENCE BOARDING:</span> <span class="val">@{body('Parse_JSON_5')?['PassengersCommenceBoarding']}</span></td>
+                </tr>
+                <tr>
+                    <td colspan="3"><span class="lbl">LAST PASSENGER LEAVES GATE:</span> <span class="val">@{body('Parse_JSON_5')?['LastPassengerLeavesGate']}</span></td>
+                </tr>
+                <tr>
+                    <td colspan="3"><span class="lbl">UNLOADING BAGGAGE AND CARGO COMPLETE:</span> <span class="val">@{body('Parse_JSON_5')?['UnloadingComplete']}</span></td>
+                </tr>
+                <tr>
+                    <td colspan="3"><span class="lbl">BAGGAGE AND CARGO LOADING BEGINS:</span> <span class="val">@{body('Parse_JSON_5')?['LoadingBegins']}</span></td>
+                </tr>
+                <tr>
+                    <td colspan="3"><span class="lbl">AIRCRAFT CARGO DOORS CLOSED:</span> <span class="val">@{body('Parse_JSON_5')?['CargoDoorsClosed']}</span></td>
+                </tr>
+                <tr>
+                    <td colspan="3"><span class="lbl">AIRCRAFT CABIN DOORS CLOSED:</span> <span class="val">@{body('Parse_JSON_5')?['CabinDoorsClosed']}</span></td>
+                </tr>
+                <tr>
+                    <td colspan="3"><span class="lbl">AIRCRAFT BEGINS TAXI:</span> <span class="val">@{body('Parse_JSON_5')?['AircraftBeginsTaxi']}</span></td>
+                </tr>
+
+                <!-- COMENTARIOS (Absorbe todo el alto restante) -->
+                <tr class="comments-tr">
+                    <td colspan="3" class="comments-cell">
+                        <span class="lbl">COMMENTS:</span>
+                        <div class="comments-content">
+                            @{body('Parse_JSON_5')?['Comments']}
+                        </div>
+                    </td>
+                </tr>
+
+                <!-- FIRMA DEL SUPERVISOR -->
+                <tr>
+                    <td colspan="3" class="signature-cell">
+                        <span class="lbl">SIGNATURE OF SUPERVISOR:</span> 
+                        <span class="val">@{body('Parse_JSON_5')?['SupervisorName']}</span>
+                        @{if(or(empty(body('Parse_JSON_5')?['FirmaSupervisor']), equals(body('Parse_JSON_5')?['FirmaSupervisor'], null)), '', if(startsWith(string(body('Parse_JSON_5')?['FirmaSupervisor']), 'data:image'), concat('<img class="img-firma" src="', body('Parse_JSON_5')?['FirmaSupervisor'], '" />'), concat('<img class="img-firma" src="data:image/png;base64,', body('Parse_JSON_5')?['FirmaSupervisor'], '" />')))}
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <!-- PIE DE PÁGINA (5) -->
+    <div class="footer">
+        <div>(5)</div>
+    </div>
+</div>
+</body>
+</html>

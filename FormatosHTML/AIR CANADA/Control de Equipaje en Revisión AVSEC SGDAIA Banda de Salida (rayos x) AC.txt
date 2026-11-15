@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>CONTROL DE EQUIPAJE EN REVISIÓN AVSEC/SGDAIA, BANDA DE SALIDA (RAYOS X) - AIR CANADA</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            background-color: #525659; 
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .page {
+            width: 297mm;
+            min-height: 210mm;
+            background: white;
+            padding: 8mm 15mm 10mm 15mm; 
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        /* LOGO MÁS GRANDE */
+        .logo-placeholder {
+            width: 330px; 
+            height: 85px; 
+            display: flex;
+            align-items: center;
+        }
+        .fecha-box {
+            font-size: 14px;
+            font-weight: bold;
+            display: flex;
+            align-items: flex-end;
+        }
+        .line-input {
+            border-bottom: 1px solid black;
+            min-width: 150px;
+            display: inline-block;
+            text-align: center;
+            font-weight: normal;
+            margin-left: 10px;
+        }
+        .header-title {
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
+        }
+        
+        /* ESTILOS PARA LA TABLA FIJA */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9px;
+            text-align: center;
+            margin-bottom: 18px;
+            border: 1px solid black;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 4px;
+            height: 25px; 
+        }
+        th {
+            font-weight: bold;
+            background-color: #f2f2f2;
+        }
+        
+        /* OBSERVACIONES */
+        .observaciones-container {
+            margin-top: 8px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .obs-line-full {
+            border-bottom: 1px solid black;
+            height: 24px;
+            width: 100%;
+        }
+
+        /* FOOTER / FIRMAS */
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 40px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        .signature-box {
+            text-align: center;
+            width: 40%;
+        }
+        .signature-line {
+            border-bottom: 1px solid black;
+            margin-bottom: 5px;
+            height: 40px; 
+            position: relative;
+        }
+        .signature-image {
+            max-height: 40px;
+            max-width: 100%;
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        /* ESTILO PARA EL NOMBRE DE QUIEN FIRMA */
+        .signature-name {
+            font-size: 12px;
+            font-weight: normal;
+            margin-bottom: 3px;
+        }
+        
+        @media print {
+            body { 
+                background: none; 
+                padding: 0; 
+            }
+            .page { 
+                box-shadow: none; 
+                padding: 8mm 12mm;
+                width: 100%;
+                height: 100vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class='page'>
+        
+        <!-- ENCABEZADO LOGO AIR CANADA -->
+        <div class='header'>
+            <div class='logo-placeholder'>
+                <img src='data:image/png;base64, @{variables('varLogoAirCanada')}' alt='Logo Air Canada' style='max-width: 100%; max-height: 100%; object-fit: contain;' />
+            </div>
+            <div class='fecha-box'>
+                FECHA: <div class='line-input'>@{formatDateTime(body('Parse_JSON_25')?['Fecha'], 'dd/MM/yyyy')}</div>
+            </div>
+        </div>
+
+        <div class='header-title'>CONTROL DE EQUIPAJE EN REVISIÓN AVSEC/SGDAIA, BANDA DE SALIDA (RAYOS X)</div>
+
+        <!-- TABLA CON ENCABEZADOS FIJOS -->
+        <table>
+            <thead>
+                <tr>
+                    <th style='width: 4%;'>No.</th>
+                    <th style='width: 16%;'>NOMBRE DEL PASAJERO</th>
+                    <th style='width: 8%;'>SECUENCIA</th>
+                    <th style='width: 8%;'>NO. DE COLILLA</th>
+                    <th style='width: 8%;'>No. VUELO</th>
+                    <th style='width: 8%;'>DESTINO</th>
+                    <th style='width: 8%;'>HORA DE REVISIÓN</th>
+                    <th style='width: 20%;'>NOMBRE DE AGENTE AVSEC QUE REALIZA LA INSPECCIÓN</th>
+                    <th style='width: 20%;'>AGENTE DE SEGURIDAD DURANTE LA INSPECCIÓN</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- AQUÍ VAN LAS FILAS QUE ARMAMOS EN POWER APPS -->
+                @{body('Parse_JSON_25')?['FilasEquipajeHTML']}
+            </tbody>
+        </table>
+
+        <!-- OBSERVACIONES -->
+        <div class='observaciones-container'>
+            <div style='display: flex; align-items: flex-end;'>
+                <span>OBSERVACIONES:</span>
+                <div style='border-bottom: 1px solid black; flex-grow: 1; margin-left: 10px; font-weight: normal; font-size: 13px; padding-bottom: 2px;'>@{body('Parse_JSON_25')?['Observaciones']}</div>
+            </div>
+            <div class='obs-line-full'></div>
+            <div class='obs-line-full'></div>
+        </div>
+
+        <!-- FIRMAS -->
+        <div class='footer'>
+            <div class='signature-box'>
+                <div class='signature-line'>
+                   <img src='@{variables('FirmaFinal')}' class='signature-image' />
+                </div>
+ 
+                <div class='signature-name'>@{body('Parse_JSON_25')?['NombreFirmaSeguridad']}</div>
+                <div>NOMBRE Y FIRMA SEGURIDAD AEROLINEA</div>
+            </div>
+            
+            <div class='signature-box'>
+                <div class='signature-line'>
+                    <span style='position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%); font-size: 14px;'>@{body('Parse_JSON_25')?['TotalEquipajes']}</span>
+                </div>
+                <div>TOTAL EQUIPAJES REVISADOS</div>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>

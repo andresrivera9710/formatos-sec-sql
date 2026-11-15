@@ -1,0 +1,431 @@
+<%
+  const det = (liadcState && liadcState.detalle) ? liadcState.detalle : {};
+  const meta = (det.Meta && typeof det.Meta === 'object') ? det.Meta : {};
+
+  const extractHHMM = (val) => {
+    if (!val) return '';
+    if (val instanceof Date) {
+      return val.toISOString().substring(11, 16);
+    }
+    const s = String(val).trim();
+    if (s.includes('T') && s.length >= 16) return s.substring(11, 16);
+    const m = s.match(/(\d{2}:\d{2})/);
+    return m ? m[1] : '';
+  };
+
+  let fechaInicial = '';
+  if (det.Fecha) {
+    fechaInicial = String(det.Fecha instanceof Date ? det.Fecha.toISOString() : det.Fecha).substring(0, 10);
+  } else if (vuelo && vuelo.FechaItinerado) {
+    fechaInicial = String(vuelo.FechaItinerado instanceof Date ? vuelo.FechaItinerado.toISOString() : vuelo.FechaItinerado).substring(0, 10);
+  } else {
+    fechaInicial = new Date().toISOString().substring(0, 10);
+  }
+
+  const puenteDefault = det.Puente !== undefined && det.Puente !== null && String(det.Puente).trim() !== ''
+    ? String(det.Puente).trim()
+    : (vuelo && vuelo.puertaposicion ? String(vuelo.puertaposicion).trim() : '');
+
+  const arriboDefault = extractHHMM(meta.arriboVuelo) || extractHHMM(vuelo && vuelo.ata) || '';
+  const horaInicioDefault = extractHHMM(det.HoraInicioInsp) || '';
+  const horaTerminoDefault = extractHHMM(det.HoraTerminoInsp) || '';
+  const supSelectedId = det.SupLaats ? String(det.SupLaats) : '';
+
+  const userDisplay = String((user && (user.usuario || user.nombreCompleto)) || '').trim();
+  const inicialesAuto = userDisplay
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(w => w.charAt(0).toUpperCase())
+    .join('')
+    .substring(0, 3) || 'LA';
+  const inicialesDefault = String(det.Iniciales || inicialesAuto).trim().toUpperCase().substring(0, 3);
+
+  const notifDefault = String(det.NotificacionComandante || 'VERBAL').trim().toUpperCase() === 'ESCRITA' ? 'ESCRITA' : 'VERBAL';
+  const inspectorNombreDefault = String(meta.inspectorNombre || (userDisplay ? `${userDisplay} / LAATS` : '')).trim();
+  const supervisorNombreDefault = String(meta.supervisorNombre || det.NombreSupervisorLaats || '').trim();
+
+  const supLista = (supervisores && supervisores.length > 0) ? supervisores : [];
+  const secLista = (usuariosSEC && usuariosSEC.length > 0) ? usuariosSEC : [];
+  const seenEmpIds = new Set();
+  const supOptions = [];
+  const otherOptions = [];
+
+  supLista.forEach((s) => {
+    const eid = s.EmpleadoId ? String(s.EmpleadoId) : '';
+    if (!eid || seenEmpIds.has(eid)) return;
+    seenEmpIds.add(eid);
+    supOptions.push({ EmpleadoId: eid, Label: `${s.NombreCompleto || s.Usuario} (${s.Puesto || 'SUPERVISOR'})` });
+  });
+  secLista.forEach((s) => {
+    const eid = s.EmpleadoId ? String(s.EmpleadoId) : '';
+    if (!eid || seenEmpIds.has(eid)) return;
+    seenEmpIds.add(eid);
+    otherOptions.push({ EmpleadoId: eid, Label: `${s.NombreCompleto || s.Usuario} (${s.Puesto || 'AGENTE'})` });
+  });
+  const supExistsInList = !supSelectedId || seenEmpIds.has(supSelectedId);
+
+  const toBool = (v) => v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'true';
+
+  const seccionesLIADC = [
+    {
+      letra: 'A',
+      titulo: 'COCKPIT / CABINA PILOTOS',
+      items: [
+        { key: 'CabinaPilotos_AreasVisibles', num: 1, label: 'VISIBLE AREAS / ÁREAS VISIBLES', tag: '' },
+        { key: 'CabinaPilotos_Asientos', num: 2, label: 'COCKPIT SEATS / ASIENTOS', tag: '' },
+        { key: 'CabinaPilotos_CompartAccesiblesDiversos', num: 3, label: 'ACCESIBLE COMPARTMENTS / COMPART. ACCESIBLES DIVERSOS', tag: '' },
+        { key: 'CabinaPilotos_AccesoCompartElectronico', num: 4, label: 'Acceso Compartimiento Electrónico (Área inspeccionada y sellada)', tag: '01 SELLO' }
+      ]
+    },
+    {
+      letra: 'B',
+      titulo: 'GALLEY / COCINAS',
+      items: [
+        { key: 'Cocinas_AreasVisibles', num: 1, label: 'VISIBLES AREAS / ÁREAS VISIBLES', tag: '' },
+        { key: 'Cocinas_CarrosSusCompart', num: 2, label: 'CARTS, STORAGE COMPARTMENTS / CARROS Y SUS COMPART.', tag: '' },
+        { key: 'Cocinas_ContenedoresBasura', num: 3, label: 'WASTE CONTAINERS / CONTENEDORES DE BASURA', tag: '' },
+        { key: 'Cocinas_CompartAccesibles', num: 4, label: 'ACCESSIBLE COMPARTMENTS / COMPART. ACCESIBLES', tag: '' }
+      ]
+    },
+    {
+      letra: 'C',
+      titulo: 'LAVATORIES / BAÑOS',
+      items: [
+        { key: 'Banos_AreasVisibles', num: 1, label: 'VISIBLE AREAS / ÁREAS VISIBLES', tag: '' },
+        { key: 'Banos_CompartAccesibles', num: 2, label: 'ACCESSIBLE COMPARTMENTS / COMPART. ACCESIBLES', tag: '' },
+        { key: 'Banos_ContenedoresBasura', num: 3, label: 'WASTE CONTAINERS / CONTENEDORES DE BASURA', tag: '' }
+      ]
+    },
+    {
+      letra: 'D',
+      titulo: 'EXTERNAL AREAS / ÁREAS EXTERNAS',
+      items: [
+        { key: 'AreasExternas_AreasVisibles', num: 1, label: 'VISIBLE AREAS / ÁREAS VISIBLES', tag: '' },
+        { key: 'AreasExternas_AccesoCompartElectronico', num: 2, label: 'Acceso Compartimiento Electrónico (Área inspeccionada y sellada)', tag: '01 SELLO' },
+        { key: 'AreasExternas_FososTrenesAterrizaje', num: 3, label: 'WHEEL WELLS / FOSOS TRENES ATERRIZAJE', tag: '' },
+        { key: 'AreasExternas_RegistrosCavidadesExt', num: 4, label: 'EXTERIOR HATCHES, CAVITIES / REGISTROS, CAVIDADES EXT.', tag: '' },
+        { key: 'AreasExternas_BodegaDelantera', num: 5, label: 'BELLY 1 / BODEGA DELANTERA', tag: 'SIN MARCAR = /' },
+        { key: 'AreasExternas_CompartElectronico', num: 6, label: 'Compartimiento Electrónico (Área inspeccionada y sellada)', tag: '01 SELLO' },
+        { key: 'AreasExternas_CompartBotellaOxigeno', num: 7, label: 'Compartimiento Botella de Oxígeno', tag: '' },
+        { key: 'AreasExternas_CompartAireAcondicionado', num: 8, label: 'Compartimiento Aire Acondicionado', tag: '' },
+        { key: 'AreasExternas_CompartConexionesElectronicas', num: 9, label: 'Compartimiento Conexiones Electrónicas', tag: '' },
+        { key: 'AreasExternas_BodegaTrasera', num: 10, label: 'BELLY 2 / BODEGA TRASERA', tag: '' },
+        { key: 'AreasExternas_Bulk', num: 11, label: 'BULK', tag: '' },
+        { key: 'AreasExternas_CompartSensorIncendio', num: 12, label: 'Compartimiento Sensor de Incendio', tag: '' },
+        { key: 'AreasExternas_CompartAguaBano', num: 13, label: 'Compartimiento de Agua y Baño', tag: '' }
+      ]
+    }
+  ];
+
+  const checksIniciales = {};
+  seccionesLIADC.forEach((sec) => {
+    sec.items.forEach((it) => {
+      checksIniciales[it.key] = toBool(det[it.key]);
+    });
+  });
+
+  const initialLiadcPayload = {
+    formatoId: formato.id,
+    formatoNombre: formato.nombre,
+    itinerarioId: vuelo.itinerarioId,
+    encabezadoId: encabezadoId || null,
+    esNuevo: Boolean(esNuevo),
+    noVuelo: vuelo.novuelo || '',
+    matricula: vuelo.Matricula || '',
+    fecha: fechaInicial,
+    puente: puenteDefault,
+    arriboVuelo: arriboDefault,
+    horaInicioInsp: horaInicioDefault,
+    horaTerminoInsp: horaTerminoDefault,
+    supLaats: supSelectedId,
+    supervisorNombre: supervisorNombreDefault,
+    iniciales: inicialesDefault,
+    notificacionComandante: notifDefault,
+    observaciones: det.Observaciones || '',
+    inspectorNombre: inspectorNombreDefault,
+    firmaInspector: meta.firmaInspector || '',
+    firmaSupervisor: meta.firmaSupervisor || '',
+    checks: checksIniciales
+  };
+%>
+
+<form id="formCapturaLIADC" novalidate>
+  <input type="hidden" id="liadcFormatoId" value="<%= formato.id %>">
+  <input type="hidden" id="liadcItinerarioId" value="<%= vuelo.itinerarioId %>">
+  <input type="hidden" id="liadcEncabezadoId" value="<%= encabezadoId || '' %>">
+
+  <!-- 1. ENCABEZADO DEL FORMATO -->
+  <div class="card">
+    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+      <h3 class="cp-section-title">
+        <i class="fas fa-clipboard-list"></i> Lista de Inspección de Aeronave de Carga (FOR-SEC-UC-029 Rev.02)
+      </h3>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <% if (!esNuevo && encabezadoId) { %>
+          <a href="/formatos/<%= encodeURIComponent(formato.id) %>?nuevo=1" class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;">
+            <i class="fas fa-plus-circle"></i> Crear Nuevo Registro
+          </a>
+        <% } %>
+        <span class="badge badge-brand" id="liadcBadgeEstadoEncabezado">
+          <%= (!esNuevo && encabezadoId) ? `REGISTRO CARGADO #${encabezadoId}` : 'NUEVA CAPTURA' %>
+        </span>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px;">
+      <div class="form-group">
+        <label for="liadcFecha"><i class="far fa-calendar-alt"></i> Fecha <span style="color: var(--danger);">*</span></label>
+        <input type="date" id="liadcFecha" class="form-control" value="<%= fechaInicial %>" required>
+      </div>
+
+      <div class="form-group">
+        <label for="liadcNoVuelo"><i class="fas fa-plane"></i> Vuelo</label>
+        <input type="text" id="liadcNoVuelo" class="form-control" value="<%= vuelo.novuelo || '' %>" readonly style="background-color: var(--bg); font-weight: 700; color: var(--brand-deep);">
+      </div>
+
+      <div class="form-group">
+        <label for="liadcMatricula"><i class="fas fa-hashtag"></i> Matrícula</label>
+        <input type="text" id="liadcMatricula" class="form-control" value="<%= vuelo.Matricula || 'Pendiente' %>" readonly style="background-color: var(--bg); font-weight: 700;">
+      </div>
+
+      <div class="form-group">
+        <label for="liadcPuente"><i class="fas fa-door-open"></i> Puente / Gate</label>
+        <input type="text" id="liadcPuente" class="form-control" maxlength="50" value="<%= puenteDefault %>" placeholder="Ej. 1 / C2">
+      </div>
+
+      <div class="form-group">
+        <label for="liadcArriboVuelo"><i class="fas fa-plane-arrival"></i> Arribo Vuelo (ATA)</label>
+        <input type="time" id="liadcArriboVuelo" class="form-control" value="<%= arriboDefault %>">
+      </div>
+
+      <div class="form-group">
+        <label for="liadcHoraInicio"><i class="far fa-clock"></i> Hora Inicio Insp. <span style="color: var(--danger);">*</span></label>
+        <div class="cp-time-row">
+          <input type="time" id="liadcHoraInicio" class="form-control" value="<%= horaInicioDefault %>" required>
+          <button type="button" id="btnLiadcHoraInicioAhora" class="cp-clock-btn" title="Establecer hora actual">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="liadcHoraTermino"><i class="fas fa-flag-checkered"></i> Hora Término Insp.</label>
+        <div class="cp-time-row">
+          <input type="time" id="liadcHoraTermino" class="form-control" value="<%= horaTerminoDefault %>">
+          <button type="button" id="btnLiadcHoraTerminoAhora" class="cp-clock-btn" title="Establecer hora actual">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="liadcSupLaats"><i class="fas fa-user-shield"></i> Supervisor LAATS <span style="color: var(--danger);">*</span></label>
+        <select id="liadcSupLaats" class="form-control" required>
+          <option value="">-- Seleccione Supervisor LAATS --</option>
+          <% if (!supExistsInList && supSelectedId) { %>
+            <option value="<%= supSelectedId %>" selected>
+              <%= supervisorNombreDefault || `Supervisor #${supSelectedId}` %>
+            </option>
+          <% } %>
+          <% if (supOptions.length > 0) { %>
+            <optgroup label="Supervisores LAATS">
+              <% supOptions.forEach(opt => { %>
+                <option value="<%= opt.EmpleadoId %>" <%= supSelectedId === opt.EmpleadoId ? 'selected' : '' %>>
+                  <%= opt.Label %>
+                </option>
+              <% }) %>
+            </optgroup>
+          <% } %>
+          <% if (otherOptions.length > 0) { %>
+            <optgroup label="Personal LoginSEC">
+              <% otherOptions.forEach(opt => { %>
+                <option value="<%= opt.EmpleadoId %>" <%= supSelectedId === opt.EmpleadoId ? 'selected' : '' %>>
+                  <%= opt.Label %>
+                </option>
+              <% }) %>
+            </optgroup>
+          <% } %>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="liadcIniciales"><i class="fas fa-id-card"></i> Iniciales del Inspector (máx. 3) <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="liadcIniciales" class="form-control" maxlength="3" value="<%= inicialesDefault %>" placeholder="Ej. AR" style="text-transform: uppercase; font-weight: 700; text-align: center;" required>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. CHECKLIST DE 24 PUNTOS (A, B, C, D) -->
+  <div class="card">
+    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px;">
+      <h3 class="cp-section-title">
+        <i class="fas fa-tasks"></i> Checklist de Inspección (24 Puntos — A, B, C y D)
+      </h3>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+        <span class="badge badge-brand" id="liadcContadorChecks">0 / 24 OK</span>
+        <button type="button" id="btnLiadcMarcarTodo" class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;">
+          <i class="fas fa-check-double"></i> Marcar Todos (24)
+        </button>
+        <button type="button" id="btnLiadcDesmarcarTodo" class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;">
+          <i class="far fa-square"></i> Desmarcar Todos
+        </button>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="data-table" id="tablaLiadcChecklist">
+        <thead>
+          <tr>
+            <th style="width: 60px; text-align: center;">No.</th>
+            <th>Área / Punto de Inspección</th>
+            <th style="width: 140px; text-align: center;">Estado / Iniciales</th>
+            <th style="width: 85px; text-align: center;">OK</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% seccionesLIADC.forEach((sec) => { %>
+            <tr style="background-color: #E2E8F0;">
+              <td style="text-align: center; font-weight: 800; color: var(--brand-deep);"><%= sec.letra %></td>
+              <td colspan="2" style="font-weight: 800; font-size: 12px; color: var(--brand-deep); letter-spacing: 0.03em;">
+                <%= sec.titulo %>
+              </td>
+              <td style="text-align: center;">
+                <button type="button" class="btn btn-secondary btn-liadc-sec-toggle" data-seccion="<%= sec.letra %>" style="padding: 3px 8px; font-size: 10px;">
+                  Todo <%= sec.letra %>
+                </button>
+              </td>
+            </tr>
+            <% sec.items.forEach((it) => { %>
+              <tr>
+                <td style="text-align: center; font-weight: 700;"><%= sec.letra %>.<%= it.num %></td>
+                <td>
+                  <strong><%= it.label %></strong>
+                  <% if (it.tag) { %>
+                    <span class="badge badge-gold" style="margin-left: 6px; font-size: 10px;"><%= it.tag %></span>
+                  <% } %>
+                </td>
+                <td style="text-align: center;" id="liadcStatus_<%= it.key %>">
+                  <%= checksIniciales[it.key] ? `OK (${inicialesDefault})` : (it.key === 'AreasExternas_BodegaDelantera' ? '/' : 'Sin marcar') %>
+                </td>
+                <td style="text-align: center;">
+                  <input
+                    type="checkbox"
+                    id="liadcChk_<%= it.key %>"
+                    class="liadc-check-item"
+                    data-key="<%= it.key %>"
+                    data-seccion="<%= sec.letra %>"
+                    <%= checksIniciales[it.key] ? 'checked' : '' %>
+                  >
+                </td>
+              </tr>
+            <% }) %>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 3. NOTIFICACIÓN AL COMANDANTE, OBSERVACIONES Y FIRMAS -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="cp-section-title"><i class="fas fa-bullhorn"></i> Notificación al Comandante y Observaciones</h3>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
+      <div class="form-group">
+        <label><i class="fas fa-comment-dots"></i> Notificación al Comandante por la Verificación de Seguridad <span style="color: var(--danger);">*</span></label>
+        <div id="liadcNotificacionGroup" style="display: flex; gap: 18px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg);">
+          <label style="display: inline-flex; align-items: center; gap: 8px; margin: 0; font-weight: 700; cursor: pointer;">
+            <input type="radio" name="liadcNotificacion" value="VERBAL" <%= notifDefault === 'VERBAL' ? 'checked' : '' %>>
+            VERBAL
+          </label>
+          <label style="display: inline-flex; align-items: center; gap: 8px; margin: 0; font-weight: 700; cursor: pointer;">
+            <input type="radio" name="liadcNotificacion" value="ESCRITA" <%= notifDefault === 'ESCRITA' ? 'checked' : '' %>>
+            ESCRITA
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="liadcInspectorNombre"><i class="fas fa-user-check"></i> Seguridad que Inspeccionó <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="liadcInspectorNombre" class="form-control" maxlength="150" value="<%= inspectorNombreDefault %>" required>
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-top: 10px;">
+      <label for="liadcObservaciones"><i class="fas fa-sticky-note"></i> Remarks / Observaciones (Opcional)</label>
+      <textarea id="liadcObservaciones" class="form-control" rows="3" maxlength="2000" placeholder="(Opcional) Hallazgos, novedades de sellos o notas de inspección..."><%= det.Observaciones || '' %></textarea>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+    <!-- Firma 1: Inspector (Obligatoria) -->
+    <div class="card">
+      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 class="cp-section-title">
+          <i class="fas fa-signature"></i> Firma Seguridad que Inspeccionó <span style="color: var(--danger);">*</span>
+        </h3>
+        <button type="button" id="btnLimpiarFirmaInspectorLIADC" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;">
+          <i class="fas fa-eraser"></i> Limpiar Firma
+        </button>
+      </div>
+
+      <% if (initialLiadcPayload.firmaInspector) { %>
+        <div id="liadcNoticeFirmaInspector" style="background-color: var(--success-light); border: 1px solid #BBF7D0; color: var(--success); padding: 8px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+          <span><i class="fas fa-check-circle"></i> Firma guardada. Trace encima para reemplazarla.</span>
+          <img src="<%= initialLiadcPayload.firmaInspector %>" alt="Firma Inspector" style="max-height: 28px; background: #fff; padding: 2px; border-radius: 3px; border: 1px solid #BBF7D0;">
+        </div>
+      <% } %>
+
+      <div class="signature-box" id="liadcSignatureBoxInspector">
+        <canvas id="liadcCanvasFirmaInspector"></canvas>
+      </div>
+      <p style="font-size: 11px; color: var(--text-3); text-align: center; margin-top: 6px;">
+        Firma digital obligatoria del agente/inspector de seguridad que realizó la inspección.
+      </p>
+    </div>
+
+    <!-- Firma 2: Supervisor LAATS (Opcional en captura) -->
+    <div class="card">
+      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 class="cp-section-title">
+          <i class="fas fa-user-tie"></i> Firma Supervisor de Seguridad (Opcional)
+        </h3>
+        <button type="button" id="btnLimpiarFirmaSupervisorLIADC" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;">
+          <i class="fas fa-eraser"></i> Limpiar Firma
+        </button>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 10px;">
+        <label for="liadcSupervisorNombre">Nombre Supervisor en Documento</label>
+        <input type="text" id="liadcSupervisorNombre" class="form-control" maxlength="150" value="<%= supervisorNombreDefault %>" placeholder="Se completa automáticamente al elegir Supervisor LAATS">
+      </div>
+
+      <% if (initialLiadcPayload.firmaSupervisor) { %>
+        <div id="liadcNoticeFirmaSupervisor" style="background-color: var(--success-light); border: 1px solid #BBF7D0; color: var(--success); padding: 8px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+          <span><i class="fas fa-check-circle"></i> Firma del supervisor guardada.</span>
+          <img src="<%= initialLiadcPayload.firmaSupervisor %>" alt="Firma Supervisor" style="max-height: 28px; background: #fff; padding: 2px; border-radius: 3px; border: 1px solid #BBF7D0;">
+        </div>
+      <% } %>
+
+      <div class="signature-box" id="liadcSignatureBoxSupervisor">
+        <canvas id="liadcCanvasFirmaSupervisor"></canvas>
+      </div>
+      <p style="font-size: 11px; color: var(--text-3); text-align: center; margin-top: 6px;">
+        Firma digital opcional del Supervisor de Seguridad LAATS.
+      </p>
+    </div>
+  </div>
+
+  <!-- 4. BOTONES DE ACCIÓN -->
+  <div style="display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 14px; margin-bottom: 40px;">
+    <button type="button" id="btnVistaPreliminarLIADC" class="btn btn-secondary" style="padding: 12px 24px;">
+      <i class="fas fa-eye"></i> Vista Preliminar (Formato Oficial <%= vuelo.operador %>)
+    </button>
+    <button type="button" id="btnGuardarDefinitivoLIADC" class="btn btn-primary" style="padding: 12px 28px;">
+      <i class="fas fa-save"></i> <%= esNuevo ? 'Guardar Formato Definitivo' : 'Actualizar Formato Definitivo' %>
+    </button>
+  </div>
+</form>
+
+<script type="application/json" id="liadcInitialStateJson"><%- JSON.stringify(initialLiadcPayload).replace(/</g, '\\u003c') %></script>

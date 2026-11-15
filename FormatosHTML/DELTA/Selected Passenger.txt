@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SELECTED PASSENGER DELTA</title>
+    <style>
+        * { box-sizing: border-box; font-family: Arial, sans-serif; margin: 0; padding: 0; }
+        body { background-color: #525659; display: flex; justify-content: center; padding: 20px; }
+        
+        .page { 
+            width: 11in; 
+            height: 8.5in; 
+            background: white; 
+            padding: 8mm 12mm; 
+            display: flex; 
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 12px;
+        }
+
+        .logo-area { width: 30%; }
+        .header-logo {
+            height: 55px;
+            object-fit: contain;
+            object-position: left;
+        }
+
+        .title-area {
+            width: 40%;
+            text-align: center;
+        }
+        .main-title {
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        .info-area {
+            width: 30%;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        .info-row {
+            display: flex;
+            align-items: flex-end;
+        }
+        .info-line {
+            border-bottom: 1px solid black;
+            flex-grow: 1;
+            margin-left: 10px;
+            text-align: center;
+            font-weight: normal;
+            height: 18px;
+        }
+
+        .pax-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 2px solid black;
+            margin-bottom: 10px;
+        }
+        .pax-table th {
+            border: 1px solid black;
+            border-bottom: 2px solid black;
+            padding: 4px;
+            text-align: center;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .pax-table td {
+            border: 1px solid black;
+            height: 32px;
+            text-align: center;
+            font-size: 11px;
+            vertical-align: middle;
+        }
+
+        .footer-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-top: 5px;
+        }
+
+        .legend-box {
+            border: 1.5px solid black;
+            padding: 6px 8px;
+            font-size: 10px;
+            font-weight: bold;
+            line-height: 1.4;
+            width: 150px;
+        }
+
+        /* Estilo para los totales dentro del legend-box */
+        .totals-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .totals-table td {
+            padding: 2px 0px;
+        }
+        .totals-table .qty-cell {
+            text-align: right;
+            padding-right: 4px;
+        }
+        .total-row td {
+            border-top: 1px solid black;
+            padding-top: 4px;
+            margin-top: 2px;
+        }
+
+        .supervisor-area {
+            display: flex;
+            align-items: flex-end;
+            font-size: 13px;
+            font-weight: bold;
+            width: 420px;
+        }
+
+        .supervisor-wrapper {
+            flex-grow: 1;
+            margin-left: 10px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            height: 40px; /* Mantiene el espacio por si después vuelven a pedir la firma */
+        }
+
+        .supervisor-name {
+            border-top: 1px solid black;
+            padding-top: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        @page { size: landscape; margin: 0; }
+        @media print {
+            body { background: none; padding: 0 !important; }
+            .page { width: 100%; height: 100vh; padding: 8mm 12mm; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <!-- HEADER -->
+        <div class="header-container">
+            <div class="logo-area">
+                <img src="data:image/png;base64, @{variables('varLogoDelta')}" class="header-logo" alt="Delta" />
+            </div>
+            <div class="title-area">
+                <div class="main-title">SELECTED PASSENGER</div>
+            </div>
+            <div class="info-area">
+                <div class="info-row">
+                    <span>DATE:</span>
+                    <div class="info-line">@{body('Parse_JSON_12')?['Date']}</div>
+                </div>
+                <div class="info-row">
+                    <span>FLIGHT:</span>
+                    <div class="info-line">@{body('Parse_JSON_12')?['Flight']}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABLE (15 FILAS) -->
+        <table class="pax-table">
+            <thead>
+                <tr>
+                    <th style="width: 4%;">No.</th>
+                    <th style="width: 17%;">APELLIDO</th>
+                    <th style="width: 17%;">NOMBRE</th>
+                    <th style="width: 10%;">SELECTION</th>
+                    <th style="width: 12%;">SEAT No.</th>
+                    <th style="width: 12%;">BCN</th>
+                    <th style="width: 28%;">SCREENER NAME AND SIGNATURE</th>
+                </tr>
+            </thead>
+            <tbody>
+                @{body('Parse_JSON_12')?['TablaPaxHTML']}
+            </tbody>
+        </table>
+
+        <!-- FOOTER -->
+        <div class="footer-container">
+            
+            <!-- CAJA DE LEYENDA Y TOTALES -->
+            <div class="legend-box">
+                <table class="totals-table">
+                    <tr>
+                        <td>R RANDOM</td>
+                        <td class="qty-cell">@{body('Parse_JSON_12')?['TotalRandom']}</td>
+                    </tr>
+                    <tr>
+                        <td>S SELECTED</td>
+                        <td class="qty-cell">@{body('Parse_JSON_12')?['TotalSelected']}</td>
+                    </tr>
+                    <tr>
+                        <td>I INTERVIEW</td>
+                        <td class="qty-cell">@{body('Parse_JSON_12')?['TotalInterview']}</td>
+                    </tr>
+                    <tr class="total-row">
+                        <td>TOTAL</td>
+                        <td class="qty-cell">@{body('Parse_JSON_12')?['TotalGeneral']}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- ÁREA SUPERVISOR (SIN FIRMA, SOLO NOMBRE) -->
+            <div class="supervisor-area">
+                <span style="white-space: nowrap; padding-bottom: 2px;">SUPERVISOR LAATS:</span>
+                <div class="supervisor-wrapper">
+                    <div class="supervisor-name">
+                        @{body('Parse_JSON_12')?['NombreSupervisor']}
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</body>
+</html>

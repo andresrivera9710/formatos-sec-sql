@@ -68,6 +68,7 @@ class AuthController {
 
       // Asignación de sesión segura
       req.session.user = {
+        loginId: usuarioLogin.LoginId || registroSEC.LoginId || null,
         usuario: usuarioLogin.Usuario,
         empleadoId: usuarioLogin.EmpleadoId,
         nombreCompleto: datosEmpleado?.Nombre || usuarioLogin.Usuario,

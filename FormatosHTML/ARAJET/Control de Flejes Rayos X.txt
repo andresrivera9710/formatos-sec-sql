@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CONTROL DE FLEJES DE ARAJET EN RAYOS X</title>
+    <style>
+        * { box-sizing: border-box; font-family: Arial, sans-serif; margin: 0; padding: 0; }
+        body { background-color: #525659; display: flex; justify-content: center; padding: 5px; }
+        
+        .page { 
+            width: 8.5in; 
+            min-height: 11in; 
+            background: white; 
+            padding: 10mm; 
+            display: flex; 
+            flex-direction: column;
+        }
+
+        .section {
+            border: 2px solid black;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            position: relative;
+        }
+
+        /* Nueva Estructura del Header para evitar traslapes */
+        .header-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .logo-box {
+            width: 25%;
+            display: flex;
+            align-items: center;
+        }
+        
+        /* Logo Grande */
+        .logo { 
+            height: 95px; 
+            max-width: 100%; 
+            object-fit: contain; 
+            object-position: left; 
+            display: block;
+        }
+        
+        .title-box {
+            width: 53%;
+            text-align: center;
+            padding: 0 5px;
+        }
+
+        .title-text { 
+            font-weight: bold; 
+            font-size: 16px; 
+            line-height: 1.2;
+        }
+
+        /* Cuadros de fecha alineados correctamente */
+        .date-box {
+            width: 22%;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .date-grid { border-collapse: collapse; text-align: center; }
+        .date-grid td { border: 1.2px solid black; width: 42px; height: 18px; font-size: 9px; }
+        .date-label { font-weight: bold; background-color: #fff; }
+
+        /* Field Rows (Supervisor / Agente) */
+        .field-row {
+            display: flex;
+            align-items: center;
+            font-size: 10px;
+            font-weight: bold;
+            margin: 2px 0 8px 0;
+        }
+        .field-box {
+            border: 1.2px solid black;
+            height: 22px;
+            width: 380px;
+            margin-left: 10px;
+            text-align: center;
+            padding-top: 3px;
+        }
+
+        /* Summary Operation Table */
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 5px;
+        }
+        .summary-table th, .summary-table td {
+            border: 1.2px solid black;
+            text-align: center;
+            height: 22px;
+            font-size: 9px;
+            padding: 2px;
+            vertical-align: middle;
+        }
+        .num-cell {
+            font-size: 40px;
+            font-weight: bold;
+            width: 60px;
+            padding: 0;
+            background-color: #fff;
+            border: 1.2px solid black;
+        }
+        .header-cell { font-weight: bold; }
+        .sub-header-cell { font-size: 8px; height: 14px; font-weight: bold; }
+
+        /* Seal Control Table */
+        .seal-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .seal-table th, .seal-table td {
+            border: 1.2px solid black;
+            text-align: center;
+            height: 24px;
+            font-size: 9px;
+        }
+        .seal-table th { font-weight: bold; }
+
+        /* Footer */
+        .footer-row {
+            display: flex;
+            align-items: center;
+            margin-top: 15px;
+            font-size: 10px;
+            font-weight: bold;
+            padding-bottom: 5px;
+        }
+
+        @page { size: letter; margin: 0; }
+        @media print {
+            body { background: none; padding: 0 !important; }
+            .page { width: 100%; height: 100vh; padding: 10mm; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <!-- Section Única -->
+        <div class="section">
+            
+            <div class="header-container">
+                <div class="logo-box">
+                    <img src="data:image/png;base64, @{variables('varLogoArajet')}" class="logo">
+                </div>
+                <div class="title-box">
+                    <div class="title-text">CONTROL DE FLEJES DE ARAJET EN RAYOS X</div>
+                </div>
+                <div class="date-box">
+                    <table class="date-grid">
+                        <tr><td class="date-label">DIA</td><td class="date-label">MES</td><td class="date-label">A&Ntilde;O</td></tr>
+                        <tr>
+                            <td>@{body('Parse_JSON_10')?['Dia']}</td>
+                            <td>@{body('Parse_JSON_10')?['Mes']}</td>
+                            <td>@{body('Parse_JSON_10')?['Anio']}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="field-row">
+                <span>SUPERVISOR</span>
+                <div class="field-box">@{body('Parse_JSON_10')?['Supervisor']}</div>
+            </div>
+
+            <table class="summary-table">
+                <tr>
+                    <th rowspan="3" class="num-cell">1</th>
+                    <th rowspan="2" style="width: 8%;" class="header-cell">VUELO</th>
+                    <th rowspan="2" style="width: 8%;" class="header-cell">DESTINO</th>
+                    <th rowspan="2" style="width: 8%;" class="header-cell">MATRICULA</th>
+                    <th colspan="2" class="header-cell">ENVIADA A PLATAFOMA</th>
+                    <th class="header-cell" style="width: 15%;">INICIO</th>
+                    <th rowspan="2" style="width: 8%;" class="header-cell">AVIH</th>
+                    <th rowspan="2" style="width: 8%;" class="header-cell">COMAT</th>
+                    <th class="header-cell" style="width: 12%;">TOTAL</th>
+                    <th class="header-cell" style="width: 12%;">HORA</th>
+                </tr>
+                <tr>
+                    <th style="width: 8%;" class="sub-header-cell">1RA</th>
+                    <th style="width: 8%;" class="sub-header-cell">ULTIMA</th>
+                    <th class="sub-header-cell">OPERACI&Oacute;N</th>
+                    <th class="sub-header-cell">EQUIPAJE</th>
+                    <th class="sub-header-cell">CIERRE</th>
+                </tr>
+                <tr>
+                    <td>@{body('Parse_JSON_10')?['Vuelo']}</td>
+                    <td>@{body('Parse_JSON_10')?['Destino']}</td>
+                    <td>@{body('Parse_JSON_10')?['Matricula']}</td>
+                    <td>@{body('Parse_JSON_10')?['PrimeraHora']}</td>
+                    <td>@{body('Parse_JSON_10')?['UltimaHora']}</td>
+                    <td>@{body('Parse_JSON_10')?['InicioOperacion']}</td>
+                    <td>@{body('Parse_JSON_10')?['AVIH']}</td>
+                    <td>@{body('Parse_JSON_10')?['COMAT']}</td>
+                    <td>@{body('Parse_JSON_10')?['TotalEquipaje']}</td>
+                    <td>@{body('Parse_JSON_10')?['HoraCierre']}</td>
+                </tr>
+            </table>
+
+            <table class="seal-table">
+                <thead>
+                    <tr>
+                        <th style="width: 12%;">NO. CARRETA</th>
+                        <th style="width: 30%;">FLEJES</th>
+                        <th style="width: 12%;">No.UNIDAD</th>
+                        <th style="width: 16%;">TOTAL EQ EN CARRETA</th>
+                        <th style="width: 30%;">OPERADOR</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Inyección de la tabla desde Power Apps -->
+                    @{body('Parse_JSON_10')?['TablaCarretasHTML']}
+                </tbody>
+            </table>
+
+            <div class="footer-row">
+                <span>AGENTE AVSEC</span>
+                <div class="field-box">@{body('Parse_JSON_10')?['AgenteAVSEC']}</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

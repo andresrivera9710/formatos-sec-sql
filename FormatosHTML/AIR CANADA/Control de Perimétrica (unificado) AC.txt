@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CONTROL DE PERIMETRICA - AIR CANADA</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            background-color: #525659;
+            padding: 20px;
+        }
+        .page {
+            width: 210mm;
+            min-height: 297mm;
+            background: white;
+            padding: 8mm 15mm 15mm 15mm;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+        }
+        .container {
+            border: 2px solid black;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .title-container {
+            position: relative;
+            background-color: #d9d9d9;
+            border-bottom: 2px solid black;
+            padding: 5px 0;
+            text-align: center;
+        }
+        .title {
+            font-size: 26px;
+            font-weight: 900;
+            font-style: italic;
+            color: #000;
+            letter-spacing: 0px;
+            text-transform: uppercase;
+        }
+        .header-info {
+            width: 100%;
+            padding: 5px 0;
+            border-bottom: 2px solid black;
+        }
+        .header-info table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .header-info td {
+            padding: 6px 12px;
+            font-size: 11px;
+            font-weight: bold;
+            vertical-align: bottom;
+            white-space: nowrap;
+        }
+        .line-input {
+            display: inline-block;
+            border-bottom: 1px solid black;
+            height: 14px;
+            margin-left: 5px;
+            vertical-align: bottom;
+        }
+        .main-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .main-table th, .main-table td {
+            border: 1px solid black;
+            font-size: 11px;
+            text-align: center;
+        }
+        .main-table th {
+            background-color: #d9d9d9;
+            font-weight: bold;
+            padding: 8px 4px;
+        }
+        .main-table td {
+            height: 22.5px;
+            font-weight: bold;
+        }
+        /* Column Widths */
+        .col-no { width: 4%; }
+        .col-nombre { width: 28%; }
+        .col-tia { width: 12%; }
+        .col-ingreso { width: 9%; }
+        .col-empresa { width: 14%; }
+        .col-motivo { width: 24%; }
+        .col-salida { width: 9%; }
+
+        .bottom-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            border-top: none;
+        }
+        .bottom-table td {
+            border: 1px solid black;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 5px 8px;
+            height: 26px;
+            vertical-align: middle;
+        }
+        
+        .obs-container {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            border-top: 2px solid black;
+        }
+        .obs-title {
+            font-size: 11px;
+            font-weight: bold;
+            padding: 6px 12px;
+        }
+
+        /* Border adjustments */
+        .main-table th { border-top: none; }
+        .main-table th:first-child, .main-table td:first-child { border-left: none; }
+        .main-table th:last-child, .main-table td:last-child { border-right: none; }
+        
+        .bottom-table td:first-child { border-left: none; }
+        .bottom-table td:last-child { border-right: none; }
+
+        @media print {
+            body { 
+                background: none; 
+                padding: 0;
+            }
+            .page { 
+                box-shadow: none; 
+                padding: 10mm;
+                min-height: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+    
+    <!-- ENCABEZADO CON LOGO AIR CANADA -->
+    <table style="width: 100%; border: none; margin-bottom: 8px; background: transparent;">
+        <tr>
+            <td style="border: none; text-align: left; vertical-align: middle; padding: 0;">
+                <img src="data:image/png;base64,@{variables('varLogoAirCanada')}" style="width: 170px; height: auto; max-height: 55px; object-fit: contain;" alt="Logo Air Canada" />
+            </td>
+            <td style="border: none; text-align: right; vertical-align: middle; padding: 0; padding-right: 10px; font-size: 13px; font-weight: bold; color: #333;">
+                AIR CANADA
+            </td>
+        </tr>
+    </table>
+    
+    <div class="container">
+        <div class="title-container">
+            <h1 class="title">CONTROL DE PERIMETRICA</h1>
+        </div>
+        
+        <div class="header-info">
+            <table>
+                <tr>
+                    <td style="width: 50%;">FECHA: <span class="line-input" style="width: calc(100% - 60px); text-align: center;">@{body('Parse_JSON_24')?['Fecha']}</span></td>
+                    <td style="width: 50%;">SUPERVISOR: <span class="line-input" style="width: calc(100% - 90px); text-align: center;">@{body('Parse_JSON_24')?['Supervisor']}</span></td>
+                </tr>
+                <tr>
+                    <td>HORA INICIO/# PUERTA: <span class="line-input" style="width: calc(100% - 150px); text-align: center;">@{body('Parse_JSON_24')?['HoraInicioPuerta']}</span></td>
+                    <td>AGENTE: <span class="line-input" style="width: calc(100% - 65px); text-align: center;">@{body('Parse_JSON_24')?['Agente']}</span></td>
+                </tr>
+                <tr>
+                    <td>VUELO: <span class="line-input" style="width: calc(100% - 60px); text-align: center;">@{body('Parse_JSON_24')?['Vuelo']}</span></td>
+                    <td>MATRICULA: <span class="line-input" style="width: calc(100% - 85px); text-align: center;">@{body('Parse_JSON_24')?['Matricula']}</span></td>
+                </tr>
+            </table>
+        </div>
+
+        <table class="main-table">
+            <thead>
+                <tr>
+                    <th class="col-no">No.</th>
+                    <th class="col-nombre">NOMBRE</th>
+                    <th class="col-tia">No. DE TIA</th>
+                    <th class="col-ingreso">HORA DE<br>INGRESO</th>
+                    <th class="col-empresa">EMPRESA</th>
+                    <th class="col-motivo">MOTIVO</th>
+                    <th class="col-salida">HORA DE<br>SALIDA</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- AQUÍ SE INYECTAN LAS 25 FILAS QUE ENVIAMOS DESDE POWER APPS -->
+                @{body('Parse_JSON_24')?['FilasTabla']}
+            </tbody>
+        </table>
+
+        <table class="bottom-table">
+            <tr>
+                <td style="width: 32%; border-top: 2px solid black;">ARRIBO DEL VUELO:</td>
+                <td style="width: 21%; border-top: 2px solid black; text-align: center;">@{body('Parse_JSON_24')?['ArriboVuelo']}</td>
+                <td colspan="2" style="width: 47%; border-top: 2px solid black; text-align: center; background-color: #d9d9d9;">ALEROS</td>
+            </tr>
+            <tr>
+                <td>AERONAVE ASEGURADA:</td>
+                <td style="text-align: center;">@{body('Parse_JSON_24')?['AeronaveAsegurada']}</td>
+                <td style="width: 5%; text-align: center;">1</td>
+                <td style="text-align: center;">@{body('Parse_JSON_24')?['Alero1']}</td>
+            </tr>
+            <tr>
+                <td style="border-bottom: none;">TRACTORISTA Y No. DE UNIDAD:</td>
+                <td style="border-bottom: none; text-align: center;">@{body('Parse_JSON_24')?['TractoristaUnidad']}</td>
+                <td style="text-align: center; border-bottom: none;">2</td>
+                <td style="border-bottom: none; text-align: center;">@{body('Parse_JSON_24')?['Alero2']}</td>
+            </tr>
+        </table>
+
+        <div class="obs-container">
+            <div class="obs-title">OBSERVACIONES:</div>
+            <div style="padding: 0 12px 12px 12px; font-size: 11px; font-weight: bold; flex-grow: 1;">
+                @{body('Parse_JSON_24')?['Observaciones']}
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

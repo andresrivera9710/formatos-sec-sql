@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CONTROL DE INGRESO Y EGRESO A CABINA - DELTA</title>
+    <style>
+        * { box-sizing: border-box; font-family: Arial, sans-serif; margin: 0; padding: 0; }
+        body { display: flex; justify-content: center; background-color: #525659; padding: 20px; }
+        .page { width: 210mm; min-height: 297mm; background: white; padding: 10mm; display: flex; flex-direction: column; }
+        
+        .main-table { width: 100%; border-collapse: collapse; border: 2px solid black; }
+        .main-table td, .main-table th { border: 1px solid black; }
+        
+        /* ENCABEZADO LOGO - AJUSTADO PARA DELTA */
+        .header {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .logo {
+            height: 22mm; 
+            width: auto;
+        }
+        
+        .gray-title { background-color: #e0e0e0; text-align: center; font-weight: 900; font-style: italic; font-size: 18px; padding: 6px; border-bottom: 1px solid black !important; letter-spacing: 0.5px;}
+        
+        .info-td { padding: 10px 15px; border-bottom: 2px solid black !important; }
+        .solid-line { border-bottom: 1px solid black; flex-grow: 1; margin-left: 8px; height: 16px;}
+        
+        .col-headers th { background-color: #e0e0e0; font-size: 11px; padding: 4px; text-align: center; border-bottom: 1px solid black;}
+        
+        .grid-row td { height: 18px; text-align: center; font-size: 11px; }
+        
+        .bottom-sec td { font-size: 11px; height: 18px; padding-left: 4px;}
+        .bottom-sec .bold-center { font-weight: bold; text-align: center; padding-left: 0; }
+        .bottom-sec .bold-left { font-weight: bold; }
+        
+        .obs-td td { height: 19px; padding-left: 4px; font-size: 11px; vertical-align: bottom; padding-bottom: 2px;}
+        
+        .thick-bottom { border-bottom: 2px solid black !important; }
+        
+        @media print { body { background: none; padding: 0; } .page { padding: 10mm; width: 100%; height: 100vh;} }
+    </style>
+</head>
+<body>
+<div class="page">
+    
+    <!-- ENCABEZADO LOGO DELTA -->
+    <div class="header">
+        <img src="data:image/png;base64, @{variables('varLogoDelta')}" alt="Logo Delta" class="logo" />
+    </div>
+
+    <table class="main-table">
+        <tr>
+            <td colspan="7" class="gray-title">CONTROL DE INGRESO y EGRESO A CABINA</td>
+        </tr>
+        <tr>
+            <td colspan="7" class="info-td">
+                <div style="display: flex; justify-content: space-between; font-size: 12px;">
+                    <div style="width: 48%; display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; align-items: flex-end;">FECHA: <div class="solid-line">@{formatDateTime(body('Parse_JSON_18')?['Fecha'], 'dd/MM/yyyy')}</div></div>
+                        <div style="display: flex; align-items: flex-end;">HORA (INICIA PUESTO): <div class="solid-line">@{body('Parse_JSON_18')?['HoraInicio']}</div></div>
+                        <div style="display: flex; align-items: flex-end;">VUELO: <div class="solid-line">@{body('Parse_JSON_18')?['Vuelo']}</div></div>
+                    </div>
+                    <div style="width: 48%; display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; align-items: flex-end;">SUPERVISOR: <div class="solid-line">@{body('Parse_JSON_18')?['Supervisor']}</div></div>
+                        <div style="display: flex; align-items: flex-end;">AGENTE: <div class="solid-line">@{body('Parse_JSON_18')?['Agente']}</div></div>
+                        <div style="display: flex; align-items: flex-end;">MATRICULA: <div class="solid-line">@{body('Parse_JSON_18')?['Matricula']}</div></div>
+                    </div>
+                </div>
+            </td>
+        </tr>
+        <tr class="col-headers">
+            <th style="width: 4%;">No.</th>
+            <th style="width: 32%;">NOMBRE</th>
+            <th style="width: 9%;">No. DE<br>TIA</th>
+            <th style="width: 14%;">EMPRESA</th>
+            <th style="width: 10%;">ENTRADA</th>
+            <th style="width: 21%;">MOTIVO</th>
+            <th style="width: 10%;">SALIDA</th>
+        </tr>
+        
+        <!-- AQUI INYECTAMOS colRegistrosInOut DESDE POWER APPS -->
+        @{body('Parse_JSON_18')?['FilasInOutHTML']}
+
+        <tr class="bottom-sec">
+            <td colspan="2">Arribo de Vuelo:</td>
+            <td>@{body('Parse_JSON_18')?['ArriboVuelo']}</td>
+            <td colspan="2" class="bold-center">EQUIPAJE DE PUERTA</td>
+            <td>1er. Pax Abordo:</td>
+            <td>@{body('Parse_JSON_18')?['PrimerPax']}</td>
+        </tr>
+        <tr class="bottom-sec">
+            <td colspan="2">Aeronave Asegurada:</td>
+            <td>@{body('Parse_JSON_18')?['AeronaveAsegurada']}</td>
+            <!-- AQUI INYECTAMOS colMatrizEquipajeDePuerta -->
+            <td colspan="2" rowspan="5" style="vertical-align: top; padding: 0;">
+                @{body('Parse_JSON_18')?['EquipajePuertaHTML']}
+            </td>
+            <td>Ult. Pax. Abordo:</td>
+            <td>@{body('Parse_JSON_18')?['UltimoPax']}</td>
+        </tr>
+        <tr class="bottom-sec">
+            <td colspan="2">Pasarela Acoplada:</td>
+            <td>@{body('Parse_JSON_18')?['PasarelaAcoplada']}</td>
+            <td>Pax Abordos:</td>
+            <td>@{body('Parse_JSON_18')?['PaxAbordos']}</td>
+        </tr>
+        <tr class="bottom-sec">
+            <td colspan="2">Puerta Abierta:</td>
+            <td>@{body('Parse_JSON_18')?['PuertaAbierta']}</td>
+            <td>Puerta Cerrada:</td>
+            <td>@{body('Parse_JSON_18')?['PuertaCerrada']}</td>
+        </tr>
+        <tr class="bottom-sec">
+            <td colspan="2">Egreso de Tripulación:</td>
+            <td>@{body('Parse_JSON_18')?['EgresoTripulacion']}</td>
+            <td>Desacople pasarela:</td>
+            <td>@{body('Parse_JSON_18')?['DesacoplePasarela']}</td>
+        </tr>
+        <tr class="bottom-sec">
+            <td colspan="2">Ingreso de Tripulación:</td>
+            <td>@{body('Parse_JSON_18')?['IngresoTripulacion']}</td>
+            <td>PushBack:</td>
+            <td>@{body('Parse_JSON_18')?['PushBack']}</td>
+        </tr>
+        <tr class="bottom-sec">
+            <td colspan="2">Pax Entrando a GUA:</td>
+            <td>@{body('Parse_JSON_18')?['PaxEntrandoGUA']}</td>
+            <td colspan="2" class="bold-left">TOTAL EQ. @{body('Parse_JSON_18')?['TotalEquipajePuerta']}</td>
+            <td>Despegue:</td>
+            <td>@{body('Parse_JSON_18')?['Despegue']}</td>
+        </tr>
+        <tr class="obs-td"><td colspan="7">OBSERVACIONES: @{body('Parse_JSON_18')?['Observaciones']}</td></tr>
+        <tr class="obs-td"><td colspan="7"></td></tr>
+        <tr class="obs-td"><td colspan="7"></td></tr>
+        <tr class="bottom-sec">
+            <td colspan="3">Tractorista y No. Unidad: @{body('Parse_JSON_18')?['TractoristaUnidad']}</td>
+            <td colspan="4">Aleros: @{body('Parse_JSON_18')?['Aleros']}</td>
+        </tr>
+    </table>
+</div>
+</body>
+</html>

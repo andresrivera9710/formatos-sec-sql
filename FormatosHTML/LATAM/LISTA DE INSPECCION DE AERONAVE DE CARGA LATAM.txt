@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LATAM CARGO - Lista Inspeccion Aeronave De Carga</title>
+    <style>
+        @page {
+            size: letter portrait;
+            margin: 8mm 12mm 6mm 12mm;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        body {
+            background-color: #525659;
+            display: flex;
+            justify-content: center;
+            padding: 20px 0;
+            color: #000;
+        }
+
+        .hoja-carta {
+            width: 215.9mm;
+            min-height: 279.4mm;
+            background: #ffffff;
+            padding: 10mm 12mm;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.4);
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        @media print {
+            body {
+                background: #ffffff;
+                padding: 0;
+            }
+            .hoja-carta {
+                width: 100%;
+                min-height: auto;
+                box-shadow: none;
+                padding: 0;
+                margin: 0;
+            }
+        }
+
+        /* Top Header Grid */
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1.5px solid #000;
+            margin-bottom: 8px;
+        }
+        .header-table td {
+            vertical-align: middle;
+            border: 1px solid #000;
+            padding: 4px 8px;
+        }
+        .logo-cell {
+            width: 26%;
+            text-align: center;
+        }
+        .logo-img {
+            max-height: 48px;
+            max-width: 170px;
+            object-fit: contain;
+            display: block;
+            margin: 0 auto;
+        }
+        .title-cell {
+            width: 54%;
+            text-align: center;
+        }
+        .title-text {
+            font-size: 16px;
+            font-weight: 800;
+            letter-spacing: 0.3px;
+            color: #000;
+        }
+        .doc-control-cell {
+            width: 20%;
+            padding: 0 !important;
+        }
+        .doc-control-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9.5px;
+            font-weight: bold;
+        }
+        .doc-control-table td {
+            border: none;
+            border-bottom: 1px solid #000;
+            padding: 3px 6px;
+            text-align: left;
+        }
+        .doc-control-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Info Bar Table */
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 8px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        .info-table td {
+            border: none;
+            padding: 4px 4px;
+            vertical-align: bottom;
+        }
+        .info-line {
+            display: inline-block;
+            border-bottom: 1.2px solid #000;
+            min-width: 115px;
+            padding: 0 6px 1px 6px;
+            font-size: 12px;
+            font-weight: bold;
+            text-align: center;
+            color: #000;
+        }
+
+        /* Main Inspection Checklist Table */
+        .checklist-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1.5px solid #000;
+            font-size: 8.5px;
+        }
+        .checklist-table th, .checklist-table td {
+            border: 1px solid #000;
+            padding: 2.5px 5px;
+            vertical-align: middle;
+        }
+        .sec-header {
+            background-color: #e9ecef;
+            font-weight: 800;
+            font-size: 9px;
+            text-align: left;
+            padding: 3px 5px;
+        }
+        .sec-letter {
+            width: 22px;
+            text-align: center;
+            font-weight: 800;
+            background-color: #e9ecef;
+        }
+        .col-header-ok {
+            width: 38px;
+            text-align: center;
+            font-weight: 800;
+            background-color: #e9ecef;
+        }
+        .col-header-init {
+            width: 68px;
+            text-align: center;
+            font-weight: 800;
+            background-color: #e9ecef;
+        }
+        .col-header-sellos {
+            width: 120px;
+            text-align: center;
+            font-weight: 800;
+            background-color: #e9ecef;
+        }
+        .row-num {
+            text-align: center;
+            font-weight: bold;
+            width: 22px;
+        }
+        .item-text {
+            font-weight: bold;
+            color: #000;
+        }
+        .cell-center {
+            text-align: center;
+            font-weight: bold;
+            font-size: 9.5px;
+            height: 15px;
+        }
+        .sello-subcell {
+            width: 40px;
+            text-align: center;
+            font-size: 8px;
+        }
+        .sello-tag {
+            float: right;
+            font-weight: 800;
+            margin-right: 10px;
+            font-size: 8.5px;
+        }
+
+        /* Observations */
+        .obs-row {
+            margin-top: 5px;
+            font-size: 9px;
+            font-weight: bold;
+            border: 1px solid #000;
+            padding: 3px 6px;
+            min-height: 20px;
+        }
+
+        /* Signatures and Notification Section */
+        .footer-signatures {
+            margin-top: 8px;
+            width: 100%;
+        }
+        .sig-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 6px;
+        }
+        .sig-table td {
+            border: none;
+            vertical-align: bottom;
+            font-size: 9px;
+            font-weight: bold;
+            padding: 2px 4px;
+        }
+        .sig-line-box {
+            border-bottom: 1.2px solid #000;
+            text-align: center;
+            min-height: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            padding-bottom: 2px;
+        }
+        .sig-sublabel {
+            text-align: center;
+            font-size: 8.5px;
+            font-weight: 800;
+            padding-top: 2px;
+            padding-bottom: 4px;
+        }
+        .sig-img {
+            max-height: 34px;
+            max-width: 140px;
+            object-fit: contain;
+            display: block;
+            margin: 0 auto;
+        }
+
+        /* Notification to Captain */
+        .notif-table {
+            width: 85%;
+            margin: 4px auto 0 auto;
+            border-collapse: collapse;
+            font-size: 8.5px;
+            font-weight: 800;
+        }
+        .notif-table td {
+            border: none;
+            padding: 2px 6px;
+            vertical-align: middle;
+        }
+        .chk-rect {
+            display: inline-block;
+            width: 38px;
+            height: 15px;
+            border: 1.3px solid #000;
+            text-align: center;
+            line-height: 13px;
+            font-size: 11px;
+            font-weight: bold;
+            vertical-align: middle;
+            margin-right: 5px;
+        }
+
+        /* SSI Warning Box */
+        .ssi-warning-box {
+            border: 1.5px solid #000;
+            padding: 5px 8px;
+            margin-top: 8px;
+            text-align: center;
+            font-size: 7.2px;
+            line-height: 1.25;
+            color: #000;
+        }
+        .ssi-title {
+            font-weight: 900;
+            font-size: 8px;
+            margin-bottom: 2px;
+            letter-spacing: 0.4px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="hoja-carta">
+    <div>
+        <!-- Header -->
+        <table class="header-table">
+            <tr>
+                <td class="logo-cell">
+                    <img class="logo-img" src="data:image/png;base64,@{variables('varLogoLatam')}" alt="LATAM CARGO" />
+                </td>
+                <td class="title-cell">
+                    <div class="title-text">Lista Inspeccion Aeronave De Carga</div>
+                </td>
+                <td class="doc-control-cell">
+                    <table class="doc-control-table">
+                        <tr><td>FOR-SEC-UC-029</td></tr>
+                        <tr><td>Rev.02</td></tr>
+                        <tr><td>11/01/2025</td></tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+
+        <!-- Info Bar -->
+        <table class="info-table">
+            <tr>
+                <td style="width: 34%;">
+                    FECHA: <span class="info-line" style="min-width: 120px;">@{body('Parse_JSON_32')?['Fecha']}</span>
+                </td>
+                <td style="width: 32%;">
+                    VUELO: <span class="info-line" style="min-width: 110px;">@{body('Parse_JSON_32')?['Vuelo']}</span>
+                </td>
+                <td style="width: 34%;">
+                    Hora Inicio Insp.: <span class="info-line" style="min-width: 85px;">@{body('Parse_JSON_32')?['HoraInicioInsp']}</span>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    MATRICULA: <span class="info-line" style="min-width: 100px;">@{body('Parse_JSON_32')?['Matricula']}</span>
+                </td>
+                <td>
+                    PUENTE: <span class="info-line" style="min-width: 105px;">@{body('Parse_JSON_32')?['Puente']}</span>
+                </td>
+                <td>
+                    Hora término Insp.: <span class="info-line" style="min-width: 78px;">@{body('Parse_JSON_32')?['HoraTerminoInsp']}</span>
+                </td>
+            </tr>
+        </table>
+
+        <!-- Main Checklist Table -->
+        <table class="checklist-table">
+            <tbody>
+                <!-- Section A: COCKPIT / CABINA PILOTOS -->
+                <tr>
+                    <td class="sec-letter">A</td>
+                    <td class="sec-header">COCKPIT / CABINA PILOTOS</td>
+                    <td class="col-header-ok">OK</td>
+                    <td class="col-header-init">INICIALES</td>
+                    <td class="col-header-sellos" colspan="3">SELLOS</td>
+                </tr>
+                <tr>
+                    <td class="row-num">1</td>
+                    <td class="item-text">VISIBLE AREAS / AREAS VISIBLES</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['CabinaPilotos_AreasVisibles'], true), 'OK', '')}</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['CabinaPilotos_AreasVisibles'], true), body('Parse_JSON_32')?['Iniciales'], '')}</td>
+                    <td class="sello-subcell"></td><td class="sello-subcell"></td><td class="sello-subcell"></td>
+                </tr>
+                <tr>
+                    <td class="row-num">2</td>
+                    <td class="item-text">COCKPIT SEATS / ASIENTOS</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['CabinaPilotos_Asientos'], true), 'OK', '')}</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['CabinaPilotos_Asientos'], true), body('Parse_JSON_32')?['Iniciales'], '')}</td>
+                    <td class="sello-subcell"></td><td class="sello-subcell"></td><td class="sello-subcell"></td>
+                </tr>
+                <tr>
+                    <td class="row-num">3</td>
+                    <td class="item-text">ACCESIBLE COMPARTMENTS / COMPART. ACCESIBLES DIVERSOS</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['CabinaPilotos_CompartAccesiblesDiversos'], true), 'OK', '')}</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['CabinaPilotos_CompartAccesiblesDiversos'], true), body('Parse_JSON_32')?['Iniciales'], '')}</td>
+                    <td class="sello-subcell"></td><td class="sello-subcell"></td><td class="sello-subcell"></td>
+                </tr>
+                <tr>
+                    <td class="row-num">4</td>
+                    <td class="item-text">Acceso Compartimiento Electronico (Area inspeccionada y sellada) <span class="sello-tag">01 SELLO</span></td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['CabinaPilotos_AccesoCompartElectronico'], true), 'OK', '')}</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['CabinaPilotos_AccesoCompartElectronico'], true), body('Parse_JSON_32')?['Iniciales'], '')}</td>
+                    <td class="sello-subcell"></td><td class="sello-subcell"></td><td class="sello-subcell"></td>
+                </tr>
+
+                <!-- Section B: GALLEY / COCINAS -->
+                <tr>
+                    <td class="sec-letter">B</td>
+                    <td class="sec-header">GALLEY / COCINAS</td>
+                    <td class="col-header-ok">OK</td>
+                    <td class="col-header-init">INICIALES</td>
+                    <td class="col-header-sellos" colspan="3">SELLOS</td>
+                </tr>
+                <tr>
+                    <td class="row-num">1</td>
+                    <td class="item-text">VISIBLES AREAS / AREAS VISIBLES</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['Cocinas_AreasVisibles'], true), 'OK', '')}</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['Cocinas_AreasVisibles'], true), body('Parse_JSON_32')?['Iniciales'], '')}</td>
+                    <td class="sello-subcell"></td><td class="sello-subcell"></td><td class="sello-subcell"></td>
+                </tr>
+                <tr>
+                    <td class="row-num">2</td>
+                    <td class="item-text">CARTS, STORAGE COMPARTMENTS / CARROS Y SUS COMPART.</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['Cocinas_CarrosSusCompart'], true), 'OK', '')}</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['Cocinas_CarrosSusCompart'], true), body('Parse_JSON_32')?['Iniciales'], '')}</td>
+                    <td class="sello-subcell"></td><td class="sello-subcell"></td><td class="sello-subcell"></td>
+                </tr>
+                <tr>
+                    <td class="row-num">3</td>
+                    <td class="item-text">WASTE CONTAINERS / CONTENEDORES DE BASURA</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['Cocinas_ContenedoresBasura'], true), 'OK', '')}</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['Cocinas_ContenedoresBasura'], true), body('Parse_JSON_32')?['Iniciales'], '')}</td>
+                    <td class="sello-subcell"></td><td class="sello-subcell"></td><td class="sello-subcell"></td>
+                </tr>
+                <tr>
+                    <td class="row-num">4</td>
+                    <td class="item-text">ACCESSIBLE COMPARTMENTS / COMPART. ACCESIBLES</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['Cocinas_CompartAccesibles'], true), 'OK', '')}</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['Cocinas_CompartAccesibles'], true), body('Parse_JSON_32')?['Iniciales'], '')}</td>
+                    <td class="sello-subcell"></td><td class="sello-subcell"></td><td class="sello-subcell"></td>
+                </tr>
+
+                <!-- Section C: LAVATORIES / BAÑOS -->
+                <tr>
+                    <td class="sec-letter">C</td>
+                    <td class="sec-header">LAVATORIES / BAÑOS</td>
+                    <td class="col-header-ok">OK</td>
+                    <td class="col-header-init">INICIALES</td>
+                    <td class="col-header-sellos" colspan="3">SELLOS</td>
+                </tr>
+                <tr>
+                    <td class="row-num">1</td>
+                    <td class="item-text">VISIBLE AREAS / AREAS VISIBLES</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['Banos_AreasVisibles'], true), 'OK', '')}</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['Banos_AreasVisibles'], true), body('Parse_JSON_32')?['Iniciales'], '')}</td>
+                    <td class="sello-subcell"></td><td class="sello-subcell"></td><td class="sello-subcell"></td>
+                </tr>
+                <tr>
+                    <td class="row-num">2</td>
+                    <td class="item-text">ACCESSIBLE COMPARTMENTS / COMPART. ACCESIBLES</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['Banos_CompartAccesibles'], true), 'OK', '')}</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['Banos_CompartAccesibles'], true), body('Parse_JSON_32')?['Iniciales'], '')}</td>
+                    <td class="sello-subcell"></td><td class="sello-subcell"></td><td class="sello-subcell"></td>
+                </tr>
+                <tr>
+                    <td class="row-num">3</td>
+                    <td class="item-text">WASTE CONTAINERS / CONTENEDORES DE BASURA</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['Banos_ContenedoresBasura'], true), 'OK', '')}</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['Banos_ContenedoresBasura'], true), body('Parse_JSON_32')?['Iniciales'], '')}</td>
+                    <td class="sello-subcell"></td><td class="sello-subcell"></td><td class="sello-subcell"></td>
+                </tr>
+
+                <!-- Section D: EXTERNAL AREAS / AREAS EXTERNAS -->
+                <tr>
+                    <td class="sec-letter">D</td>
+                    <td class="sec-header">EXTERNAL AREAS / AREAS EXTERNAS</td>
+                    <td class="col-header-ok">OK</td>
+                    <td class="col-header-init">INICIALES</td>
+                    <td class="col-header-sellos" colspan="3">SELLOS</td>
+                </tr>
+                <tr>
+                    <td class="row-num">1</td>
+                    <td class="item-text">VISIBLE AREAS / AREAS VISIBLES</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_AreasVisibles'], true), 'OK', '')}</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_AreasVisibles'], true), body('Parse_JSON_32')?['Iniciales'], '')}</td>
+                    <td class="sello-subcell"></td><td class="sello-subcell"></td><td class="sello-subcell"></td>
+                </tr>
+                <tr>
+                    <td class="row-num">2</td>
+                    <td class="item-text">Acceso Compartimiento Electronico (Area inspeccionada y sellada) <span class="sello-tag">01 SELLO</span></td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_AccesoCompartElectronico'], true), 'OK', '')}</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_AccesoCompartElectronico'], true), body('Parse_JSON_32')?['Iniciales'], '')}</td>
+                    <td class="sello-subcell"></td><td class="sello-subcell"></td><td class="sello-subcell"></td>
+                </tr>
+                <tr>
+                    <td class="row-num">3</td>
+                    <td class="item-text">WHEEL WELLS / FOSOS TRENES ATERRIZAJE</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_FososTrenesAterrizaje'], true), 'OK', '')}</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_FososTrenesAterrizaje'], true), body('Parse_JSON_32')?['Iniciales'], '')}</td>
+                    <td class="sello-subcell"></td><td class="sello-subcell"></td><td class="sello-subcell"></td>
+                </tr>
+                <tr>
+                    <td class="row-num">4</td>
+                    <td class="item-text">EXTERIOR HATCHES, CAVITIES / REGISTROS, CAVIDADES EXT.</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_RegistrosCavidadesExt'], true), 'OK', '')}</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_RegistrosCavidadesExt'], true), body('Parse_JSON_32')?['Iniciales'], '')}</td>
+                    <td class="sello-subcell"></td><td class="sello-subcell"></td><td class="sello-subcell"></td>
+                </tr>
+                <tr>
+                    <td class="row-num">5</td>
+                    <td class="item-text">BELLY 1 / BODEGA DELANTERA</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_BodegaDelantera'], true), 'OK', '/')}</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_BodegaDelantera'], true), body('Parse_JSON_32')?['Iniciales'], '/')}</td>
+                    <td class="sello-subcell"></td><td class="sello-subcell"></td><td class="sello-subcell"></td>
+                </tr>
+                <tr>
+                    <td class="row-num">6</td>
+                    <td class="item-text">Compartimiento Electronico (Area inspeccionada y sellada) <span class="sello-tag">01 SELLO</span></td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_CompartElectronico'], true), 'OK', '')}</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_CompartElectronico'], true), body('Parse_JSON_32')?['Iniciales'], '')}</td>
+                    <td class="sello-subcell"></td><td class="sello-subcell"></td><td class="sello-subcell"></td>
+                </tr>
+                <tr>
+                    <td class="row-num">7</td>
+                    <td class="item-text">Compartimiento Botella de Oxigeno</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_CompartBotellaOxigeno'], true), 'OK', '')}</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_CompartBotellaOxigeno'], true), body('Parse_JSON_32')?['Iniciales'], '')}</td>
+                    <td class="sello-subcell"></td><td class="sello-subcell"></td><td class="sello-subcell"></td>
+                </tr>
+                <tr>
+                    <td class="row-num">8</td>
+                    <td class="item-text">Compartimiento Aire Acondicionado</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_CompartAireAcondicionado'], true), 'OK', '')}</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_CompartAireAcondicionado'], true), body('Parse_JSON_32')?['Iniciales'], '')}</td>
+                    <td class="sello-subcell"></td><td class="sello-subcell"></td><td class="sello-subcell"></td>
+                </tr>
+                <tr>
+                    <td class="row-num">9</td>
+                    <td class="item-text">Compartimiento Conexiones Electronicas</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_CompartConexionesElectronicas'], true), 'OK', '')}</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_CompartConexionesElectronicas'], true), body('Parse_JSON_32')?['Iniciales'], '')}</td>
+                    <td class="sello-subcell"></td><td class="sello-subcell"></td><td class="sello-subcell"></td>
+                </tr>
+                <tr>
+                    <td class="row-num">10</td>
+                    <td class="item-text">BELLY 2 / BODEGA TRASERA</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_BodegaTrasera'], true), 'OK', '')}</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_BodegaTrasera'], true), body('Parse_JSON_32')?['Iniciales'], '')}</td>
+                    <td class="sello-subcell"></td><td class="sello-subcell"></td><td class="sello-subcell"></td>
+                </tr>
+                <tr>
+                    <td class="row-num">11</td>
+                    <td class="item-text">BULK</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_Bulk'], true), 'OK', '')}</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_Bulk'], true), body('Parse_JSON_32')?['Iniciales'], '')}</td>
+                    <td class="sello-subcell"></td><td class="sello-subcell"></td><td class="sello-subcell"></td>
+                </tr>
+                <tr>
+                    <td class="row-num">12</td>
+                    <td class="item-text">Compartimiento Sensor de Incendio</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_CompartSensorIncendio'], true), 'OK', '')}</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_CompartSensorIncendio'], true), body('Parse_JSON_32')?['Iniciales'], '')}</td>
+                    <td class="sello-subcell"></td><td class="sello-subcell"></td><td class="sello-subcell"></td>
+                </tr>
+                <tr>
+                    <td class="row-num">13</td>
+                    <td class="item-text">Compartimiento de Agua y Baño</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_CompartAguaBano'], true), 'OK', '')}</td>
+                    <td class="cell-center">@{if(equals(body('Parse_JSON_32')?['AreasExternas_CompartAguaBano'], true), body('Parse_JSON_32')?['Iniciales'], '')}</td>
+                    <td class="sello-subcell"></td><td class="sello-subcell"></td><td class="sello-subcell"></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- Observaciones -->
+        <div class="obs-row">
+            OBSERVACIONES: <span style="font-weight: normal;">@{coalesce(body('Parse_JSON_32')?['Observaciones'], '')}</span>
+        </div>
+
+        <!-- Signatures and Notification Section -->
+        <div class="footer-signatures">
+            <table class="sig-table">
+                <tr>
+                    <td style="width: 8%;">NOMBRE</td>
+                    <td style="width: 39%;">
+                        <div class="sig-line-box">@{body('Parse_JSON_32')?['InspectorNombre']}</div>
+                    </td>
+                    <td style="width: 6%;"></td>
+                    <td style="width: 8%;">NOMBRE</td>
+                    <td style="width: 39%;">
+                        <div class="sig-line-box">@{body('Parse_JSON_32')?['SupervisorNombre']}</div>
+                    </td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td class="sig-sublabel">SEGURIDAD QUE INSPECCIONO</td>
+                    <td></td>
+                    <td></td>
+                    <td class="sig-sublabel">SUPERVISOR DE SEGURIDAD</td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td>
+                        <div class="sig-line-box" style="min-height: 36px;">
+                            <img class="sig-img" src="@{body('Parse_JSON_32')?['FirmaInspector']}" alt="" />
+                        </div>
+                    </td>
+                    <td></td>
+                    <td></td>
+                    <td>
+                        <div class="sig-line-box" style="min-height: 36px;">
+                            <img class="sig-img" src="@{body('Parse_JSON_32')?['FirmaSupervisor']}" alt="" />
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td class="sig-sublabel">FIRMA</td>
+                    <td></td>
+                    <td></td>
+                    <td class="sig-sublabel">FIRMA</td>
+                </tr>
+            </table>
+
+            <table class="notif-table">
+                <tr>
+                    <td style="width: 72%; text-align: left;">
+                        NOTIFICACION AL COMANDANTE POR LA VERIFICACION DE SEGURIDAD
+                    </td>
+                    <td style="width: 28%; text-align: left;">
+                        <div style="margin-bottom: 4px;">
+                            <span class="chk-rect">@{if(equals(body('Parse_JSON_32')?['NotificacionComandante'], 'VERBAL'), '&#10003;', '')}</span> VERBAL
+                        </div>
+                        <div>
+                            <span class="chk-rect">@{if(equals(body('Parse_JSON_32')?['NotificacionComandante'], 'ESCRITA'), '&#10003;', '')}</span> ESCRITA
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <!-- Sensitive Security Information Box -->
+    <div class="ssi-warning-box">
+        <div class="ssi-title">SENSITIVE SECURITY INFORMATION</div>
+        <div>
+            WARNING: THIS RECORD CONTAINS SENSITIVE SECURITY INFORMATION THAT IS CONTROLLED UNDER 49 C.F.R. PARTS 15 AND 1520. NO PART OF THIS RECORD MAY BE DISCLOSED TO PERSONS WITHOUT A "NEED TO KNOW", AS DEFINED IN 49 C.F.R. PARTS 15 AND 1520, EXCEPT WITH THE WRITTEN PERMISSION OF THE ADMINISTRATOR OF THE TRANSPORTATION SECURITY ADMINISTRATION OR THE SECRETARY OF TRANSPORTATION. UNAUTHORIZED RELEASE MAY RESULT IN CIVIL PENALTIES OR OTHER ACTION. FOR U.S. GOVERNMENT AGENCIES, PUBLIC DISCLOSURE GOVERNED BY 5 U.S.C. 552 AND 49 C.F.R. PARTS 15 AND 1520.
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

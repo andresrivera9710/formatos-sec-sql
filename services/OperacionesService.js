@@ -29,6 +29,7 @@ class OperacionesService {
         aerolinea: 'Aeromexico',
         codigoAerolinea: 'AMX',
         rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoCIECId',
         spConsulta: 'dbo.ConsultarDetallesCIEC',
         spComplementos: 'dbo.ConsultarComplementosCIEC',
         spActualizar: 'dbo.SincronizarDetallesCIEC',
@@ -41,6 +42,7 @@ class OperacionesService {
         aerolinea: 'Aeromexico',
         codigoAerolinea: 'AMX',
         rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoControlERId',
         spConsulta: 'dbo.ConsultarDetalleControlER',
         spComplementos: 'dbo.ConsultarComplementosControlER',
         spActualizar: 'dbo.EditarDetalleControlERJson',
@@ -53,6 +55,7 @@ class OperacionesService {
         aerolinea: 'Aeromexico',
         codigoAerolinea: 'AMX',
         rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoControlEBId',
         spConsulta: 'dbo.ConsultarDetallesControlEB',
         spComplementos: 'dbo.ConsultarComplementosControlEB',
         spActualizar: 'dbo.EditarDetalleControlEBJson',
@@ -65,6 +68,7 @@ class OperacionesService {
         aerolinea: 'Aeromexico',
         codigoAerolinea: 'AMX',
         rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoCECId',
         spConsulta: 'dbo.ConsultarDetalleCECDesp',
         spComplementos: 'dbo.ConsultarComplementosCEC',
         spActualizar: 'dbo.ActualizarDetalleCECDespJson',
@@ -77,6 +81,7 @@ class OperacionesService {
         aerolinea: 'Aeromexico',
         codigoAerolinea: 'AMX',
         rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoEquipMECDId',
         spConsulta: 'dbo.BuscarEncabezadoEquipMECD',
         spActualizar: 'dbo.EditarEncabezadoEquipMECD',
         icono: 'exclamation-triangle'
@@ -86,7 +91,8 @@ class OperacionesService {
         nombre: 'Puestos por Operación',
         aerolinea: 'Aeromexico',
         codigoAerolinea: 'AMX',
-        rangos: ['SUPERVISOR'],
+        rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoPOId',
         spConsulta: 'dbo.ConsultarDetallesPO',
         spComplementos: 'dbo.ConsultarComplementosPO',
         spActualizar: 'dbo.EditarDetallePOJson',
@@ -114,6 +120,7 @@ class OperacionesService {
         aerolinea: 'Arajet',
         codigoAerolinea: 'ARA',
         rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoCIECId',
         spConsulta: 'dbo.ConsultarDetallesCIEC',
         spComplementos: 'dbo.ConsultarComplementosCIEC',
         spActualizar: 'dbo.SincronizarDetallesCIEC',
@@ -126,6 +133,7 @@ class OperacionesService {
         aerolinea: 'Arajet',
         codigoAerolinea: 'ARA',
         rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoControlERId',
         spConsulta: 'dbo.ConsultarDetalleControlER',
         spComplementos: 'dbo.ConsultarComplementosControlER',
         spActualizar: 'dbo.EditarDetalleControlERJson',
@@ -138,6 +146,7 @@ class OperacionesService {
         aerolinea: 'Arajet',
         codigoAerolinea: 'ARA',
         rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoControlEBId',
         spConsulta: 'dbo.ConsultarDetallesControlEB',
         spComplementos: 'dbo.ConsultarComplementosControlEB',
         spActualizar: 'dbo.EditarDetalleControlEBJson',
@@ -150,6 +159,7 @@ class OperacionesService {
         aerolinea: 'Arajet',
         codigoAerolinea: 'ARA',
         rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoCECId',
         spConsulta: 'dbo.ConsultarDetalleCECDesp',
         spComplementos: 'dbo.ConsultarComplementosCEC',
         spActualizar: 'dbo.ActualizarDetalleCECDespJson',
@@ -162,9 +172,10 @@ class OperacionesService {
         aerolinea: 'Arajet',
         codigoAerolinea: 'ARA',
         rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoCFRId',
         spConsulta: 'dbo.ConsultarDetallesCFR',
         spComplementos: 'dbo.ConsultarComplementosCFR',
-        spActualizar: 'dbo.EditarDetalleCFR_JSON',
+        spActualizar: 'dbo.EditarDetalleCFRJson',
         spActualizarComp: 'dbo.EditarComponentesCFR',
         icono: 'barcode'
       },
@@ -189,6 +200,7 @@ class OperacionesService {
         aerolinea: 'Delta',
         codigoAerolinea: 'DAL',
         rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoCLLId',
         spConsulta: 'dbo.ConsultarDetalleCLL',
         spComplementos: 'dbo.ConsultarComplementosCLL',
         spActualizar: 'dbo.ActualizarDetalleCLL',
@@ -200,7 +212,8 @@ class OperacionesService {
         nombre: 'Daily Activity Log',
         aerolinea: 'Delta',
         codigoAerolinea: 'DAL',
-        rangos: ['SUPERVISOR'],
+        rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'ItinerarioId',
         spConsulta: 'dbo.BuscarDetalleDAL',
         spActualizar: 'dbo.ActualizarDetalleDAL',
         icono: 'calendar-check'
@@ -211,6 +224,7 @@ class OperacionesService {
         aerolinea: 'Delta',
         codigoAerolinea: 'DAL',
         rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoSPId',
         spConsulta: 'dbo.BuscarComplementosSP',
         spActualizar: 'dbo.ActualizarDetalleSPJson',
         icono: 'user-check'
@@ -220,7 +234,8 @@ class OperacionesService {
         nombre: 'Sequence of Events Log',
         aerolinea: 'Delta',
         codigoAerolinea: 'DAL',
-        rangos: ['SUPERVISOR'],
+        rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'ItinerarioId',
         spConsulta: 'dbo.BuscarSEL',
         spActualizar: 'dbo.ActualizarSEL',
         icono: 'history'
@@ -231,6 +246,7 @@ class OperacionesService {
         aerolinea: 'Delta',
         codigoAerolinea: 'DAL',
         rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoControlERId',
         spConsulta: 'dbo.ConsultarDetalleControlER',
         spComplementos: 'dbo.ConsultarComplementosControlER',
         spActualizar: 'dbo.EditarDetalleControlERJson',
@@ -243,6 +259,7 @@ class OperacionesService {
         aerolinea: 'Delta',
         codigoAerolinea: 'DAL',
         rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoCECId',
         spConsulta: 'dbo.ConsultarDetalleCECDesp',
         spComplementos: 'dbo.ConsultarComplementosCEC',
         spActualizar: 'dbo.ActualizarDetalleCECDespJson',
@@ -255,6 +272,7 @@ class OperacionesService {
         aerolinea: 'Delta',
         codigoAerolinea: 'DAL',
         rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoCIECId',
         spConsulta: 'dbo.ConsultarDetallesCIEC',
         spComplementos: 'dbo.ConsultarComplementosCIEC',
         spActualizar: 'dbo.SincronizarDetallesCIEC',
@@ -263,10 +281,11 @@ class OperacionesService {
       },
       {
         id: 'dl-rx',
-        nombre: 'Control de Equipajes en rayos X',
+        nombre: 'Control de Equipaje en rayos X',
         aerolinea: 'Delta',
         codigoAerolinea: 'DAL',
         rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'ItinerarioId',
         spConsulta: 'dbo.ConsultarDRayosXSEC',
         spActualizar: 'dbo.ActualizarDRayosXSEC',
         icono: 'x-ray'
@@ -274,55 +293,16 @@ class OperacionesService {
 
       // --- AIR CANADA (ACA) ---
       {
-        id: 'ac-ass',
-        nombre: 'Aircraft Security Search',
-        aerolinea: 'Air Canada',
-        codigoAerolinea: 'ACA',
-        rangos: ['AGENTE', 'SUPERVISOR'],
-        spConsulta: 'dbo.BuscarASS',
-        spActualizar: 'dbo.ActualizarASS',
-        icono: 'plane-circle-check'
-      },
-      {
-        id: 'ac-anexoa',
-        nombre: 'Anexo A / Aircraft Access Control Log Sheet',
-        aerolinea: 'Air Canada',
-        codigoAerolinea: 'ACA',
-        rangos: ['AGENTE', 'SUPERVISOR'],
-        spActualizar: 'dbo.ActualizarAnexoA',
-        icono: 'file-signature'
-      },
-      {
-        id: 'ac-cec',
-        nombre: 'Control de Equipajes en Compartimentos',
-        aerolinea: 'Air Canada',
-        codigoAerolinea: 'ACA',
-        rangos: ['AGENTE', 'SUPERVISOR'],
-        spConsulta: 'dbo.ConsultarDetalleCECDesp',
-        spActualizar: 'dbo.ActualizarDetalleCECDespJson',
-        icono: 'box'
-      },
-      {
-        id: 'ac-eb',
-        nombre: 'Control de Equipajes en Banda de Salida (Rayos X)',
-        aerolinea: 'Air Canada',
-        codigoAerolinea: 'ACA',
-        spConsulta: 'dbo.ConsultarDetallesControlEB',
-        spActualizar: 'dbo.EditarDetalleControlEBJson',
-        rangos: ['AGENTE', 'SUPERVISOR'],
-        icono: 'conveyor-belt'
-      },
-      {
         id: 'ac-cp',
         nombre: 'Control de Perimétrica (unificado)',
         aerolinea: 'Air Canada',
         codigoAerolinea: 'ACA',
+        rangos: ['AGENTE', 'SUPERVISOR'],
         paramEncabezado: 'EncabezadoCPId',
         spConsulta: 'dbo.ConsultarDetallesCP',
         spComplementos: 'dbo.ConsultarComplementosCP',
         spActualizar: 'dbo.ActualizarDetalleCPJson',
         spActualizarComp: 'dbo.ActualizarComplementosCP',
-        rangos: ['AGENTE', 'SUPERVISOR'],
         icono: 'shield-alt'
       },
       {
@@ -330,19 +310,71 @@ class OperacionesService {
         nombre: 'Control de Equipaje en Revisión AVSEC/SGDAIA Banda de Salida (rayos x)',
         aerolinea: 'Air Canada',
         codigoAerolinea: 'ACA',
-        spConsulta: 'dbo.ConsultarDetalleControlER',
-        spActualizar: 'dbo.EditarDetalleControlERJson',
         rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoControlERId',
+        spConsulta: 'dbo.ConsultarDetalleControlER',
+        spComplementos: 'dbo.ConsultarComplementosControlER',
+        spActualizar: 'dbo.EditarDetalleControlERJson',
+        spActualizarComp: 'dbo.ActualizarComplementosControlER',
         icono: 'luggage-cart'
+      },
+      {
+        id: 'ac-eb',
+        nombre: 'Control de Equipajes en Banda de Salida (Rayos X)',
+        aerolinea: 'Air Canada',
+        codigoAerolinea: 'ACA',
+        rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoControlEBId',
+        spConsulta: 'dbo.ConsultarDetallesControlEB',
+        spComplementos: 'dbo.ConsultarComplementosControlEB',
+        spActualizar: 'dbo.EditarDetalleControlEBJson',
+        spActualizarComp: 'dbo.EditarComponentesControlEB',
+        icono: 'conveyor-belt'
+      },
+      {
+        id: 'ac-cec',
+        nombre: 'Control de Equipajes en Compartimentos',
+        aerolinea: 'Air Canada',
+        codigoAerolinea: 'ACA',
+        rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoCECId',
+        spConsulta: 'dbo.ConsultarDetalleCECDesp',
+        spComplementos: 'dbo.ConsultarComplementosCEC',
+        spActualizar: 'dbo.ActualizarDetalleCECDespJson',
+        spActualizarComp: 'dbo.ActualizarComplementosCEC',
+        icono: 'box'
+      },
+      {
+        id: 'ac-ass',
+        nombre: 'Aircraft Security Search',
+        aerolinea: 'Air Canada',
+        codigoAerolinea: 'ACA',
+        rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoASSId',
+        spConsulta: 'dbo.BuscarASS',
+        spActualizar: 'dbo.ActualizarASS',
+        icono: 'clipboard-check'
+      },
+      {
+        id: 'ac-anexoa',
+        nombre: 'Anexo A / Aircraft Access Control Log Sheet',
+        aerolinea: 'Air Canada',
+        codigoAerolinea: 'ACA',
+        rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoAnexoAId',
+        spConsulta: 'dbo.BuscarAnexoA',
+        spActualizar: 'dbo.ActualizarAnexoA',
+        icono: 'file-signature'
       },
       {
         id: 'ac-anexob',
         nombre: 'Annex B, to aircraft security search checklist',
         aerolinea: 'Air Canada',
         codigoAerolinea: 'ACA',
+        rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoAnexoBId',
         spConsulta: 'dbo.BuscarAnexoB',
         spActualizar: 'dbo.ActualizarAnexoB',
-        rangos: ['AGENTE', 'SUPERVISOR'],
         icono: 'tasks'
       },
 
@@ -353,6 +385,7 @@ class OperacionesService {
         aerolinea: 'LAN CARGO',
         codigoAerolinea: 'LCO',
         rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoLIADCId',
         spConsulta: 'dbo.BuscarLIADC',
         spActualizar: 'dbo.ActualizarLIADC',
         icono: 'clipboard-list'
@@ -363,8 +396,11 @@ class OperacionesService {
         aerolinea: 'LAN CARGO',
         codigoAerolinea: 'LCO',
         rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoCIECId',
         spConsulta: 'dbo.ConsultarDetallesCIEC',
+        spComplementos: 'dbo.ConsultarComplementosCIEC',
         spActualizar: 'dbo.SincronizarDetallesCIEC',
+        spActualizarComp: 'dbo.ActualizarComplementosCIEC',
         icono: 'door-open'
       },
       {
@@ -513,7 +549,11 @@ class OperacionesService {
 
     return todos.filter(f => {
       const coincideAero = f.aerolinea.toUpperCase() === aeroNormalizada ||
-        (aeroNormalizada.includes('LATAM') && f.aerolinea.toUpperCase().includes('LAN CARGO')) ||
+        (aeroNormalizada.includes('DELTA') && f.aerolinea.toUpperCase() === 'DELTA') ||
+        (aeroNormalizada.includes('AEROMEXICO') && f.aerolinea.toUpperCase() === 'AEROMEXICO') ||
+        (aeroNormalizada.includes('ARAJET') && f.aerolinea.toUpperCase() === 'ARAJET') ||
+        (aeroNormalizada.replace(/\s+/g, '').includes('AIRCANADA') && f.aerolinea.toUpperCase() === 'AIR CANADA') ||
+        ((aeroNormalizada.includes('LATAM') || aeroNormalizada.replace(/\s+/g, '').includes('LANCARGO')) && f.aerolinea.toUpperCase().includes('LAN CARGO')) ||
         (aeroNormalizada.includes('TAMPA') && f.aerolinea.toUpperCase().includes('AVIANCA'));
 
       const coincideRol = f.rangos.some(r => rolNormalizado.includes(r.toUpperCase()));

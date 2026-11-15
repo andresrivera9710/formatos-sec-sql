@@ -465,13 +465,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const arriboDelVuelo = rawArribo && rawArribo !== '--:--' ? extractHHMM(rawArribo) : '00:00';
     const horaAsegurado = extractHHMM(inputHoraAsegurado?.value || '');
     const tractoristaEmpleadoId = parseInt(selTractorista?.value || '0', 10) || 0;
-    const tractoristaNombre = tractoristaEmpleadoId > 0 && selTractorista && selTractorista.selectedIndex >= 0
+    const elNombreTractoristaDelta = document.getElementById('cpNombreTractoristaDelta');
+    const elTractoristaDelta = document.getElementById('cpTractoristaDelta');
+    const elNombreAlerosDelta = document.getElementById('cpNombreAlerosDelta');
+    const nombreTractoristaDelta = String(elNombreTractoristaDelta?.value || '').trim();
+    const tractoristaDelta = String(elTractoristaDelta?.value || '').trim();
+    const nombreAlerosDelta = String(elNombreAlerosDelta?.value || '').trim();
+
+    const tractoristaNombre = nombreTractoristaDelta || (tractoristaEmpleadoId > 0 && selTractorista && selTractorista.selectedIndex >= 0
       ? String(selTractorista.options[selTractorista.selectedIndex]?.textContent || '').trim()
-      : '';
+      : '');
     const maquinariaEquipoId = parseInt(selNoUnidad?.value || '0', 10) || 0;
-    const noUnidadLabel = maquinariaEquipoId > 0 && selNoUnidad && selNoUnidad.selectedIndex >= 0
+    const noUnidadLabel = tractoristaDelta || (maquinariaEquipoId > 0 && selNoUnidad && selNoUnidad.selectedIndex >= 0
       ? String(selNoUnidad.options[selNoUnidad.selectedIndex]?.textContent || '').trim()
-      : '';
+      : '');
     const observaciones = String(inputObservaciones?.value || '').trim();
 
     if (guardar) {
@@ -548,6 +555,9 @@ document.addEventListener('DOMContentLoaded', () => {
           tractoristaNombre,
           maquinariaEquipoId,
           noUnidadLabel,
+          nombreTractoristaDelta,
+          tractoristaDelta,
+          nombreAlerosDelta,
           alerosIds: aleros.map((a) => a.EmpleadoId),
           alerosNombres: aleros.map((a) => a.Nombre),
           agentesEmpleadoIds: String(inputAgentesIds?.value || '').trim(),

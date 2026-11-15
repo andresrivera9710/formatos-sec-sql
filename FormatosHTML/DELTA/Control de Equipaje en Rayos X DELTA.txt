@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Control de Equipaje en Rayos X DELTA</title>
+  <style>
+    @page {
+      size: letter portrait;
+      margin: 10mm 12mm;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    /* Vista en navegador: Simula una hoja física de papel carta centrada */
+    body {
+      background-color: #e5e7eb;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 11px;
+      color: #000000;
+      margin: 0;
+      padding: 20px 0;
+      display: flex;
+      justify-content: center;
+    }
+
+    .sheet {
+      width: 215.9mm;
+      min-height: 279.4mm;
+      max-width: 800px;
+      background-color: #ffffff;
+      padding: 12mm 14mm;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      border-radius: 2px;
+      margin: 0 auto;
+    }
+
+    /* Encabezado: Logo Delta y Banner Gris */
+    .header-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 12px;
+    }
+    .header-table td {
+      border: none;
+      padding: 0;
+      vertical-align: middle;
+    }
+    .logo-cell {
+      width: 32%;
+      text-align: left;
+    }
+    .logo-img {
+      max-height: 48px;
+      max-width: 180px;
+      object-fit: contain;
+      display: block;
+    }
+    .title-banner {
+      width: 68%;
+      background-color: #b0b3b5;
+      text-align: center;
+      font-weight: bold;
+      font-size: 13px;
+      padding: 8px 10px;
+      border: 1.5px solid #000000 !important;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+
+    /* Metadatos del Vuelo */
+    .meta-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 14px;
+    }
+    .meta-table td {
+      border: none;
+      padding: 5px 4px;
+      font-size: 11px;
+      vertical-align: bottom;
+    }
+    .meta-label {
+      font-weight: bold;
+      font-size: 11px;
+    }
+    .meta-line {
+      border-bottom: 1px solid #000000;
+      min-width: 140px;
+      display: inline-block;
+      padding-left: 6px;
+      padding-bottom: 2px;
+      font-weight: normal;
+    }
+
+    /* Tabla de Tiempos */
+    .table-times {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 14px;
+      border: 1.5px solid #000000;
+    }
+    .table-times td {
+      border: 1px solid #000000;
+      padding: 6px 10px;
+      font-size: 11px;
+    }
+    .table-times td:first-child {
+      width: 45%;
+      font-weight: bold;
+      background-color: #fafafa;
+      text-transform: uppercase;
+    }
+    .table-times td:last-child {
+      width: 55%;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    /* Contenedor Tablas de Personal Lado a Lado */
+    .grid-container {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 14px;
+    }
+    .grid-cell {
+      width: 49%;
+      vertical-align: top;
+    }
+    .spacer-cell {
+      width: 2%;
+    }
+
+    /* Tablas de Personal SAG y LAATS */
+    .personnel-table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1.5px solid #000000;
+      page-break-inside: auto;
+    }
+    .personnel-header {
+      background-color: #b0b3b5;
+      font-weight: bold;
+      text-align: center;
+      padding: 6px;
+      font-size: 11px;
+      border: 1px solid #000000;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .sub-th {
+      background-color: #e5e7eb;
+      font-weight: bold;
+      font-size: 10px;
+      padding: 4px 6px;
+      border: 1px solid #000000;
+      text-transform: uppercase;
+    }
+    .personnel-table td {
+      border: 1px solid #000000;
+      padding: 5px 8px;
+      font-size: 10px;
+      height: 20px;
+    }
+    .personnel-table tr {
+      page-break-inside: avoid;
+    }
+
+    /* Sección de Observaciones */
+    .obs-section {
+      width: 100%;
+      page-break-inside: avoid;
+      margin-top: 6px;
+    }
+    .obs-title {
+      font-weight: bold;
+      font-size: 11px;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+    .obs-box {
+      border: 1.5px solid #000000;
+      min-height: 80px;
+      padding: 8px 10px;
+      font-size: 11px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      background-color: #ffffff;
+      word-break: break-word;
+    }
+
+    /* Reglas de Impresión y Conversión a PDF */
+    @media print {
+      body {
+        background-color: #ffffff;
+        padding: 0;
+        margin: 0;
+        display: block;
+      }
+      .sheet {
+        width: 100%;
+        max-width: 100%;
+        min-height: auto;
+        padding: 0;
+        margin: 0;
+        box-shadow: none;
+        border-radius: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="sheet">
+
+    <!-- HEADER CON LOGO VARIABLE Y TÍTULO -->
+    <table class="header-table">
+      <tr>
+        <td class="logo-cell">
+          <img src="data:image/png;base64,@{variables('varLogoDELTA')}" class="logo-img" alt="DELTA" />
+        </td>
+        <td class="title-banner">
+          CONTROL DE EQUIPAJE EN RAYOS X DELTA
+        </td>
+      </tr>
+    </table>
+
+    <!-- METADATOS DEL VUELO -->
+    <table class="meta-table">
+      <tr>
+        <td style="width: 50%;">
+          <span class="meta-label">HORA (INICIA PUESTO):</span>
+          <span class="meta-line">@{body('Parse_JSON_29')?['HoraIniciaPuesto']}</span>
+        </td>
+        <td style="width: 50%;">
+          <span class="meta-label">SUPERVISOR:</span>
+          <span class="meta-line">@{body('Parse_JSON_29')?['Supervisor']}</span>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <span class="meta-label">FECHA:</span>
+          <span class="meta-line">@{body('Parse_JSON_29')?['Fecha']}</span>
+        </td>
+        <td>
+          <span class="meta-label">AGENTE:</span>
+          <span class="meta-line">@{body('Parse_JSON_29')?['Agente']}</span>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="2">
+          <span class="meta-label">VUELO:</span>
+          <span class="meta-line">@{body('Parse_JSON_29')?['Vuelo']}</span>
+        </td>
+      </tr>
+    </table>
+
+    <!-- TABLA DE TIEMPOS -->
+    <table class="table-times">
+      <tr>
+        <td>PRIMER EQUIPAJE RECIBIDO EN RAYOS X</td>
+        <td>@{body('Parse_JSON_29')?['PEquipajeRecibidoRX']}</td>
+      </tr>
+      <tr>
+        <td>PRIMER CARRETA ENVIADA A PLATAFORMA</td>
+        <td>@{body('Parse_JSON_29')?['PCarretaEnviada']}</td>
+      </tr>
+      <tr>
+        <td>ULTIMO EQUIPAJE EN RAYOS X</td>
+        <td>@{body('Parse_JSON_29')?['UEquipajeRX']}</td>
+      </tr>
+      <tr>
+        <td>ULTIMA CARRETA ENVIADA A PLATAFORMA</td>
+        <td>@{body('Parse_JSON_29')?['UCarretaEnviada']}</td>
+      </tr>
+    </table>
+
+    <!-- TABLAS PARALELAS: PERSONAL SAG Y PERSONAL LAATS -->
+    <table class="grid-container">
+      <tr>
+        <!-- PERSONAL SAG -->
+        <td class="grid-cell">
+          <table class="personnel-table">
+            <thead>
+              <tr>
+                <th colspan="2" class="personnel-header">PERSONAL SAG</th>
+              </tr>
+              <tr>
+                <th class="sub-th" style="width: 70%; text-align: left;">NOMBRE</th>
+                <th class="sub-th" style="width: 30%; text-align: center;">ID</th>
+              </tr>
+            </thead>
+            <tbody>
+              @{body('Parse_JSON_29')?['TablaSAG_HTML']}
+            </tbody>
+          </table>
+        </td>
+
+        <td class="spacer-cell"></td>
+
+        <!-- PERSONAL LAATS -->
+        <td class="grid-cell">
+          <table class="personnel-table">
+            <thead>
+              <tr>
+                <th colspan="2" class="personnel-header">PERSONAL LAATS</th>
+              </tr>
+              <tr>
+                <th class="sub-th" style="width: 70%; text-align: left;">NOMBRE</th>
+                <th class="sub-th" style="width: 30%; text-align: center;">ID</th>
+              </tr>
+            </thead>
+            <tbody>
+              @{body('Parse_JSON_29')?['TablaLAATS_HTML']}
+            </tbody>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <!-- OBSERVACIONES -->
+    <div class="obs-section">
+      <div class="obs-title">OBSERVACIONES:</div>
+      <div class="obs-box">@{body('Parse_JSON_29')?['Observaciones']}</div>
+    </div>
+
+  </div>
+
+</body>
+</html>

@@ -7,6 +7,7 @@ const FormatosModel = require('../models/FormatosModel');
 const OperacionesService = require('../services/OperacionesService');
 const FormatosService = require('../services/FormatosService');
 const HtmlPreviewService = require('../services/HtmlPreviewService');
+const { resolveDepartmentId } = require('../middlewares/auth');
 
 class FormatosController {
   /**
@@ -62,7 +63,7 @@ class FormatosController {
 
       const existentes = await FormatosModel.obtenerFormatosPorItinerario(parseInt(itinerarioId, 10));
       const filtrados = tipoFormato 
-        ? existentes.filter(e => (e.TipoFormato || '').toLowerCase() === tipoFormato.toLowerCase())
+        ? existentes.filter(e => FormatosService.matchesTipoFormato(e.TipoFormato, tipoFormato))
         : existentes;
 
       return res.json({
@@ -88,13 +89,27 @@ class FormatosController {
 
     const { formatoId } = req.params;
     const encabezadoId = req.query.encabezadoId ? parseInt(req.query.encabezadoId, 10) : null;
+    const forzarNuevo = req.query.nuevo === '1';
 
     try {
+      // Validación Anti-IDOR: verificar departamento de sesión y autorización de formato sobre la aerolínea activa
+      resolveDepartmentId(req);
+      const formatosAutorizados = OperacionesService.obtenerFormatosParaAerolinea(
+        vuelo.operador,
+        req.session.user?.puestoSec
+      );
+      const estaAutorizado = formatosAutorizados.some(f => f.id === formatoId);
+      if (!estaAutorizado) {
+        console.warn(`[ANTI-IDOR] Usuario ${req.session.user?.usuario} intentó abrir formato '${formatoId}' no autorizado para ${vuelo.operador}`);
+        return res.redirect('/formatos');
+      }
+
       const formatoData = await FormatosService.prepararFormato({
         formatoId,
         itinerarioId: vuelo.itinerarioId,
         encabezadoId,
-        user: req.session.user
+        user: req.session.user,
+        forzarNuevo
       });
 
       res.render('formato_detalle', {
@@ -107,9 +122,28 @@ class FormatosController {
         datosPrevios: formatoData.datos,
         complementos: formatoData.complementos,
         supervisores: formatoData.supervisores || [],
+        usuariosSEC: formatoData.usuariosSEC || [],
+        usuariosLogin: formatoData.usuariosLogin || [],
         empleados: formatoData.empleados || [],
         maquinaria: formatoData.maquinaria || [],
-        cpState: formatoData.cpState || null
+        posicionesPO: formatoData.posicionesPO || [],
+        cpState: formatoData.cpState || null,
+        erState: formatoData.erState || null,
+        ebState: formatoData.ebState || null,
+        cecState: formatoData.cecState || null,
+        ciecState: formatoData.ciecState || null,
+        mecdState: formatoData.mecdState || null,
+        poState: formatoData.poState || null,
+        cfrState: formatoData.cfrState || null,
+        rxState: formatoData.rxState || null,
+        cllState: formatoData.cllState || null,
+        spState: formatoData.spState || null,
+        dalState: formatoData.dalState || null,
+        selState: formatoData.selState || null,
+        assState: formatoData.assState || null,
+        anexoAState: formatoData.anexoAState || null,
+        anexoBState: formatoData.anexoBState || null,
+        liadcState: formatoData.liadcState || null
       });
     } catch (err) {
       console.error('[RENDER DETALLE FORMATO ERROR]', err);
@@ -122,8 +156,25 @@ class FormatosController {
    */
   static async apiProcesarGuardado(req, res) {
     try {
-      const payload = req.body;
-      const resultado = await FormatosService.procesarGuardado(payload, req.session.user);
+      resolveDepartmentId(req);
+      const payload = req.body || {};
+      const vueloSesion = req.session?.vueloSeleccionado || null;
+
+      if (vueloSesion) {
+        const formatosAutorizados = OperacionesService.obtenerFormatosParaAerolinea(
+          vueloSesion.operador,
+          req.session.user?.puestoSec
+        );
+        const formatoPermitido = formatosAutorizados.some(f => f.id === payload.formatoId);
+        if (!formatoPermitido) {
+          return res.status(403).json({
+            success: false,
+            message: 'Acceso denegado: El formato solicitado no corresponde a la aerolínea o perfil activo en su sesión.'
+          });
+        }
+      }
+
+      const resultado = await FormatosService.procesarGuardado(payload, req.session.user, vueloSesion);
       if (!resultado.success) {
         return res.status(resultado.statusCode || 400).json(resultado);
       }
@@ -174,8 +225,12 @@ class FormatosController {
               vuelo,
               user: req.session.user,
               datosPrevios: hydrated.datos || [],
-              complementos: hydrated.complementos || []
+              complementos: hydrated.complementos || [],
+              hydrated
             });
+            if (formatoId.endsWith('-ciec') || formatoId.endsWith('-anexoa')) {
+              meta = { pendientesSalidaCount: resultado.preview?.pendientesSalidaCount || 0 };
+            }
           }
 
           req.session.formatPreviews[formatoId] = {
@@ -209,7 +264,10 @@ class FormatosController {
       return res.json(resultado);
     } catch (err) {
       console.error('[API GUARDAR FORMATO ERROR]', err);
-      return res.status(500).json({
+      const status = Number.isInteger(err.statusCode) && err.statusCode >= 400 && err.statusCode < 600
+        ? err.statusCode
+        : 500;
+      return res.status(status).json({
         success: false,
         message: err.message || 'Error al persistir el formato de seguridad.'
       });

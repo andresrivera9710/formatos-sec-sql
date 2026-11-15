@@ -1,0 +1,249 @@
+<%
+  const enc = (anexoAState && anexoAState.encabezado) ? anexoAState.encabezado : {};
+  const meta = (enc.Meta && typeof enc.Meta === 'object') ? enc.Meta : {};
+  const detalles = (anexoAState && Array.isArray(anexoAState.detalles)) ? anexoAState.detalles : [];
+  const empresas = (anexoAState && Array.isArray(anexoAState.empresas) && anexoAState.empresas.length > 0)
+    ? anexoAState.empresas
+    : ['LAATS', 'AIR CANADA', 'GODARD(Cocinas)', 'ODA (Combustible)', 'OIRSA', 'DGAC (Operaciones)', 'OTROS...'];
+
+  const extractHHMM = (val) => {
+    if (!val) return '';
+    const s = String(val).trim();
+    if (s.includes('T') && s.length >= 16) return s.substring(11, 16);
+    const m = s.match(/(\d{2}:\d{2})/);
+    return m ? m[1] : '';
+  };
+
+  let fechaInicial = '';
+  if (enc.Fecha) {
+    fechaInicial = String(enc.Fecha instanceof Date ? enc.Fecha.toISOString() : enc.Fecha).substring(0, 10);
+  } else if (vuelo && vuelo.FechaItinerado) {
+    fechaInicial = String(vuelo.FechaItinerado instanceof Date ? vuelo.FechaItinerado.toISOString() : vuelo.FechaItinerado).substring(0, 10);
+  } else {
+    fechaInicial = new Date().toISOString().substring(0, 10);
+  }
+
+  const supIdInicial = enc.EmpleadoMonitoreoId ? String(enc.EmpleadoMonitoreoId) : '';
+  const initialAnexoAPayload = {
+    formatoId: formato.id,
+    formatoNombre: formato.nombre,
+    itinerarioId: vuelo.itinerarioId,
+    encabezadoId: encabezadoId || null,
+    esNuevo: Boolean(esNuevo),
+    fecha: fechaInicial,
+    horaRevision: extractHHMM(meta.horaRevision) || extractHHMM(vuelo.HoraItinerario),
+    puerta: meta.puerta || vuelo.puertaposicion || '',
+    supervisorEmpleadoId: supIdInicial,
+    supervisorNombre: enc.PersonalMonitoreo || enc.NombreSupervisor || '',
+    arriboVuelo: extractHHMM(meta.arriboVuelo) || extractHHMM(vuelo.ata),
+    aeronaveAsegurada: extractHHMM(meta.aeronaveAsegurada),
+    observaciones: enc.Observaciones || '',
+    agenteActual: (user && user.usuario) ? String(user.usuario).trim() : '',
+    empresas,
+    registros: detalles
+  };
+%>
+
+<form id="formCapturaAnexoA" novalidate>
+  <input type="hidden" id="axAFormatoId" value="<%= formato.id %>">
+  <input type="hidden" id="axAItinerarioId" value="<%= vuelo.itinerarioId %>">
+  <input type="hidden" id="axAEncabezadoId" value="<%= encabezadoId || '' %>">
+
+  <!-- 1. ENCABEZADO DEL FORMATO (AnexoAAirCanada - AIR CANADA) -->
+  <div class="card">
+    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+      <h3 class="cp-section-title">
+        <i class="fas fa-clipboard-list"></i> Encabezado — Annex A: Aircraft Access Control Log Sheet
+      </h3>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <% if (!esNuevo && encabezadoId) { %>
+          <a href="/formatos/<%= encodeURIComponent(formato.id) %>?nuevo=1" class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;">
+            <i class="fas fa-plus-circle"></i> Crear Nuevo Registro
+          </a>
+        <% } %>
+        <span class="badge badge-brand" id="axABadgeEstadoEncabezado">
+          <%= (!esNuevo && encabezadoId) ? `REGISTRO CARGADO #${encabezadoId}` : 'NUEVA CAPTURA' %>
+        </span>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px;">
+      <div class="form-group">
+        <label for="axAFecha"><i class="far fa-calendar-alt"></i> Fecha (Date) <span style="color: var(--danger);">*</span></label>
+        <input type="date" id="axAFecha" class="form-control" value="<%= fechaInicial %>" required>
+      </div>
+
+      <div class="form-group">
+        <label for="axAHoraRevision"><i class="far fa-clock"></i> Hora de Revisión <span style="color: var(--danger);">*</span></label>
+        <div class="cp-time-row">
+          <input type="time" id="axAHoraRevision" class="form-control" value="<%= initialAnexoAPayload.horaRevision %>" required>
+          <button type="button" id="btnAxAHoraRevAhora" class="cp-clock-btn" title="Establecer hora actual">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="axAPuerta"><i class="fas fa-door-open"></i> Puerta (Gate) <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="axAPuerta" class="form-control" maxlength="50" value="<%= initialAnexoAPayload.puerta %>" placeholder="Ej. P-04" required>
+      </div>
+
+      <div class="form-group">
+        <label for="axASupervisor"><i class="fas fa-user-tie"></i> Supervisor en Turno <span style="color: var(--danger);">*</span></label>
+        <select id="axASupervisor" class="form-control" required>
+          <option value="">-- Seleccione Supervisor --</option>
+          <% (supervisores || []).forEach(sup => { %>
+            <option
+              value="<%= sup.EmpleadoId %>"
+              data-nombre="<%= sup.Nombre %>"
+              <%= String(sup.EmpleadoId) === supIdInicial ? 'selected' : '' %>
+            ><%= sup.Nombre %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="axAArriboVuelo"><i class="fas fa-plane-arrival"></i> Arribo del Vuelo</label>
+        <div class="cp-time-row">
+          <input type="time" id="axAArriboVuelo" class="form-control" value="<%= initialAnexoAPayload.arriboVuelo %>">
+          <button type="button" id="btnAxAArriboAhora" class="cp-clock-btn" title="Establecer hora actual">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="axAAeronaveAsegurada"><i class="fas fa-shield-alt"></i> Aeronave Asegurada</label>
+        <div class="cp-time-row">
+          <input type="time" id="axAAeronaveAsegurada" class="form-control" value="<%= initialAnexoAPayload.aeronaveAsegurada %>">
+          <button type="button" id="btnAxAAseguradaAhora" class="cp-clock-btn" title="Establecer hora actual">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. PANEL DE CAPTURA RÁPIDA DE ACCESO A AERONAVE -->
+  <div class="card" style="border-top: 3px solid var(--brand);">
+    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+      <h3 class="cp-section-title">
+        <i class="fas fa-user-plus"></i> Registrar Persona que Ingresa a la Aeronave
+      </h3>
+      <span style="font-size: 11px; color: var(--text-3);">La Hora de Salida puede registrarse al egreso; todas las salidas deben cerrarse antes del Guardado Definitivo.</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end;">
+      <div class="form-group" style="margin-bottom: 0;">
+        <label for="axAInputNombre">Nombre Completo <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="axAInputNombre" class="form-control" list="axAEmpleadosDatalist" maxlength="150" placeholder="Nombre de la persona">
+        <datalist id="axAEmpleadosDatalist">
+          <% (empleados || []).forEach(emp => { %>
+            <option value="<%= emp.Nombre %>" data-emp-id="<%= emp.EmpleadoId %>"></option>
+          <% }) %>
+        </datalist>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label for="axAInputNoTIA">No. TIA / Airport ID <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="axAInputNoTIA" class="form-control" maxlength="50" placeholder="Ej. 12345">
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label for="axAInputEmpresa">Empresa / Company <span style="color: var(--danger);">*</span></label>
+        <select id="axAInputEmpresa" class="form-control">
+          <% empresas.forEach(empr => { %>
+            <option value="<%= empr %>"><%= empr %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label for="axAInputHoraIngreso">Hora de Ingreso <span style="color: var(--danger);">*</span></label>
+        <div class="cp-time-row">
+          <input type="time" id="axAInputHoraIngreso" class="form-control">
+          <button type="button" id="btnAxAHoraIngresoAhora" class="cp-clock-btn" title="Hora actual">
+            <i class="far fa-clock"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label for="axAInputMotivo">Motivo de Acceso <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="axAInputMotivo" class="form-control" maxlength="300" placeholder="Ej. Limpieza / Catering / Inspección">
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label for="axAInputHoraSalida">Hora de Salida</label>
+        <div class="cp-time-row">
+          <input type="time" id="axAInputHoraSalida" class="form-control">
+          <button type="button" id="btnAxAHoraSalidaAhora" class="cp-clock-btn" title="Hora actual">
+            <i class="far fa-clock"></i>
+          </button>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button type="button" id="btnAxAAgregarRegistro" class="btn btn-primary" style="flex: 1;">
+          <i class="fas fa-plus"></i> Agregar
+        </button>
+        <button type="button" id="btnAxAFilaManual" class="btn btn-secondary" title="Insertar fila editable vacía">
+          <i class="fas fa-table"></i> + Fila
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. CUADRÍCULA FLUIDA DE CONTROL DE ACCESO -->
+  <div class="card">
+    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+      <h3 class="cp-section-title">
+        <i class="fas fa-users"></i> Registro de Accesos a la Aeronave (<span id="axATotalBadge">0</span>)
+      </h3>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
+        <span class="badge badge-danger" id="axAPendientesBadge" style="display: none;">0 pendiente(s) de salida</span>
+        <input type="search" id="axAFiltroTexto" class="form-control" style="max-width: 220px; padding: 6px 10px; font-size: 12px;" placeholder="Filtrar por nombre, TIA o empresa...">
+      </div>
+    </div>
+
+    <div class="er-table-wrap" id="axAGridWrapper">
+      <table class="er-table">
+        <thead>
+          <tr>
+            <th style="width: 44px; text-align: center;">No.</th>
+            <th style="min-width: 190px;">Nombre Completo <span class="er-req-star">*</span></th>
+            <th style="width: 115px;">No. TIA <span class="er-req-star">*</span></th>
+            <th style="min-width: 155px;">Empresa <span class="er-req-star">*</span></th>
+            <th style="width: 130px; text-align: center;">Hora Ingreso <span class="er-req-star">*</span></th>
+            <th style="min-width: 185px;">Motivo de Acceso <span class="er-req-star">*</span></th>
+            <th style="width: 175px; text-align: center;">Hora Salida <span class="er-req-star">*</span></th>
+            <th style="width: 66px; text-align: center;">Acción</th>
+          </tr>
+        </thead>
+        <tbody id="axATbodyRegistros"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 4. OBSERVACIONES -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="cp-section-title"><i class="fas fa-comment-dots"></i> Observaciones (Opcional)</h3>
+    </div>
+    <div class="form-group" style="margin-bottom: 0;">
+      <textarea id="axAObservaciones" class="form-control" rows="3" maxlength="4000" placeholder="(Opcional) Anotaciones sobre accesos, escoltas o novedades..."><%= initialAnexoAPayload.observaciones %></textarea>
+    </div>
+  </div>
+
+  <!-- 5. ACCIONES -->
+  <div style="display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 14px; margin-bottom: 40px;">
+    <button type="button" id="btnVistaPreliminarAnexoA" class="btn btn-secondary" style="padding: 12px 24px;">
+      <i class="fas fa-eye"></i> Vista Preliminar (Formato Oficial <%= vuelo.operador %>)
+    </button>
+    <button type="button" id="btnGuardarDefinitivoAnexoA" class="btn btn-primary" style="padding: 12px 28px;">
+      <i class="fas fa-save"></i> <%= esNuevo ? 'Guardar Formato Definitivo' : 'Actualizar Formato Definitivo' %>
+    </button>
+  </div>
+</form>
+
+<script type="application/json" id="anexoAInitialStateJson"><%- JSON.stringify(initialAnexoAPayload).replace(/</g, '\\u003c') %></script>

@@ -504,6 +504,11 @@ async function seleccionarOperacion(vuelo) {
  * Maneja la selección de un formato y verifica si debe reanudar o crear nuevo
  */
 async function abrirFormato(formatoId, formatoNombre, itinerarioId) {
+  if (String(formatoId || '').endsWith('-er')) {
+    mostrarPantallaCarga('Cargando Formato...', `Consultando y cargando "${formatoNombre}" desde Azure SQL...`);
+    window.location.href = `/formatos/${encodeURIComponent(formatoId)}`;
+    return;
+  }
   mostrarPantallaCarga('Verificando Formatos...', `Consultando registros previos para "${formatoNombre}" en Azure SQL...`);
   try {
     const res = await fetch('/api/formatos/verificar', {
@@ -561,7 +566,7 @@ function mostrarModalReanudar(formatoId, formatoNombre, existentes) {
   if (btnNuevo) {
     btnNuevo.onclick = () => {
       mostrarPantallaCarga('Preparando Formato...', `Inicializando nuevo registro de ${formatoNombre}...`);
-      window.location.href = `/formatos/${encodeURIComponent(formatoId)}`;
+      window.location.href = `/formatos/${encodeURIComponent(formatoId)}?nuevo=1`;
     };
   }
 

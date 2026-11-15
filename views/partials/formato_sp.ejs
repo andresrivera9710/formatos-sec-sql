@@ -1,0 +1,172 @@
+<%
+  const enc = (spState && spState.encabezado) ? spState.encabezado : {};
+  const detalles = (spState && Array.isArray(spState.detalles)) ? spState.detalles : [];
+
+  let fechaVal = new Date().toISOString().substring(0, 10);
+  if (enc.Fecha) {
+    const d = new Date(enc.Fecha);
+    if (!Number.isNaN(d.getTime())) fechaVal = d.toISOString().substring(0, 10);
+  } else if (vuelo && vuelo.FechaItinerado) {
+    fechaVal = String(vuelo.FechaItinerado).substring(0, 10);
+  }
+
+  const supCatalogo = (usuariosLogin && usuariosLogin.length > 0)
+    ? usuariosLogin.map(u => ({ LoginId: u.LoginId, Usuario: u.Usuario }))
+    : (supervisores || []).map(s => ({ LoginId: s.EmpleadoId, Usuario: s.Usuario }));
+
+  const supLoginIdVal = enc.LoginId ? String(enc.LoginId) : (user && user.loginId ? String(user.loginId) : '');
+  const agenteActual = (user && (user.usuario || user.nombreCompleto)) ? String(user.usuario || user.nombreCompleto).trim() : '';
+
+  const initialSpPayload = {
+    formatoId: formato.id,
+    itinerarioId: vuelo.itinerarioId,
+    encabezadoId: encabezadoId || null,
+    esNuevo: Boolean(esNuevo),
+    fecha: fechaVal,
+    supervisorLoginId: supLoginIdVal,
+    agenteActual,
+    registros: detalles
+  };
+%>
+
+<form id="formCapturaSP" novalidate>
+  <input type="hidden" id="spFormatoId" value="<%= formato.id %>">
+  <input type="hidden" id="spItinerarioId" value="<%= vuelo.itinerarioId %>">
+  <input type="hidden" id="spEncabezadoId" value="<%= encabezadoId || '' %>">
+
+  <!-- 1. ENCABEZADO -->
+  <div class="card">
+    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+      <h3 class="cp-section-title">
+        <i class="fas fa-user-check"></i> Selected Passenger — DELTA (<%= vuelo.novuelo || '--' %>)
+      </h3>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <% if (!esNuevo && encabezadoId) { %>
+          <a href="/formatos/<%= encodeURIComponent(formato.id) %>?nuevo=1" class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;">
+            <i class="fas fa-plus-circle"></i> Crear Nuevo Registro
+          </a>
+        <% } %>
+        <span class="badge badge-brand" id="spBadgeEstado">
+          <%= (!esNuevo && encabezadoId) ? `REGISTRO CARGADO #${encabezadoId}` : 'NUEVA CAPTURA' %>
+        </span>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+      <div class="form-group">
+        <label><i class="fas fa-plane"></i> Flight #</label>
+        <input type="text" class="form-control" value="<%= vuelo.novuelo || '--' %>" readonly style="background: var(--bg); font-weight: 700;">
+      </div>
+
+      <div class="form-group">
+        <label for="spFecha"><i class="far fa-calendar-alt"></i> Date <span style="color: var(--danger);">*</span></label>
+        <input type="date" id="spFecha" class="form-control" value="<%= fechaVal %>" required>
+      </div>
+
+      <div class="form-group">
+        <label for="spSupervisor"><i class="fas fa-user-tie"></i> Supervisor (LoginSEC) <span style="color: var(--danger);">*</span></label>
+        <select id="spSupervisor" class="form-control" required>
+          <option value="">-- Seleccione Supervisor --</option>
+          <% supCatalogo.forEach(sup => { %>
+            <option
+              value="<%= sup.LoginId %>"
+              data-usuario="<%= sup.Usuario %>"
+              <%= String(sup.LoginId) === supLoginIdVal ? 'selected' : '' %>
+            ><%= sup.Usuario %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. PANEL DE CAPTURA RÁPIDA DE PASAJERO -->
+  <div class="card" style="border-top: 3px solid var(--brand);">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <h3 class="cp-section-title"><i class="fas fa-user-plus"></i> Agregar Pasajero Seleccionado</h3>
+      <span style="font-size: 11px; color: var(--text-3);">Todos los campos con <strong style="color: var(--danger);">*</strong> son obligatorios</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; align-items: end;">
+      <div class="form-group">
+        <label for="spInputApellido">Last Name (Apellido) <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="spInputApellido" class="form-control" maxlength="150" placeholder="Ej: GARCIA">
+      </div>
+      <div class="form-group">
+        <label for="spInputNombre">First Name (Nombre) <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="spInputNombre" class="form-control" maxlength="150" placeholder="Ej: MARIA">
+      </div>
+      <div class="form-group">
+        <label for="spInputSeleccion">Selection (R / S / I) <span style="color: var(--danger);">*</span></label>
+        <select id="spInputSeleccion" class="form-control">
+          <option value="1">R Random</option>
+          <option value="2">S Selected</option>
+          <option value="3">I Interview</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="spInputAsiento">Seat No. <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="spInputAsiento" class="form-control" maxlength="20" placeholder="Ej: 14A">
+      </div>
+      <div class="form-group">
+        <label for="spInputBCN">BCN <span style="color: var(--danger);">*</span></label>
+        <input type="number" id="spInputBCN" class="form-control" min="0" step="1" placeholder="Ej: 1">
+      </div>
+      <div class="form-group">
+        <label for="spInputScreener">Screener Name &amp; Sig <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="spInputScreener" class="form-control" maxlength="150" value="<%= agenteActual %>" placeholder="Nombre del screener">
+      </div>
+    </div>
+
+    <div style="margin-top: 14px; display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;">
+      <button type="button" id="btnAgregarFilaVaciaSP" class="btn btn-secondary">
+        <i class="fas fa-table"></i> + Insertar Fila en Blanco
+      </button>
+      <button type="button" id="btnAgregarRegistroSP" class="btn btn-primary">
+        <i class="fas fa-plus-circle"></i> Agregar Pasajero a Cuadrícula
+      </button>
+    </div>
+  </div>
+
+  <!-- 3. CUADRÍCULA FLUIDA + RESUMEN POR CÓDIGO -->
+  <div class="card" id="spCardCuadricula">
+    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+      <h3 class="cp-section-title"><i class="fas fa-th-list"></i> Listado de Pasajeros Seleccionados</h3>
+      <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+        <span class="er-total-counter-badge">R Random: <strong id="spTotalRandomBadge">0</strong></span>
+        <span class="er-total-counter-badge">S Selected: <strong id="spTotalSelectedBadge">0</strong></span>
+        <span class="er-total-counter-badge">I Interview: <strong id="spTotalInterviewBadge">0</strong></span>
+        <span class="er-total-counter-badge" style="background: var(--brand); color: #fff;">Total: <strong id="spTotalGeneralBadge">0</strong></span>
+      </div>
+    </div>
+
+    <div class="er-fluid-grid-wrapper" id="spGridWrapper">
+      <table class="er-fluid-table" id="spTablaCuadricula">
+        <thead>
+          <tr>
+            <th style="width: 48px; text-align: center;">NO.</th>
+            <th>APELLIDO <span class="er-req-star">*</span></th>
+            <th>NOMBRE <span class="er-req-star">*</span></th>
+            <th style="width: 145px; text-align: center;">SELECTION <span class="er-req-star">*</span></th>
+            <th style="width: 100px; text-align: center;">SEAT NO. <span class="er-req-star">*</span></th>
+            <th style="width: 100px; text-align: center;">BCN <span class="er-req-star">*</span></th>
+            <th>SCREENER NAME <span class="er-req-star">*</span></th>
+            <th style="width: 65px; text-align: center;">ACCIÓN</th>
+          </tr>
+        </thead>
+        <tbody id="spTbodyRegistros"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 4. ACCIONES -->
+  <div style="display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 14px; margin-bottom: 40px;">
+    <button type="button" id="btnVistaPreliminarSP" class="btn btn-secondary" style="padding: 12px 24px;">
+      <i class="fas fa-eye"></i> Vista Preliminar (Formato Oficial <%= vuelo.operador %>)
+    </button>
+    <button type="button" id="btnGuardarDefinitivoSP" class="btn btn-primary" style="padding: 12px 28px;">
+      <i class="fas fa-save"></i> <%= esNuevo ? 'Guardar Formato Definitivo' : 'Actualizar Formato Definitivo' %>
+    </button>
+  </div>
+</form>
+
+<script type="application/json" id="spInitialStateJson"><%- JSON.stringify(initialSpPayload).replace(/</g, '\\u003c') %></script>

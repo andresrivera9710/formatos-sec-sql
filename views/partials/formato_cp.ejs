@@ -240,50 +240,93 @@
       <h3 class="cp-section-title"><i class="fas fa-truck-pickup"></i> Maquinaria PushBack, Aleros y Observaciones</h3>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
-      <div class="form-group">
-        <label for="cpTractorista"><i class="fas fa-hard-hat"></i> Tractorista</label>
-        <select id="cpTractorista" name="tractoristaEmpleadoId" class="form-control">
-          <option value="">-- Seleccione a la persona que realiza PushBack --</option>
-          <% (empleados || []).forEach(emp => { %>
-            <option
-              value="<%= emp.EmpleadoId %>"
-              <%= String(emp.EmpleadoId) === trSelectedId ? 'selected' : '' %>
-            ><%= emp.Nombre %></option>
-          <% }) %>
-        </select>
+    <% if (formato && formato.id === 'dl-cp') { %>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
+        <div class="form-group">
+          <label for="cpNombreTractoristaDelta"><i class="fas fa-hard-hat"></i> Nombre del Tractorista</label>
+          <input
+            type="text"
+            id="cpNombreTractoristaDelta"
+            name="nombreTractoristaDelta"
+            class="form-control"
+            value="<%= comp && (comp.NombreTractoristaDelta || comp.NombreTractorista) ? (comp.NombreTractoristaDelta || comp.NombreTractorista) : '' %>"
+            placeholder="Nombre completo del tractorista PushBack"
+            autocomplete="off"
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="cpTractoristaDelta"><i class="fas fa-tractor"></i> No. Unidad / Maquinaria PushBack</label>
+          <input
+            type="text"
+            id="cpTractoristaDelta"
+            name="tractoristaDelta"
+            class="form-control"
+            value="<%= comp && (comp.TractoristaDelta || comp.Tractorista) ? (comp.TractoristaDelta || comp.Tractorista) : '' %>"
+            placeholder="Ej: TR-04"
+            autocomplete="off"
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="cpNombreAlerosDelta"><i class="fas fa-user-friends"></i> Aleros (Nombres)</label>
+          <input
+            type="text"
+            id="cpNombreAlerosDelta"
+            name="nombreAlerosDelta"
+            class="form-control"
+            value="<%= comp && (comp.NombreAlerosDelta || comp.NombreAleros || comp.Aleros) ? (comp.NombreAlerosDelta || comp.NombreAleros || comp.Aleros) : '' %>"
+            placeholder="Ej: Carlos López, Juan Pérez"
+            autocomplete="off"
+          >
+        </div>
+      </div>
+    <% } else { %>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
+        <div class="form-group">
+          <label for="cpTractorista"><i class="fas fa-hard-hat"></i> Tractorista</label>
+          <select id="cpTractorista" name="tractoristaEmpleadoId" class="form-control">
+            <option value="">-- Seleccione a la persona que realiza PushBack --</option>
+            <% (empleados || []).forEach(emp => { %>
+              <option
+                value="<%= emp.EmpleadoId %>"
+                <%= String(emp.EmpleadoId) === trSelectedId ? 'selected' : '' %>
+              ><%= emp.Nombre %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="cpNoUnidad"><i class="fas fa-tractor"></i> No. Unidad</label>
+          <select id="cpNoUnidad" name="maquinariaEquipoId" class="form-control">
+            <option value="">-- Seleccione la unidad --</option>
+            <% (maquinaria || []).forEach(m => { %>
+              <option
+                value="<%= m.MaquinariaEquipoId %>"
+                <%= String(m.MaquinariaEquipoId) === unitSelectedId ? 'selected' : '' %>
+              ><%= m.NoUnidad %><%= m.TipoMaquinaria ? ` — ${m.TipoMaquinaria}` : '' %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="cpAleroSelect"><i class="fas fa-user-friends"></i> Aleros (Máximo 2)</label>
+          <select id="cpAleroSelect" class="form-control">
+            <option value="">-- Seleccionar agentes para aleros --</option>
+            <% (empleados || []).forEach(emp => { %>
+              <option value="<%= emp.EmpleadoId %>"><%= emp.Nombre %></option>
+            <% }) %>
+          </select>
+        </div>
       </div>
 
-      <div class="form-group">
-        <label for="cpNoUnidad"><i class="fas fa-tractor"></i> No. Unidad</label>
-        <select id="cpNoUnidad" name="maquinariaEquipoId" class="form-control">
-          <option value="">-- Seleccione la unidad --</option>
-          <% (maquinaria || []).forEach(m => { %>
-            <option
-              value="<%= m.MaquinariaEquipoId %>"
-              <%= String(m.MaquinariaEquipoId) === unitSelectedId ? 'selected' : '' %>
-            ><%= m.NoUnidad %><%= m.TipoMaquinaria ? ` — ${m.TipoMaquinaria}` : '' %></option>
-          <% }) %>
-        </select>
+      <div style="margin-top: 18px;">
+        <label style="font-size: 12px; font-weight: 600; color: var(--text-2); display: block; margin-bottom: 8px;">
+          <i class="fas fa-users"></i> Aleros Seleccionados:
+        </label>
+        <div id="cpAlerosLista"></div>
       </div>
-
-      <div class="form-group">
-        <label for="cpAleroSelect"><i class="fas fa-user-friends"></i> Aleros (Máximo 2)</label>
-        <select id="cpAleroSelect" class="form-control">
-          <option value="">-- Seleccionar agentes para aleros --</option>
-          <% (empleados || []).forEach(emp => { %>
-            <option value="<%= emp.EmpleadoId %>"><%= emp.Nombre %></option>
-          <% }) %>
-        </select>
-      </div>
-    </div>
-
-    <div style="margin-top: 18px;">
-      <label style="font-size: 12px; font-weight: 600; color: var(--text-2); display: block; margin-bottom: 8px;">
-        <i class="fas fa-users"></i> Aleros Seleccionados:
-      </label>
-      <div id="cpAlerosLista"></div>
-    </div>
+    <% } %>
 
     <div class="form-group" style="margin-top: 18px;">
       <label for="cpObservaciones"><i class="fas fa-comment-alt"></i> Observaciones</label>

@@ -1,0 +1,291 @@
+<%
+  const comp = (mecdState && mecdState.complemento) ? mecdState.complemento : {};
+  const revisionList = (mecdState && Array.isArray(mecdState.revision)) ? mecdState.revision : [];
+  const conFirmaList = (mecdState && Array.isArray(mecdState.conFirma)) ? mecdState.conFirma : [];
+  const sinFirmaList = (mecdState && Array.isArray(mecdState.sinFirma)) ? mecdState.sinFirma : [];
+
+  let fechaInicial = new Date().toISOString().substring(0, 10);
+  if (comp.Fecha) {
+    fechaInicial = String(comp.Fecha instanceof Date ? comp.Fecha.toISOString() : comp.Fecha).substring(0, 10);
+  } else if (vuelo && vuelo.FechaItinerado) {
+    fechaInicial = String(vuelo.FechaItinerado instanceof Date ? vuelo.FechaItinerado.toISOString() : vuelo.FechaItinerado).substring(0, 10);
+  }
+
+  const ccoLoginIdVal = comp.LoginId ? String(comp.LoginId) : '';
+  const agenteLoginSecIdVal = comp.AgenteLoginSECId
+    ? String(comp.AgenteLoginSECId)
+    : (user && user.loginSecId ? String(user.loginSecId) : '');
+  const supLoginSecIdVal = comp.SupervisorLoginSECId ? String(comp.SupervisorLoginSECId) : '';
+  const destinoDefault = (vuelo && (vuelo.Destino || vuelo.destino)) ? String(vuelo.Destino || vuelo.destino).trim() : 'MEX';
+
+  const initialMecdPayload = {
+    formatoId: formato.id,
+    formatoNombre: formato.nombre,
+    itinerarioId: vuelo.itinerarioId,
+    encabezadoId: encabezadoId || null,
+    esNuevo: Boolean(esNuevo),
+    destinoDefault,
+    revision: revisionList,
+    conFirma: conFirmaList,
+    sinFirma: sinFirmaList
+  };
+%>
+
+<form id="formCapturaMECD" novalidate>
+  <input type="hidden" id="mecdFormatoId" value="<%= formato.id %>">
+  <input type="hidden" id="mecdItinerarioId" value="<%= vuelo.itinerarioId %>">
+  <input type="hidden" id="mecdEncabezadoId" value="<%= encabezadoId || '' %>">
+
+  <!-- 1. CABECERA DEL FORMATO (EquipajeMalEstadoAMX) -->
+  <div class="card">
+    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+      <h3 class="cp-section-title">
+        <i class="fas fa-Suitcase-rolling fa-exclamation-triangle"></i> Datos Generales — Equipajes en Mal Estado y Carga Dañada
+      </h3>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <% if (!esNuevo && encabezadoId) { %>
+          <a href="/formatos/<%= encodeURIComponent(formato.id) %>?nuevo=1" class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;">
+            <i class="fas fa-plus-circle"></i> Crear Nuevo Registro
+          </a>
+        <% } %>
+        <span class="badge badge-brand">
+          <%= (!esNuevo && encabezadoId) ? `REGISTRO CARGADO #${encabezadoId}` : 'NUEVA CAPTURA' %>
+        </span>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+      <div class="form-group">
+        <label for="mecdFecha"><i class="far fa-calendar-alt"></i> Fecha <span style="color: var(--danger);">*</span></label>
+        <input type="date" id="mecdFecha" class="form-control" value="<%= fechaInicial %>" required>
+      </div>
+
+      <div class="form-group">
+        <label for="mecdCCO"><i class="fas fa-headset"></i> Representante CCO / Operaciones <span style="color: var(--danger);">*</span></label>
+        <select id="mecdCCO" class="form-control" required>
+          <option value="">-- Seleccione CCO --</option>
+          <% (usuariosLogin || []).forEach(u => { %>
+            <option
+              value="<%= u.LoginId %>"
+              data-usuario="<%= u.Nombre || u.Usuario %>"
+              <%= String(u.LoginId) === ccoLoginIdVal ? 'selected' : '' %>
+            ><%= u.Nombre || u.Usuario %> (<%= u.Usuario %>)</option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="mecdAgente"><i class="fas fa-user-shield"></i> Agente de Seguridad <span style="color: var(--danger);">*</span></label>
+        <select id="mecdAgente" class="form-control" required>
+          <option value="">-- Seleccione Agente SEC --</option>
+          <% (usuariosSEC || []).forEach(u => { %>
+            <option
+              value="<%= u.LoginId %>"
+              data-usuario="<%= u.Usuario %>"
+              <%= (String(u.LoginId) === agenteLoginSecIdVal || (!agenteLoginSecIdVal && user && u.Usuario === user.usuario)) ? 'selected' : '' %>
+            ><%= u.Usuario %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="mecdSupervisor"><i class="fas fa-user-tie"></i> Supervisor de Seguridad <span style="color: var(--danger);">*</span></label>
+        <select id="mecdSupervisor" class="form-control" required>
+          <option value="">-- Seleccione Supervisor SEC --</option>
+          <% (supervisores || []).forEach(sup => { %>
+            <option
+              value="<%= sup.LoginId %>"
+              data-usuario="<%= sup.Usuario %>"
+              <%= String(sup.LoginId) === supLoginSecIdVal ? 'selected' : '' %>
+            ><%= sup.Usuario %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. SECCIÓN A: EQUIPAJE EN REVISIÓN AVSEC (Control + Colilla) -->
+  <div class="card" style="border-top: 3px solid var(--brand);" id="mecdCardSecciones">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <h3 class="cp-section-title">
+        <i class="fas fa-search"></i> 1. Equipaje en Revisión (No. de Control y No. de Colilla)
+      </h3>
+      <span class="badge badge-gold" id="mecdCountRevBadge">0 registros</span>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-bottom: 14px;">
+      <div class="form-group" style="margin-bottom: 0; min-width: 180px; flex: 1;">
+        <label for="mecdInputRevControl">No. de Control / Secuencia <span style="color: var(--danger);">*</span></label>
+        <input type="number" id="mecdInputRevControl" class="form-control" min="1" step="1" placeholder="Ej: 24">
+      </div>
+      <div class="form-group" style="margin-bottom: 0; min-width: 220px; flex: 1;">
+        <label for="mecdInputRevColilla">No. de Colilla / Marbete <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="mecdInputRevColilla" class="form-control" placeholder="Ej: 0139485712">
+      </div>
+      <button type="button" id="btnAgregarRevMECD" class="btn btn-primary" style="height: 38px;">
+        <i class="fas fa-plus-circle"></i> Agregar a Revisión
+      </button>
+    </div>
+
+    <div class="er-fluid-grid-wrapper">
+      <table class="er-fluid-table" id="mecdTablaRev">
+        <thead>
+          <tr>
+            <th style="width: 60px; text-align: center;">NO.</th>
+            <th>NO. DE CONTROL <span class="er-req-star">*</span></th>
+            <th>NO. DE COLILLA <span class="er-req-star">*</span></th>
+            <th style="width: 75px; text-align: center;">ACCIÓN</th>
+          </tr>
+        </thead>
+        <tbody id="mecdTbodyRev"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 3. SECCIÓN B: MALETA CON FIRMA DESDE MOSTRADOR -->
+  <div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <h3 class="cp-section-title">
+        <i class="fas fa-file-signature"></i> 2. Maleta CON Firma desde Mostrador (Limited Release)
+      </h3>
+      <span class="badge badge-gold" id="mecdCountCFBadge">0 registros</span>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-bottom: 14px;">
+      <div class="form-group" style="margin-bottom: 0; min-width: 220px; flex: 2;">
+        <label for="mecdInputCFPasajero">Nombre del Pasajero <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="mecdInputCFPasajero" class="form-control" placeholder="Ej: ANA MARÍA GÓMEZ">
+      </div>
+      <div class="form-group" style="margin-bottom: 0; min-width: 170px; flex: 1;">
+        <label for="mecdInputCFColilla">No. de Colilla <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="mecdInputCFColilla" class="form-control" placeholder="Ej: 0139887766">
+      </div>
+      <div class="form-group" style="margin-bottom: 0; min-width: 140px; flex: 1;">
+        <label for="mecdInputCFControl">No. de Control <span style="color: var(--danger);">*</span></label>
+        <input type="number" id="mecdInputCFControl" class="form-control" min="1" step="1" placeholder="Ej: 31">
+      </div>
+      <div class="form-group" style="margin-bottom: 0; min-width: 130px; flex: 1;">
+        <label for="mecdInputCFDestino">Destino</label>
+        <input type="text" id="mecdInputCFDestino" class="form-control" value="<%= destinoDefault %>">
+      </div>
+      <button type="button" id="btnAgregarCFMECD" class="btn btn-primary" style="height: 38px;">
+        <i class="fas fa-plus-circle"></i> Agregar Con Firma
+      </button>
+    </div>
+
+    <div class="er-fluid-grid-wrapper">
+      <table class="er-fluid-table" id="mecdTablaCF">
+        <thead>
+          <tr>
+            <th style="width: 55px; text-align: center;">NO.</th>
+            <th>NOMBRE DEL PASAJERO <span class="er-req-star">*</span></th>
+            <th>NO. DE COLILLA <span class="er-req-star">*</span></th>
+            <th>NO. DE CONTROL <span class="er-req-star">*</span></th>
+            <th>DESTINO</th>
+            <th style="width: 75px; text-align: center;">ACCIÓN</th>
+          </tr>
+        </thead>
+        <tbody id="mecdTbodyCF"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 4. SECCIÓN C: MALETA DAÑADA EN TOBOGÁN SIN FIRMA -->
+  <div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <h3 class="cp-section-title">
+        <i class="fas fa-Suitcase"></i> 3. Maleta Dañada en Tobogán SIN Firma
+      </h3>
+      <span class="badge badge-gold" id="mecdCountSFBadge">0 registros</span>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-bottom: 14px;">
+      <div class="form-group" style="margin-bottom: 0; min-width: 220px; flex: 2;">
+        <label for="mecdInputSFPasajero">Nombre del Pasajero <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="mecdInputSFPasajero" class="form-control" placeholder="Ej: ROBERTO DÍAZ">
+      </div>
+      <div class="form-group" style="margin-bottom: 0; min-width: 170px; flex: 1;">
+        <label for="mecdInputSFColilla">No. de Colilla <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="mecdInputSFColilla" class="form-control" placeholder="Ej: 0139554433">
+      </div>
+      <div class="form-group" style="margin-bottom: 0; min-width: 140px; flex: 1;">
+        <label for="mecdInputSFControl">No. de Control <span style="color: var(--danger);">*</span></label>
+        <input type="number" id="mecdInputSFControl" class="form-control" min="1" step="1" placeholder="Ej: 49">
+      </div>
+      <div class="form-group" style="margin-bottom: 0; min-width: 130px; flex: 1;">
+        <label for="mecdInputSFDestino">Destino</label>
+        <input type="text" id="mecdInputSFDestino" class="form-control" value="<%= destinoDefault %>">
+      </div>
+      <button type="button" id="btnAgregarSFMECD" class="btn btn-primary" style="height: 38px;">
+        <i class="fas fa-plus-circle"></i> Agregar Sin Firma
+      </button>
+    </div>
+
+    <div class="er-fluid-grid-wrapper">
+      <table class="er-fluid-table" id="mecdTablaSF">
+        <thead>
+          <tr>
+            <th style="width: 55px; text-align: center;">NO.</th>
+            <th>NOMBRE DEL PASAJERO <span class="er-req-star">*</span></th>
+            <th>NO. DE COLILLA <span class="er-req-star">*</span></th>
+            <th>NO. DE CONTROL <span class="er-req-star">*</span></th>
+            <th>DESTINO</th>
+            <th style="width: 75px; text-align: center;">ACCIÓN</th>
+          </tr>
+        </thead>
+        <tbody id="mecdTbodySF"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 5. FIRMAS DIGITALES (CCO, AGENTE, SUPERVISOR) -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="cp-section-title"><i class="fas fa-pen-nib"></i> Firmas Digitales para el Documento Controlado (Opcional en edición)</h3>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px;">
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <label style="font-size: 12px; font-weight: 700;">Firma Representante CCO</label>
+          <button type="button" class="btn btn-secondary" data-clear-canvas="mecdCanvasFirmaCCO" style="padding: 3px 8px; font-size: 10px;">Limpiar</button>
+        </div>
+        <div class="signature-box">
+          <canvas id="mecdCanvasFirmaCCO"></canvas>
+        </div>
+      </div>
+
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <label style="font-size: 12px; font-weight: 700;">Firma Agente de Seguridad</label>
+          <button type="button" class="btn btn-secondary" data-clear-canvas="mecdCanvasFirmaAgente" style="padding: 3px 8px; font-size: 10px;">Limpiar</button>
+        </div>
+        <div class="signature-box">
+          <canvas id="mecdCanvasFirmaAgente"></canvas>
+        </div>
+      </div>
+
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <label style="font-size: 12px; font-weight: 700;">Firma Supervisor SEC</label>
+          <button type="button" class="btn btn-secondary" data-clear-canvas="mecdCanvasFirmaSupervisor" style="padding: 3px 8px; font-size: 10px;">Limpiar</button>
+        </div>
+        <div class="signature-box">
+          <canvas id="mecdCanvasFirmaSupervisor"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. BOTONES DE ACCIÓN -->
+  <div style="display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 14px; margin-bottom: 40px;">
+    <button type="button" id="btnVistaPreliminarMECD" class="btn btn-secondary" style="padding: 12px 24px;">
+      <i class="fas fa-eye"></i> Vista Preliminar (Formato Oficial AMX)
+    </button>
+    <button type="button" id="btnGuardarDefinitivoMECD" class="btn btn-primary" style="padding: 12px 28px;">
+      <i class="fas fa-save"></i> <%= esNuevo ? 'Guardar Formato Definitivo' : 'Actualizar Formato Definitivo' %>
+    </button>
+  </div>
+</form>
+
+<script type="application/json" id="mecdInitialStateJson"><%- JSON.stringify(initialMecdPayload).replace(/</g, '\\u003c') %></script>

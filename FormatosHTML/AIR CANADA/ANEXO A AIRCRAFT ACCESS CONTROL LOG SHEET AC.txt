@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Annex A - Aircraft Access Control Log Sheet - Air Canada</title>
+    <style>
+        @page {
+            size: letter portrait;
+            margin: 8mm 12mm 6mm 12mm;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            color: #000000;
+            background-color: #525659;
+            margin: 0;
+            padding: 20px 0;
+            display: flex;
+            justify-content: center;
+            font-size: 9.5px;
+            line-height: 1.25;
+        }
+
+        /* Contenedor Hoja Tamaño Carta */
+        .hoja-carta {
+            width: 215.9mm;
+            min-height: 279.4mm;
+            background-color: #ffffff;
+            padding: 10mm 14mm 8mm 14mm;
+            box-sizing: border-box;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+            margin: 0 auto;
+        }
+
+        @media print {
+            body {
+                background-color: #ffffff;
+                padding: 0;
+            }
+            .hoja-carta {
+                width: 100%;
+                min-height: auto;
+                padding: 0;
+                margin: 0;
+                box-shadow: none;
+            }
+        }
+
+        /* Encabezado */
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 6px;
+        }
+
+        .header-table td {
+            border: none;
+            padding: 0;
+            vertical-align: middle;
+        }
+
+        .logo-img {
+            height: 75px;
+            max-width: 320px;
+            object-fit: contain;
+            display: block;
+        }
+
+        .top-security-notice {
+            font-size: 11px;
+            font-weight: bold;
+            font-style: italic;
+            text-align: right;
+            margin-bottom: 3px;
+        }
+
+        .form-title-main {
+            font-size: 22px;
+            font-weight: bold;
+            text-align: right;
+            color: #000000;
+            line-height: 1.1;
+        }
+
+        .form-title-sub {
+            font-size: 12px;
+            font-weight: normal;
+            text-align: right;
+            color: #000000;
+            margin-top: 2px;
+        }
+
+        .form-title-doc {
+            font-size: 17px;
+            font-weight: bold;
+            text-align: right;
+            color: #000000;
+            letter-spacing: -0.3px;
+            margin-top: 3px;
+        }
+
+        /* Tablas */
+        table.grid {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 6px;
+        }
+
+        table.grid th, table.grid td {
+            border: 1.5px solid #000000;
+            padding: 4px 5px;
+        }
+
+        /* Barra de Información de Vuelo */
+        .flight-info-table td {
+            vertical-align: top;
+            height: 32px;
+            background-color: #ffffff;
+        }
+
+        .field-lbl {
+            font-size: 8px;
+            font-weight: bold;
+            display: block;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+            color: #222222;
+        }
+
+        .field-val {
+            font-size: 12px;
+            font-weight: bold;
+            display: block;
+            color: #000000;
+        }
+
+        /* Caja de Procedimientos Oficiales */
+        .procedures-box {
+            border: 1.5px solid #000000;
+            padding: 6px 10px;
+            margin-bottom: 7px;
+            background-color: #fafafa;
+            font-size: 9px;
+            line-height: 1.35;
+        }
+
+        .procedures-box ol {
+            margin: 2px 0 0 16px;
+            padding: 0;
+        }
+
+        .procedures-box ul {
+            margin: 2px 0 0 16px;
+            padding: 0;
+            list-style-type: lower-alpha;
+        }
+
+        .procedures-box li {
+            margin-bottom: 1px;
+        }
+
+        /* Tabla de Registro (Log Table) */
+        .log-table {
+            margin-bottom: 6px;
+        }
+
+        .log-table th {
+            background-color: #f2f2f2;
+            font-size: 9px;
+            font-weight: bold;
+            text-align: center;
+            vertical-align: middle;
+            padding: 5px 3px;
+            line-height: 1.15;
+        }
+
+        .log-table td {
+            font-size: 9px;
+            padding: 4px 4px;
+            vertical-align: middle;
+            text-align: center;
+            height: 22px;
+        }
+
+        .log-table td:nth-child(2),
+        .log-table td:nth-child(5) {
+            text-align: left;
+            padding-left: 6px;
+        }
+
+        /* Observaciones */
+        .obs-box {
+            border: 1.5px solid #000000;
+            padding: 5px 8px;
+            margin-bottom: 6px;
+            font-size: 9px;
+            min-height: 28px;
+        }
+
+        /* Advertencia Legal Inferior */
+        .security-warning-footer {
+            border: 1px solid #777777;
+            padding: 5px 8px;
+            font-size: 7.2px;
+            line-height: 1.25;
+            text-align: justify;
+            margin-top: 4px;
+            margin-bottom: 4px;
+            background-color: #ffffff;
+        }
+
+        /* Pie de página */
+        .footer-metadata {
+            display: flex;
+            justify-content: space-between;
+            font-size: 9px;
+            font-weight: bold;
+            color: #000000;
+            padding-top: 2px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="hoja-carta">
+
+    <!-- 1. ENCABEZADO: LOGO AIR CANADA Y TÍTULOS -->
+    <table class="header-table">
+        <tr>
+            <td style="width: 45%;">
+                <img class="logo-img" src="data:image/png;base64,@{variables('varLogoAirCanada')}" alt="Air Canada" />
+            </td>
+            <td style="width: 55%;">
+                <div class="top-security-notice">Security Sensitive Information</div>
+                <div class="form-title-main">Annex A</div>
+                <div class="form-title-sub">to Aircraft Security Search Checklist</div>
+                <div class="form-title-doc">Aircraft Access Control Log Sheet</div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- 2. DATOS GENERALES DEL VUELO Y MONITOREO -->
+    <table class="grid flight-info-table">
+        <tr>
+            <td style="width: 16%;">
+                <span class="field-lbl">Flight #:</span>
+                <span class="field-val">@{coalesce(body('Parse_JSON_31')?['Vuelo'], '')}</span>
+            </td>
+            <td style="width: 16%;">
+                <span class="field-lbl">FIN / Tail #:</span>
+                <span class="field-val">@{coalesce(body('Parse_JSON_31')?['Matricula'], '')}</span>
+            </td>
+            <td style="width: 20%;">
+                <span class="field-lbl">Date:</span>
+                <span class="field-val">@{coalesce(body('Parse_JSON_31')?['Fecha'], '')}</span>
+            </td>
+            <td style="width: 24%;">
+                <span class="field-lbl">Gate / Revision:</span>
+                <span class="field-val">@{coalesce(body('Parse_JSON_31')?['HoraInicioPuerta'], '')}</span>
+            </td>
+            <td style="width: 24%;">
+                <span class="field-lbl">Arribo / Asegurado:</span>
+                <span class="field-val">@{coalesce(body('Parse_JSON_31')?['ArriboVuelo'], '')} - @{coalesce(body('Parse_JSON_31')?['AeronaveAsegurada'], '')}</span>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="3">
+                <span class="field-lbl">Person Monitoring Aircraft (Agente / Supervisor):</span>
+                <span class="field-val">@{coalesce(body('Parse_JSON_31')?['Agente'], body('Parse_JSON_31')?['Supervisor'], '')} / LAATS</span>
+            </td>
+            <td colspan="2">
+                <span class="field-lbl">Supervisor de Turno:</span>
+                <span class="field-val">@{coalesce(body('Parse_JSON_31')?['Supervisor'], '')}</span>
+            </td>
+        </tr>
+    </table>
+
+    <!-- 3. PROCEDIMIENTOS OPERATIVOS OFICIALES -->
+    <div class="procedures-box">
+        <strong>Procedures:</strong>
+        <ol>
+            <li>Challenge anyone in the vicinity or accessing the aircraft who doesn't appear to have a valid reason to be there or whose airport pass isn't visible.</li>
+            <li>In the table below, log the identification information for:
+                <ul>
+                    <li>For US-bound flights: randomly selected individuals (any AC or service provider employees)</li>
+                    <li>At US stations: all non-Air Canada employees entering the aircraft</li>
+                    <li>At international stations: follow local regulations</li>
+                </ul>
+            </li>
+        </ol>
+    </div>
+
+    <!-- 4. TABLA DE REGISTRO DE ACCESOS -->
+    <table class="grid log-table">
+        <thead>
+            <tr>
+                <th style="width: 5%;">No.</th>
+                <th style="width: 24%;">Name of Person Accessing Aircraft</th>
+                <th style="width: 12%;">Airport ID # (TIA)</th>
+                <th style="width: 12%;">Time In</th>
+                <th style="width: 17%;">Employer / Company</th>
+                <th style="width: 18%;">Reason for Access</th>
+                <th style="width: 12%;">Time Out</th>
+            </tr>
+        </thead>
+        <tbody>
+            @{body('Parse_JSON_31')?['FilasTabla']}
+        </tbody>
+    </table>
+
+    <!-- 5. OBSERVACIONES -->
+    <div class="obs-box">
+        <strong>Observations / Remarks:</strong>
+        <span>@{coalesce(body('Parse_JSON_31')?['Observaciones'], 'N/A')}</span>
+    </div>
+
+    <!-- 6. AVISO LEGAL DE SEGURIDAD -->
+    <div class="security-warning-footer">
+        <strong>WARNING:</strong> This record contains Sensitive Security Information that is controlled under 49 C.F.R parts 15 and 1520. No part of this record may be disclosed to persons without a "need to know", as defined in 49 C.F.R parts 15 and 1520, without the written permission of the Administrator of the Transportation Security Administration or the Secretary of Transportation. Unauthorized release may result in the civil penalty or other action. For U.S. government agencies, public disclosure is governed by 5 U.S.C. 552 and 49 C.F.R parts 15 and 1520.
+    </div>
+
+    <!-- 7. METADATOS Y CÓDIGO OFICIAL -->
+    <div class="footer-metadata">
+        <span>ACF632-EN (2025-04-14)</span>
+        <span>LAATS - Air Canada Security Operations</span>
+    </div>
+
+</div>
+
+</body>
+</html>

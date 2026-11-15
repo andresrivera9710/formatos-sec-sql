@@ -1,0 +1,295 @@
+<%
+  const det = (dalState && dalState.detalle) ? dalState.detalle : {};
+
+  let fechaVal = new Date().toISOString().substring(0, 10);
+  if (det.Fecha) {
+    const d = new Date(det.Fecha);
+    if (!Number.isNaN(d.getTime())) fechaVal = d.toISOString().substring(0, 10);
+  } else if (vuelo && vuelo.FechaItinerado) {
+    fechaVal = String(vuelo.FechaItinerado).substring(0, 10);
+  }
+
+  const evalParts = String(det.Evaluadores || '').split(',').map(s => s.trim()).filter(Boolean);
+  const supCatalogo = (usuariosLogin && usuariosLogin.length > 0)
+    ? usuariosLogin.map(u => ({ LoginId: u.LoginId, Usuario: u.Usuario }))
+    : (supervisores || []).map(s => ({ LoginId: s.EmpleadoId, Usuario: s.Usuario }));
+
+  const supLoginIdVal = det.LoginId ? String(det.LoginId) : (user && user.loginId ? String(user.loginId) : '');
+  const rutaDefault = [vuelo.origen || 'GUA', vuelo.destino || vuelo.Destino || ''].filter(Boolean).join(' - ');
+
+  const isTrue = (v) => v === true || v === 1 || String(v).toUpperCase() === 'YES' || String(v).toLowerCase() === 'true';
+
+  const initialDalPayload = {
+    formatoId: formato.id,
+    itinerarioId: vuelo.itinerarioId,
+    encabezadoId: encabezadoId || null,
+    esNuevo: Boolean(esNuevo)
+  };
+%>
+
+<form id="formCapturaDAL" novalidate>
+  <input type="hidden" id="dalFormatoId" value="<%= formato.id %>">
+  <input type="hidden" id="dalItinerarioId" value="<%= vuelo.itinerarioId %>">
+  <input type="hidden" id="dalEncabezadoId" value="<%= encabezadoId || '' %>">
+
+  <!-- 1. ENCABEZADO -->
+  <div class="card">
+    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+      <h3 class="cp-section-title">
+        <i class="fas fa-clipboard-check"></i> Daily Activity Log — DELTA (<%= vuelo.novuelo || '--' %>)
+      </h3>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <% if (!esNuevo && encabezadoId) { %>
+          <a href="/formatos/<%= encodeURIComponent(formato.id) %>?nuevo=1" class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;">
+            <i class="fas fa-plus-circle"></i> Crear Nuevo Registro
+          </a>
+        <% } %>
+        <span class="badge badge-brand" id="dalBadgeEstado">
+          <%= (!esNuevo && encabezadoId) ? `REGISTRO CARGADO #${encabezadoId}` : 'NUEVA CAPTURA' %>
+        </span>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+      <div class="form-group">
+        <label><i class="fas fa-plane"></i> Flight #</label>
+        <input type="text" class="form-control" value="<%= vuelo.novuelo || '--' %>" readonly style="background: var(--bg); font-weight: 700;">
+      </div>
+      <div class="form-group">
+        <label for="dalRoute"><i class="fas fa-route"></i> Route</label>
+        <input type="text" id="dalRoute" class="form-control" maxlength="50" value="<%= rutaDefault %>" placeholder="GUA - ATL">
+      </div>
+      <div class="form-group">
+        <label><i class="fas fa-barcode"></i> A/C #</label>
+        <input type="text" class="form-control" value="<%= vuelo.Matricula || 'Pendiente' %>" readonly style="background: var(--bg); font-weight: 700;">
+      </div>
+      <div class="form-group">
+        <label for="dalFecha"><i class="far fa-calendar-alt"></i> Date</label>
+        <input type="date" id="dalFecha" class="form-control" value="<%= fechaVal %>">
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. SECCIÓN Q1: X-RAY & SCREENERS -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="cp-section-title"><i class="fas fa-x-ray"></i> 1. Ticket Counter / X-Ray Screening &amp; Bags Physical Search</h3>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+      <div class="form-group">
+        <label for="dalRevisadoXRay">All Checked &amp; Carry Bags X-Ray? <span style="color: var(--danger);">*</span></label>
+        <select id="dalRevisadoXRay" class="form-control">
+          <option value="YES" <%= (det.RevisadoXRay === undefined || isTrue(det.RevisadoXRay)) ? 'selected' : '' %>>YES</option>
+          <option value="NO" <%= (det.RevisadoXRay !== undefined && !isTrue(det.RevisadoXRay)) ? 'selected' : '' %>>NO</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="dalCantidadEqFisicos">Number of Bags Physically Searched</label>
+        <input type="number" id="dalCantidadEqFisicos" class="form-control" min="0" step="1" value="<%= det.CantidadEqFisicos ?? 0 %>">
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 10px;">
+      <div class="form-group">
+        <label for="dalScreener1">Screener 1 <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="dalScreener1" class="form-control" maxlength="120" value="<%= evalParts[0] || '' %>" placeholder="Screener 1" required>
+      </div>
+      <div class="form-group">
+        <label for="dalScreener2">Screener 2</label>
+        <input type="text" id="dalScreener2" class="form-control" maxlength="120" value="<%= evalParts[1] || '' %>" placeholder="Screener 2">
+      </div>
+      <div class="form-group">
+        <label for="dalScreener3">Screener 3</label>
+        <input type="text" id="dalScreener3" class="form-control" maxlength="120" value="<%= evalParts[2] || '' %>" placeholder="Screener 3">
+      </div>
+      <div class="form-group">
+        <label for="dalScreenerSup">SUP (Screeners Supervisor)</label>
+        <input type="text" id="dalScreenerSup" class="form-control" maxlength="120" value="<%= evalParts[3] || '' %>" placeholder="Supervisor">
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. BAGGAGE MAKE-UP AREA, ESCORTS & FORWARD BIN -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="cp-section-title"><i class="fas fa-luggage-cart"></i> 2. Make-Up Area, Guards &amp; Cargo Control</h3>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px;">
+      <div class="form-group">
+        <label for="dalNombreGuardia">Guard Name / Guard Sig (Q2) <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="dalNombreGuardia" class="form-control" maxlength="150" value="<%= det.NombreGuardia || '' %>" placeholder="Guard name (Ticket counter / Make-up)" required>
+      </div>
+
+      <div class="form-group">
+        <label for="dalBolsasIngresadas">All Bags Entering Make-Up Logged?</label>
+        <select id="dalBolsasIngresadas" class="form-control">
+          <option value="YES" <%= (det.BolsasIngresadas === undefined || isTrue(det.BolsasIngresadas)) ? 'selected' : '' %>>YES</option>
+          <option value="NO" <%= (det.BolsasIngresadas !== undefined && !isTrue(det.BolsasIngresadas)) ? 'selected' : '' %>>NO</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="dalCantidadEq">Bags Destinated for U.S. Port of Entry</label>
+        <input type="number" id="dalCantidadEq" class="form-control" min="0" step="1" value="<%= det.CantidadEq ?? 0 %>">
+      </div>
+
+      <div class="form-group">
+        <label for="dalNombreGuardia2">Guard Escorting Bags to Aircraft (Q3) <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="dalNombreGuardia2" class="form-control" maxlength="150" value="<%= det.NombreGuardia2 || '' %>" placeholder="Guard name (Make-up / Aircraft)" required>
+      </div>
+
+      <div class="form-group">
+        <label for="dalCantidadEqGuardia">Bags Loaded in Forward Bin</label>
+        <input type="number" id="dalCantidadEqGuardia" class="form-control" min="0" step="1" value="<%= det.CantidadEqGuardia ?? 0 %>">
+      </div>
+
+      <div class="form-group">
+        <label for="dalCantidadMaletas">Pieces of Cargo Loaded in Forward Bin</label>
+        <input type="number" id="dalCantidadMaletas" class="form-control" min="0" step="1" value="<%= det.CantidadMaletas ?? 0 %>">
+      </div>
+
+      <div class="form-group">
+        <label for="dalCantidadPiezasManifiesto">Pieces of Cargo Manifested for Flight</label>
+        <input type="number" id="dalCantidadPiezasManifiesto" class="form-control" min="0" step="1" value="<%= det.CantidadPiezasManifiesto ?? 0 %>">
+      </div>
+
+      <div class="form-group">
+        <label for="dalNombreGuardia3">Cargo Checked By Guard (Q4) <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="dalNombreGuardia3" class="form-control" maxlength="150" value="<%= det.NombreGuardia3 || '' %>" placeholder="Guard name" required>
+      </div>
+
+      <div class="form-group">
+        <label for="dalNombreAgentes">Cargo Escorted to BAK Make-Up Area (Q5) <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="dalNombreAgentes" class="form-control" maxlength="250" value="<%= det.NombreAgentes || '' %>" placeholder="Guard / Agent name" required>
+      </div>
+
+      <div class="form-group">
+        <label for="dalNombreGuardiaEscolta">Cargo Escorted to Aircraft Guard (Q6) <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="dalNombreGuardiaEscolta" class="form-control" maxlength="150" value="<%= det.NombreGuardiaEscolta || '' %>" placeholder="Escort guard name" required>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. PASSENGERS & FREIGHT / BAGS RECONCILIATION -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="cp-section-title"><i class="fas fa-users"></i> 3. Passengers, Freight &amp; Bags Reconciliation</h3>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px;">
+      <div class="form-group">
+        <label for="dalPasajerosTransito">Through Passengers on Aircraft</label>
+        <input type="number" id="dalPasajerosTransito" class="form-control" min="0" step="1" value="<%= det.CantidadPasajerosTransito ?? 0 %>">
+      </div>
+      <div class="form-group">
+        <label for="dalPasajerosSalientes">Passengers on Departing Aircraft</label>
+        <input type="number" id="dalPasajerosSalientes" class="form-control" min="0" step="1" value="<%= det.CantidadPasajerosSalientes ?? 0 %>">
+      </div>
+      <div class="form-group">
+        <label for="dalPasajerosPerdieronVuelo">Passengers Missing Flight</label>
+        <input type="text" id="dalPasajerosPerdieronVuelo" class="form-control" maxlength="50" value="<%= det.PasajerosPerdieronVuelo ?? '0' %>">
+      </div>
+      <div class="form-group">
+        <label for="dalNombresPasajerosPerdieron">Names of Passengers Missing Flight</label>
+        <input type="text" id="dalNombresPasajerosPerdieron" class="form-control" maxlength="300" placeholder="Opcional (si aplica)">
+      </div>
+
+      <div class="form-group">
+        <label for="dalPiezasAceptadas">Pieces of Freight Accepted</label>
+        <input type="number" id="dalPiezasAceptadas" class="form-control" min="0" step="1" value="<%= det.CantidadPiezasAceptadas ?? 0 %>">
+      </div>
+      <div class="form-group">
+        <label for="dalPiezasCargadas">Pieces of Freight Loaded</label>
+        <input type="number" id="dalPiezasCargadas" class="form-control" min="0" step="1" value="<%= det.CantidadPiezasCargadas ?? 0 %>">
+      </div>
+      <div class="form-group">
+        <label for="dalEqFacturados">Number of Bags Checked In</label>
+        <input type="number" id="dalEqFacturados" class="form-control" min="0" step="1" value="<%= det.CantidadEqFacturados ?? 0 %>">
+      </div>
+      <div class="form-group">
+        <label for="dalEqCargadas">Number of Bags Loaded</label>
+        <input type="number" id="dalEqCargadas" class="form-control" min="0" step="1" value="<%= det.CantidadEqCargadas ?? 0 %>">
+      </div>
+      <div class="form-group">
+        <label for="dalEqRetirados">Number of Bags Off Loaded</label>
+        <input type="number" id="dalEqRetirados" class="form-control" min="0" step="1" value="<%= det.CantidadEqRetirados ?? 0 %>">
+      </div>
+      <div class="form-group">
+        <label for="dalEqCoincidePasajero">Bags Off Loaded Match Missing Pax?</label>
+        <select id="dalEqCoincidePasajero" class="form-control">
+          <option value="YES" <%= (det.EqCoincidePasajero === undefined || isTrue(det.EqCoincidePasajero)) ? 'selected' : '' %>>YES</option>
+          <option value="NO" <%= (det.EqCoincidePasajero !== undefined && !isTrue(det.EqCoincidePasajero)) ? 'selected' : '' %>>NO</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. SUPERVISOR, DL REPRESENTATIVE & FIRMAS DIGITALES -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="cp-section-title"><i class="fas fa-signature"></i> 4. Guard Supervisor &amp; DL Representative Signatures</h3>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 18px;">
+      <div class="form-group">
+        <label for="dalSupervisor"><i class="fas fa-user-tie"></i> Guard Supervisor (LoginSEC) <span style="color: var(--danger);">*</span></label>
+        <select id="dalSupervisor" class="form-control" required>
+          <option value="">-- Seleccione Supervisor --</option>
+          <% supCatalogo.forEach(sup => { %>
+            <option
+              value="<%= sup.LoginId %>"
+              data-usuario="<%= sup.Usuario %>"
+              <%= String(sup.LoginId) === supLoginIdVal ? 'selected' : '' %>
+            ><%= sup.Usuario %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="dalNombreAgenteDelta"><i class="fas fa-user-check"></i> DL Representative Name <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="dalNombreAgenteDelta" class="form-control" maxlength="150" value="<%= det.NombreAgenteDelta || '' %>" placeholder="Representante Delta Air Lines" required>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <label style="font-size: 12px; font-weight: 700;">Guard Supervisor Signature</label>
+          <button type="button" id="btnLimpiarFirmaGuardSupDAL" class="btn btn-secondary" style="padding: 3px 10px; font-size: 11px;">
+            <i class="fas fa-eraser"></i> Limpiar
+          </button>
+        </div>
+        <div class="signature-box">
+          <canvas id="dalCanvasFirmaGuardSup"></canvas>
+        </div>
+      </div>
+
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <label style="font-size: 12px; font-weight: 700;">DL Representative Signature</label>
+          <button type="button" id="btnLimpiarFirmaDLAgentDAL" class="btn btn-secondary" style="padding: 3px 10px; font-size: 11px;">
+            <i class="fas fa-eraser"></i> Limpiar
+          </button>
+        </div>
+        <div class="signature-box">
+          <canvas id="dalCanvasFirmaDLAgent"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. ACCIONES -->
+  <div style="display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 14px; margin-bottom: 40px;">
+    <button type="button" id="btnVistaPreliminarDAL" class="btn btn-secondary" style="padding: 12px 24px;">
+      <i class="fas fa-eye"></i> Vista Preliminar (Formato Oficial <%= vuelo.operador %>)
+    </button>
+    <button type="button" id="btnGuardarDefinitivoDAL" class="btn btn-primary" style="padding: 12px 28px;">
+      <i class="fas fa-save"></i> <%= esNuevo ? 'Guardar Formato Definitivo' : 'Actualizar Formato Definitivo' %>
+    </button>
+  </div>
+</form>
+
+<script type="application/json" id="dalInitialStateJson"><%- JSON.stringify(initialDalPayload).replace(/</g, '\\u003c') %></script>

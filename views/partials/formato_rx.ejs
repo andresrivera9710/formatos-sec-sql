@@ -1,0 +1,272 @@
+<%
+  const enc = (rxState && rxState.encabezado) ? rxState.encabezado : {};
+  const personalSAG = (rxState && Array.isArray(rxState.personalSAG)) ? rxState.personalSAG : [];
+  const personalLaats = (rxState && Array.isArray(rxState.personalLaats)) ? rxState.personalLaats : [];
+
+  const extractHHMM = (val) => {
+    if (!val) return '';
+    const s = String(val instanceof Date ? val.toISOString() : val).trim();
+    if (s.includes('T') && s.length >= 16) return s.substring(11, 16);
+    const m = s.match(/([01]\d|2[0-3]):([0-5]\d)/);
+    return m ? `${m[1]}:${m[2]}` : '';
+  };
+
+  let fechaVal = new Date().toISOString().substring(0, 10);
+  if (enc.Fecha) {
+    const d = new Date(enc.Fecha);
+    if (!Number.isNaN(d.getTime())) fechaVal = d.toISOString().substring(0, 10);
+  } else if (vuelo && vuelo.FechaItinerado) {
+    fechaVal = String(vuelo.FechaItinerado).substring(0, 10);
+  }
+
+  const supervisorIdVal = enc.SupervisorEmpleadoId ? String(enc.SupervisorEmpleadoId) : (enc.EmpleadoId ? String(enc.EmpleadoId) : '');
+  const horaInicioVal = extractHHMM(enc.HoraInicio);
+  const pEqRecVal = extractHHMM(enc.PEquipajeRecibidoRX);
+  const pCarEnvVal = extractHHMM(enc.PCarretaEnviada);
+  const uEqRecVal = extractHHMM(enc.UEquipajeRX);
+  const uCarEnvVal = extractHHMM(enc.UCarretaEnviada);
+  const obsVal = enc.Observaciones ? String(enc.Observaciones).trim() : '';
+  const agenteActual = (user && (user.usuario || user.nombreCompleto)) ? String(user.usuario || user.nombreCompleto).trim() : '';
+
+  const laatsCatalogo = (empleados && empleados.length > 0)
+    ? empleados.map(e => ({ EmpleadoId: e.EmpleadoId, Nombre: e.Nombre }))
+    : (supervisores || []).map(s => ({ EmpleadoId: s.EmpleadoId, Nombre: s.Usuario }));
+
+  const initialRxPayload = {
+    formatoId: formato.id,
+    itinerarioId: vuelo.itinerarioId,
+    encabezadoId: encabezadoId || null,
+    esNuevo: Boolean(esNuevo),
+    fecha: fechaVal,
+    horaInicio: horaInicioVal,
+    supervisorEmpleadoId: supervisorIdVal,
+    pEquipajeRecibidoRX: pEqRecVal,
+    pCarretaEnviada: pCarEnvVal,
+    uEquipajeRX: uEqRecVal,
+    uCarretaEnviada: uCarEnvVal,
+    observaciones: obsVal,
+    agenteActual,
+    empleadosLaats: laatsCatalogo,
+    personalSAG,
+    personalLaats
+  };
+%>
+
+<form id="formCapturaRX" novalidate>
+  <input type="hidden" id="rxFormatoId" value="<%= formato.id %>">
+  <input type="hidden" id="rxItinerarioId" value="<%= vuelo.itinerarioId %>">
+  <input type="hidden" id="rxEncabezadoId" value="<%= encabezadoId || '' %>">
+
+  <!-- 1. ENCABEZADO -->
+  <div class="card">
+    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+      <h3 class="cp-section-title">
+        <i class="fas fa-x-ray"></i> Control de Equipaje en Rayos X — DELTA (<%= vuelo.novuelo || '--' %>)
+      </h3>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <% if (!esNuevo && encabezadoId) { %>
+          <a href="/formatos/<%= encodeURIComponent(formato.id) %>?nuevo=1" class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;">
+            <i class="fas fa-plus-circle"></i> Crear Nuevo Registro
+          </a>
+        <% } %>
+        <span class="badge badge-brand" id="rxBadgeEstado">
+          <%= (!esNuevo && encabezadoId) ? `REGISTRO CARGADO #${encabezadoId}` : 'NUEVA CAPTURA' %>
+        </span>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+      <div class="form-group">
+        <label for="rxFecha"><i class="far fa-calendar-alt"></i> Fecha <span style="color: var(--danger);">*</span></label>
+        <input type="date" id="rxFecha" class="form-control" value="<%= fechaVal %>" required>
+      </div>
+
+      <div class="form-group">
+        <label for="rxHoraInicio"><i class="far fa-clock"></i> Hora Inicia Puesto <span style="color: var(--danger);">*</span></label>
+        <div class="cp-time-row">
+          <input type="time" id="rxHoraInicio" class="form-control" value="<%= horaInicioVal %>" required>
+          <button type="button" class="cp-clock-btn" data-rx-clock="rxHoraInicio" title="Capturar hora actual">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="rxSupervisor"><i class="fas fa-user-tie"></i> Supervisor (LoginSEC) <span style="color: var(--danger);">*</span></label>
+        <select id="rxSupervisor" class="form-control" required>
+          <option value="">-- Seleccione Supervisor --</option>
+          <% (supervisores || []).forEach(sup => { %>
+            <option
+              value="<%= sup.EmpleadoId %>"
+              data-nombre="<%= sup.Usuario %>"
+              <%= String(sup.EmpleadoId) === supervisorIdVal ? 'selected' : '' %>
+            ><%= sup.Usuario %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="rxAgente"><i class="fas fa-user-shield"></i> Agente</label>
+        <input type="text" id="rxAgente" class="form-control" value="<%= agenteActual %>" readonly style="background: var(--bg); font-weight: 700;">
+      </div>
+
+      <div class="form-group">
+        <label><i class="fas fa-plane"></i> Vuelo</label>
+        <input type="text" class="form-control" value="<%= vuelo.novuelo || '--' %>" readonly style="background: var(--bg); font-weight: 700;">
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. TIEMPOS EN MÁQUINA DE RAYOS X -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="cp-section-title"><i class="fas fa-stopwatch"></i> Control de Horarios de Equipaje y Carretas</h3>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
+      <div class="form-group">
+        <label for="rxPEquipajeRecibidoRX">Primer Equipaje Recibido en RX <span style="color: var(--danger);">*</span></label>
+        <div class="cp-time-row">
+          <input type="time" id="rxPEquipajeRecibidoRX" class="form-control" value="<%= pEqRecVal %>" required>
+          <button type="button" class="cp-clock-btn" data-rx-clock="rxPEquipajeRecibidoRX"><i class="far fa-clock"></i> Ahora</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="rxPCarretaEnviada">Primera Carreta Enviada a Plataforma <span style="color: var(--danger);">*</span></label>
+        <div class="cp-time-row">
+          <input type="time" id="rxPCarretaEnviada" class="form-control" value="<%= pCarEnvVal %>" required>
+          <button type="button" class="cp-clock-btn" data-rx-clock="rxPCarretaEnviada"><i class="far fa-clock"></i> Ahora</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="rxUEquipajeRX">Último Equipaje Recibido en RX <span style="color: var(--danger);">*</span></label>
+        <div class="cp-time-row">
+          <input type="time" id="rxUEquipajeRX" class="form-control" value="<%= uEqRecVal %>" required>
+          <button type="button" class="cp-clock-btn" data-rx-clock="rxUEquipajeRX"><i class="far fa-clock"></i> Ahora</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="rxUCarretaEnviada">Última Carreta Enviada a Plataforma <span style="color: var(--danger);">*</span></label>
+        <div class="cp-time-row">
+          <input type="time" id="rxUCarretaEnviada" class="form-control" value="<%= uCarEnvVal %>" required>
+          <button type="button" class="cp-clock-btn" data-rx-clock="rxUCarretaEnviada"><i class="far fa-clock"></i> Ahora</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. CUADRÍCULAS PARALELAS: PERSONAL SAG Y PERSONAL LAATS -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 20px;">
+    <!-- PERSONAL SAG -->
+    <div class="card" style="border-top: 3px solid var(--brand);">
+      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 class="cp-section-title"><i class="fas fa-user-check"></i> Personal SAG <span style="color: var(--danger);">*</span></h3>
+        <span class="badge badge-brand" id="rxTotalSagBadge"><%= personalSAG.length %></span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1.5fr 1fr auto; gap: 10px; align-items: end; margin-bottom: 14px;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label for="rxInputSagNombre">Nombre SAG *</label>
+          <input type="text" id="rxInputSagNombre" class="form-control" maxlength="150" placeholder="Nombre completo">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label for="rxInputSagId">ID / TIA *</label>
+          <input type="text" id="rxInputSagId" class="form-control" maxlength="50" placeholder="ID">
+        </div>
+        <button type="button" id="btnAgregarSagRX" class="btn btn-primary" style="height: 38px;">
+          <i class="fas fa-plus"></i> Agregar
+        </button>
+      </div>
+
+      <div class="er-fluid-grid-wrapper" id="rxSagWrapper">
+        <table class="er-fluid-table" id="rxTablaSag">
+          <thead>
+            <tr>
+              <th style="width: 48px; text-align: center;">NO.</th>
+              <th>NOMBRE <span class="er-req-star">*</span></th>
+              <th style="width: 130px; text-align: center;">ID <span class="er-req-star">*</span></th>
+              <th style="width: 60px; text-align: center;">ACCIÓN</th>
+            </tr>
+          </thead>
+          <tbody id="rxTbodySag"></tbody>
+        </table>
+      </div>
+      <div style="margin-top: 10px; text-align: right;">
+        <button type="button" id="btnAgregarFilaSagRX" class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px;">
+          + Insertar Fila SAG
+        </button>
+      </div>
+    </div>
+
+    <!-- PERSONAL LAATS -->
+    <div class="card" style="border-top: 3px solid var(--brand-deep);">
+      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 class="cp-section-title"><i class="fas fa-id-card"></i> Personal LAATS <span style="color: var(--danger);">*</span></h3>
+        <span class="badge badge-brand" id="rxTotalLaatsBadge"><%= personalLaats.length %></span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1.5fr 1fr auto; gap: 10px; align-items: end; margin-bottom: 14px;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label for="rxInputLaatsEmpleado">Agente LAATS *</label>
+          <select id="rxInputLaatsEmpleado" class="form-control">
+            <option value="">-- Seleccione Agente --</option>
+            <% laatsCatalogo.forEach(emp => { %>
+              <option value="<%= emp.EmpleadoId %>" data-nombre="<%= emp.Nombre %>"><%= emp.Nombre %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label for="rxInputLaatsId">ID / TIA *</label>
+          <input type="text" id="rxInputLaatsId" class="form-control" maxlength="50" placeholder="ID">
+        </div>
+        <button type="button" id="btnAgregarLaatsRX" class="btn btn-primary" style="height: 38px;">
+          <i class="fas fa-plus"></i> Agregar
+        </button>
+      </div>
+
+      <div class="er-fluid-grid-wrapper" id="rxLaatsWrapper">
+        <table class="er-fluid-table" id="rxTablaLaats">
+          <thead>
+            <tr>
+              <th style="width: 48px; text-align: center;">NO.</th>
+              <th>NOMBRE <span class="er-req-star">*</span></th>
+              <th style="width: 130px; text-align: center;">ID <span class="er-req-star">*</span></th>
+              <th style="width: 60px; text-align: center;">ACCIÓN</th>
+            </tr>
+          </thead>
+          <tbody id="rxTbodyLaats"></tbody>
+        </table>
+      </div>
+      <div style="margin-top: 10px; text-align: right;">
+        <button type="button" id="btnAgregarFilaLaatsRX" class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px;">
+          + Insertar Fila LAATS
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. OBSERVACIONES -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="cp-section-title"><i class="fas fa-comment-dots"></i> Observaciones</h3>
+    </div>
+    <div class="form-group" style="margin-bottom: 0;">
+      <textarea id="rxObservaciones" class="form-control" rows="3" maxlength="2000" placeholder="(Opcional) Ingrese observaciones relevantes de la revisión en Rayos X..."><%= obsVal %></textarea>
+    </div>
+  </div>
+
+  <!-- 5. ACCIONES -->
+  <div style="display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 14px; margin-bottom: 40px;">
+    <button type="button" id="btnVistaPreliminarRX" class="btn btn-secondary" style="padding: 12px 24px;">
+      <i class="fas fa-eye"></i> Vista Preliminar (Formato Oficial <%= vuelo.operador %>)
+    </button>
+    <button type="button" id="btnGuardarDefinitivoRX" class="btn btn-primary" style="padding: 12px 28px;">
+      <i class="fas fa-save"></i> <%= esNuevo ? 'Guardar Formato Definitivo' : 'Actualizar Formato Definitivo' %>
+    </button>
+  </div>
+</form>
+
+<script type="application/json" id="rxInitialStateJson"><%- JSON.stringify(initialRxPayload).replace(/</g, '\\u003c') %></script>

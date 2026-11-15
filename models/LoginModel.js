@@ -13,6 +13,7 @@ class LoginModel {
   static async buscarPorPin(pin) {
     const query = `
       SELECT TOP 1
+        LoginId,
         Usuario,
         Password,
         EmpleadoId,
@@ -35,6 +36,7 @@ class LoginModel {
   static async buscarUsuarioSEC(usuario) {
     const query = `
       SELECT TOP 1
+        LoginId,
         Usuario,
         EmpleadoId,
         Password,
@@ -47,6 +49,27 @@ class LoginModel {
     ];
     const result = await executeQuery(query, params);
     return result.recordset[0] || null;
+  }
+
+  /**
+   * Obtiene el LoginId activo a partir del Usuario o EmpleadoId
+   * @param {string} usuario
+   * @param {number} [empleadoId]
+   */
+  static async obtenerLoginIdPorUsuario(usuario, empleadoId = 0) {
+    const query = `
+      SELECT TOP 1 LoginId
+      FROM LogIn
+      WHERE (UPPER(RTRIM(Usuario)) = UPPER(@usuario) OR (@empleadoId > 0 AND EmpleadoId = @empleadoId))
+        AND ISNULL(EstaEliminado, 0) = 0
+      ORDER BY CASE WHEN UPPER(RTRIM(Usuario)) = UPPER(@usuario) THEN 0 ELSE 1 END, LoginId DESC
+    `;
+    const params = [
+      { name: 'usuario', type: sql.NVarChar(100), value: String(usuario || '').trim() },
+      { name: 'empleadoId', type: sql.Int, value: parseInt(empleadoId, 10) || 0 }
+    ];
+    const result = await executeQuery(query, params);
+    return result.recordset[0]?.LoginId || null;
   }
 
   /**
@@ -90,6 +113,44 @@ class LoginModel {
       FROM LoginSEC L
       LEFT JOIN Empleado E ON L.EmpleadoId = E.EmpleadoId
       WHERE UPPER(LTRIM(RTRIM(ISNULL(L.Puesto, '')))) = 'SUPERVISOR'
+      ORDER BY L.Usuario ASC
+    `;
+    const result = await executeQuery(query, []);
+    return result.recordset || [];
+  }
+
+  /**
+   * Obtiene todos los usuarios de LoginSEC (Agentes y Supervisores) para desplegables de formatos SEC
+   */
+  static async obtenerUsuariosSEC() {
+    const query = `
+      SELECT
+        L.LoginId,
+        L.Usuario,
+        L.EmpleadoId,
+        L.Puesto,
+        ISNULL(E.Nombre, L.Usuario) AS NombreCompleto
+      FROM LoginSEC L
+      LEFT JOIN Empleado E ON L.EmpleadoId = E.EmpleadoId
+      ORDER BY L.Usuario ASC
+    `;
+    const result = await executeQuery(query, []);
+    return result.recordset || [];
+  }
+
+  /**
+   * Obtiene todos los usuarios activos de LogIn (para CCO, Aleros y Tractoristas)
+   */
+  static async obtenerUsuariosLogIn() {
+    const query = `
+      SELECT
+        L.LoginId,
+        L.Usuario,
+        L.EmpleadoId,
+        ISNULL(E.Nombre, L.Usuario) AS NombreCompleto
+      FROM LogIn L
+      LEFT JOIN Empleado E ON L.EmpleadoId = E.EmpleadoId
+      WHERE ISNULL(L.EstaEliminado, 0) = 0
       ORDER BY L.Usuario ASC
     `;
     const result = await executeQuery(query, []);

@@ -1,0 +1,282 @@
+<%
+  const comp = (cfrState && cfrState.complemento) ? cfrState.complemento : {};
+  const detalles = (cfrState && Array.isArray(cfrState.detalles)) ? cfrState.detalles : [];
+
+  let fechaInicial = '';
+  if (comp.Fecha) {
+    fechaInicial = String(comp.Fecha instanceof Date ? comp.Fecha.toISOString() : comp.Fecha).substring(0, 10);
+  } else if (vuelo && vuelo.FechaItinerado) {
+    fechaInicial = String(vuelo.FechaItinerado instanceof Date ? vuelo.FechaItinerado.toISOString() : vuelo.FechaItinerado).substring(0, 10);
+  } else {
+    fechaInicial = new Date().toISOString().substring(0, 10);
+  }
+
+  const fmtTime = (val) => {
+    if (!val) return '';
+    const s = String(val).trim();
+    const m = s.match(/(\d{2}:\d{2})/);
+    return m ? m[1] : '';
+  };
+
+  const supervisorIdVal = comp.EmpleadoId || '';
+  const primeraHoraVal = fmtTime(comp.PrimeraPlataforma);
+  const ultimaHoraVal = fmtTime(comp.UltimaPlataforma);
+  const inicioOpVal = fmtTime(comp.InicioOperacion);
+  const horaCierreVal = fmtTime(comp.HoraCierre);
+  const aviCantidadVal = comp.AviCantidad !== undefined && comp.AviCantidad !== null ? Number(comp.AviCantidad) : 0;
+  const comatCantidadVal = comp.ComatCantidad !== undefined && comp.ComatCantidad !== null ? Number(comp.ComatCantidad) : 0;
+  const agenteActual = (user && user.usuario) ? String(user.usuario).trim() : '';
+
+  const operadoresCatalogo = (usuariosLogin && usuariosLogin.length > 0)
+    ? usuariosLogin.map(u => ({ EmpleadoId: u.EmpleadoId, Nombre: u.Usuario }))
+    : (empleados || []).map(e => ({ EmpleadoId: e.EmpleadoId, Nombre: e.Nombre }));
+
+  const initialCfrPayload = {
+    formatoId: formato.id,
+    formatoNombre: formato.nombre,
+    itinerarioId: vuelo.itinerarioId,
+    encabezadoId: encabezadoId || null,
+    esNuevo: Boolean(esNuevo),
+    fecha: fechaInicial,
+    supervisorEmpleadoId: supervisorIdVal,
+    primeraPlataforma: primeraHoraVal,
+    ultimaPlataforma: ultimaHoraVal,
+    inicioOperacion: inicioOpVal,
+    horaCierre: horaCierreVal,
+    aviCantidad: aviCantidadVal,
+    comatCantidad: comatCantidadVal,
+    agenteActual,
+    maquinaria: maquinaria || [],
+    operadores: operadoresCatalogo,
+    carretas: detalles
+  };
+%>
+
+<form id="formCapturaCFR" novalidate>
+  <input type="hidden" id="cfrFormatoId" value="<%= formato.id %>">
+  <input type="hidden" id="cfrItinerarioId" value="<%= vuelo.itinerarioId %>">
+  <input type="hidden" id="cfrEncabezadoId" value="<%= encabezadoId || '' %>">
+
+  <!-- 1. ENCABEZADO DEL FORMATO Y HORARIOS DE PLATAFORMA (ControlFlejesRayosX) -->
+  <div class="card">
+    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+      <h3 class="cp-section-title">
+        <i class="fas fa-barcode"></i> Encabezado Operativo — Control de Flejes en Rayos X (<%= vuelo.operador %>)
+      </h3>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <% if (!esNuevo && encabezadoId) { %>
+          <a href="/formatos/<%= encodeURIComponent(formato.id) %>?nuevo=1" class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;">
+            <i class="fas fa-plus-circle"></i> Crear Nuevo Registro
+          </a>
+        <% } %>
+        <span class="badge badge-brand" id="cfrBadgeEstado">
+          <%= (!esNuevo && encabezadoId) ? `REGISTRO CARGADO #${encabezadoId}` : 'NUEVA CAPTURA' %>
+        </span>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+      <div class="form-group">
+        <label for="cfrFecha"><i class="far fa-calendar-alt"></i> Fecha de Inspección <span style="color: var(--danger);">*</span></label>
+        <input type="date" id="cfrFecha" class="form-control" value="<%= fechaInicial %>" required>
+      </div>
+
+      <div class="form-group">
+        <label for="cfrSupervisor"><i class="fas fa-user-tie"></i> Supervisor de Turno (LoginSEC) <span style="color: var(--danger);">*</span></label>
+        <select id="cfrSupervisor" class="form-control" required>
+          <option value="">-- Seleccione Supervisor --</option>
+          <% (supervisores || []).forEach(sup => { %>
+            <option
+              value="<%= sup.EmpleadoId %>"
+              data-login-id="<%= sup.LoginId || '' %>"
+              data-nombre="<%= sup.Usuario %>"
+              <%= String(supervisorIdVal) === String(sup.EmpleadoId) ? 'selected' : '' %>
+            ><%= sup.Usuario %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="cfrAgenteAVSEC"><i class="fas fa-user-shield"></i> Agente AVSEC / Seguridad <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="cfrAgenteAVSEC" class="form-control" value="<%= agenteActual %>" readonly style="background-color: var(--bg); font-weight: 700; color: var(--brand);">
+      </div>
+
+      <div class="form-group">
+        <label for="cfrAviCantidad"><i class="fas fa-paw"></i> AVIH (Cantidad)</label>
+        <input type="number" id="cfrAviCantidad" class="form-control" min="0" step="1" value="<%= aviCantidadVal %>" placeholder="0">
+      </div>
+
+      <div class="form-group">
+        <label for="cfrComatCantidad"><i class="fas fa-boxes"></i> COMAT (Cantidad)</label>
+        <input type="number" id="cfrComatCantidad" class="form-control" min="0" step="1" value="<%= comatCantidadVal %>" placeholder="0">
+      </div>
+    </div>
+
+    <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-2); display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+      <div class="form-group">
+        <label for="cfrPrimeraPlataforma"><i class="far fa-clock"></i> Enviada a Plataforma — 1RA Hora <span style="color: var(--danger);">*</span></label>
+        <div class="cp-time-row">
+          <input type="time" id="cfrPrimeraPlataforma" class="form-control" value="<%= primeraHoraVal %>" required>
+          <button type="button" class="cp-clock-btn" data-cfr-clock="cfrPrimeraPlataforma" title="Capturar hora actual">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="cfrUltimaPlataforma"><i class="far fa-clock"></i> Enviada a Plataforma — ÚLTIMA Hora <span style="color: var(--danger);">*</span></label>
+        <div class="cp-time-row">
+          <input type="time" id="cfrUltimaPlataforma" class="form-control" value="<%= ultimaHoraVal %>" required>
+          <button type="button" class="cp-clock-btn" data-cfr-clock="cfrUltimaPlataforma" title="Capturar hora actual">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="cfrInicioOperacion"><i class="far fa-clock"></i> Hora Inicio de Operación <span style="color: var(--danger);">*</span></label>
+        <div class="cp-time-row">
+          <input type="time" id="cfrInicioOperacion" class="form-control" value="<%= inicioOpVal %>" required>
+          <button type="button" class="cp-clock-btn" data-cfr-clock="cfrInicioOperacion" title="Capturar hora actual">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="cfrHoraCierre"><i class="far fa-clock"></i> Hora de Cierre de Operación <span style="color: var(--danger);">*</span></label>
+        <div class="cp-time-row">
+          <input type="time" id="cfrHoraCierre" class="form-control" value="<%= horaCierreVal %>" required>
+          <button type="button" class="cp-clock-btn" data-cfr-clock="cfrHoraCierre" title="Capturar hora actual">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. PANEL DE CAPTURA RÁPIDA DE CARRETA Y FLEJES (MARCHAMOS) -->
+  <div class="card" style="border-top: 3px solid var(--brand);">
+    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+      <h3 class="cp-section-title">
+        <i class="fas fa-dolly-flatbed"></i> Agregar Carreta y Flejes (Marchamos)
+      </h3>
+      <span style="font-size: 11px; color: var(--text-3);">
+        Todos los campos marcados con <strong style="color: var(--danger);">*</strong> son obligatorios
+      </span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; align-items: end;">
+      <div class="form-group">
+        <label for="cfrInputCarreta"><i class="fas fa-luggage-cart"></i> No. Carreta <span style="color: var(--danger);">*</span></label>
+        <select id="cfrInputCarreta" class="form-control">
+          <option value="">-- Seleccione Carreta --</option>
+          <% (maquinaria || []).forEach(m => { %>
+            <option value="<%= m.MaquinariaEquipoId %>" data-unidad="<%= m.NoUnidad %>"><%= m.NoUnidad %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="cfrInputFlejeUno"><i class="fas fa-tag"></i> Fleje 1 (Marchamo) <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="cfrInputFlejeUno" class="form-control" maxlength="100" placeholder="Ej: 458901">
+      </div>
+
+      <div class="form-group">
+        <label for="cfrInputFlejeDos"><i class="fas fa-tags"></i> Fleje 2 (Marchamo) <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="cfrInputFlejeDos" class="form-control" maxlength="100" placeholder="Ej: 458902">
+      </div>
+
+      <div class="form-group">
+        <label for="cfrInputUnidad"><i class="fas fa-truck-pickup"></i> No. Unidad (Tractor) <span style="color: var(--danger);">*</span></label>
+        <select id="cfrInputUnidad" class="form-control">
+          <option value="">-- Seleccione Unidad --</option>
+          <% (maquinaria || []).forEach(m => { %>
+            <option value="<%= m.MaquinariaEquipoId %>" data-unidad="<%= m.NoUnidad %>"><%= m.NoUnidad %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="cfrInputTotalEq"><i class="fas fa-suitcase"></i> Total Equipaje en Carreta <span style="color: var(--danger);">*</span></label>
+        <input type="number" id="cfrInputTotalEq" class="form-control" min="0" step="1" placeholder="Ej: 35">
+      </div>
+
+      <div class="form-group">
+        <label for="cfrInputOperador"><i class="fas fa-id-card"></i> Operador <span style="color: var(--danger);">*</span></label>
+        <select id="cfrInputOperador" class="form-control">
+          <option value="">-- Seleccione Operador --</option>
+          <% operadoresCatalogo.forEach(op => { %>
+            <option value="<%= op.EmpleadoId %>" data-nombre="<%= op.Nombre %>"><%= op.Nombre %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+    <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-2); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px;">
+      <button type="button" id="btnAgregarFilaVaciaCFR" class="btn btn-secondary">
+        <i class="fas fa-table"></i> + Insertar Fila en Blanco en Cuadrícula
+      </button>
+      <button type="button" id="btnAgregarCarretaCFR" class="btn btn-primary">
+        <i class="fas fa-plus-circle"></i> Agregar Carreta a la Cuadrícula
+      </button>
+    </div>
+  </div>
+
+  <!-- 3. CUADRÍCULA FLUIDA DE CARRETAS Y FLEJES (DetalleCFR) -->
+  <div class="card">
+    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+      <div>
+        <h3 class="cp-section-title">
+          <i class="fas fa-th-list"></i> Cuadrícula Fluida — Carretas y Flejes Registrados
+        </h3>
+        <small style="color: var(--text-3); font-size: 11px;">
+          Puede editar directamente cualquier fila o eliminarla (Soft Delete en BD al actualizar).
+        </small>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px;">
+        <div class="er-total-counter-badge">
+          <span>Total Carretas:</span>
+          <strong id="cfrTotalCarretasBadge"><%= detalles.length %></strong>
+        </div>
+        <div class="er-total-counter-badge">
+          <span>Total Equipaje en Carretas:</span>
+          <strong id="cfrTotalEquipajeBadge">0</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="er-fluid-grid-wrapper">
+      <table class="er-fluid-table" id="cfrTablaCarretas">
+        <thead>
+          <tr>
+            <th style="width: 50px; text-align: center;">NO.</th>
+            <th style="min-width: 150px;">NO. CARRETA <span class="er-req-star">*</span></th>
+            <th style="min-width: 140px;">FLEJE 1 (MARCHAMO) <span class="er-req-star">*</span></th>
+            <th style="min-width: 140px;">FLEJE 2 (MARCHAMO) <span class="er-req-star">*</span></th>
+            <th style="min-width: 150px;">NO. UNIDAD <span class="er-req-star">*</span></th>
+            <th style="width: 145px; text-align: center;">TOTAL EQ EN CARRETA <span class="er-req-star">*</span></th>
+            <th style="min-width: 190px;">OPERADOR <span class="er-req-star">*</span></th>
+            <th style="width: 68px; text-align: center;">ACCIÓN</th>
+          </tr>
+        </thead>
+        <tbody id="cfrTbodyCarretas">
+          <!-- Renderizado dinámico por public/js/formato-cfr.js -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 4. BOTONES DE ACCIÓN -->
+  <div style="display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 14px; margin-bottom: 40px;">
+    <button type="button" id="btnVistaPreliminarCFR" class="btn btn-secondary" style="padding: 12px 24px;">
+      <i class="fas fa-eye"></i> Vista Preliminar (Formato Oficial <%= vuelo.operador %>)
+    </button>
+    <button type="button" id="btnGuardarDefinitivoCFR" class="btn btn-primary" style="padding: 12px 28px;">
+      <i class="fas fa-save"></i> <%= esNuevo ? 'Guardar Formato Definitivo' : 'Actualizar Formato Definitivo' %>
+    </button>
+  </div>
+</form>
+
+<script type="application/json" id="cfrInitialStateJson"><%- JSON.stringify(initialCfrPayload).replace(/</g, '\\u003c') %></script>

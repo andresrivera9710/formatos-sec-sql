@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DAILY ACTIVITY LOG - DELTA</title>
+    <style>
+        * { box-sizing: border-box; font-family: Arial, sans-serif; margin: 0; padding: 0; }
+        body { display: flex; justify-content: center; background-color: #525659; padding: 20px; }
+        .page { 
+            width: 210mm; 
+            min-height: 297mm; 
+            background: white; 
+            padding: 10mm 12mm; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: space-between; 
+        }
+        
+        /* ENCABEZADO LOGO */
+        .header {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .logo {
+            height: 22mm; 
+            width: auto;
+        }
+
+        /* TÍTULO EN CAJA CON BORDE NEGRO */
+        .title-box {
+            border: 2px solid black;
+            text-align: center;
+            font-weight: bold;
+            font-size: 22px;
+            padding: 5px;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+        
+        /* TABLA PRINCIPAL DELTA */
+        .main-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            border: 2px solid black; 
+            table-layout: fixed;
+        }
+        .main-table td { 
+            border: 1px solid black; 
+            font-size: 10.5px; /* Tamaño de letra aumentado para mejor legibilidad y relleno */
+            padding: 5px 8px;   /* Padding vertical ajustado para llenar el espacio de la página */
+            vertical-align: middle;
+        }
+        
+        .bold { font-weight: bold; }
+        .val { font-weight: normal; }
+        
+        /* ESPACIO AMPLIADO DE PASAJEROS FALTANTES (IGUAL AL ESCANEADO ORIGINAL) */
+        .missing-names-cell {
+            height: 95px;
+            vertical-align: top !important;
+        }
+
+        /* ESTILO FIRMAS */
+        .img-firma {
+            max-height: 30px;
+            max-width: 200px;
+            vertical-align: middle;
+            margin-left: 10px;
+            display: inline-block;
+        }
+
+        /* PIE DE PÁGINA */
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 9.5px;
+            font-weight: bold;
+            font-style: italic;
+            margin-top: 8px;
+        }
+        
+        @media print { 
+            body { background: none; padding: 0; } 
+            .page { padding: 8mm 10mm; width: 100%; height: 100vh; } 
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+    <div>
+        <!-- LOGO DELTA -->
+        <div class="header">
+            <img src="data:image/png;base64, @{variables('varLogoDelta')}" alt="Logo Delta" class="logo" />
+        </div>
+
+        <!-- TÍTULO EN CAJA -->
+        <div class="title-box">
+            Daily Activity Log
+        </div>
+
+        <!-- TABLA PRINCIPAL -->
+        <table class="main-table">
+            <tr>
+                <td style="width: 25%;"><span class="bold">FLIGHT #:</span> <span class="val">@{body('Parse_JSON_1')?['Flight']}</span></td>
+                <td style="width: 30%;"><span class="bold">ROUTE:</span> <span class="val">@{body('Parse_JSON_1')?['Route']}</span></td>
+                <td style="width: 20%;"><span class="bold">A/C #:</span> <span class="val">@{body('Parse_JSON_1')?['AC']}</span></td>
+                <td style="width: 25%;"><span class="bold">DATE:</span> <span class="val">@{body('Parse_JSON_1')?['Date']}</span></td>
+            </tr>
+
+            <tr>
+                <td colspan="4">
+                    <span class="bold">ALL CHECKED AND CARRY BAGS X - RAY &nbsp;&nbsp;&nbsp;&nbsp; YES:</span> [ @{if(equals(body('Parse_JSON_1')?['XRayYesNo'],'YES'),'X',' ')} ] &nbsp;&nbsp;&nbsp;&nbsp; <span class="bold">NO:</span> [ @{if(equals(body('Parse_JSON_1')?['XRayYesNo'],'NO'),'X',' ')} ]
+                </td>
+            </tr>
+
+            <tr>
+                <td colspan="4"><span class="bold">NUMBER OF BAGS PHYSICALLY SEARCHED:</span> <span class="val">@{body('Parse_JSON_1')?['BagsSearched']}</span></td>
+            </tr>
+
+            <tr><td colspan="4" class="bold">SCREENER SIGNATURES:</td></tr>
+            <tr><td colspan="4">1. <span class="val">@{body('Parse_JSON_1')?['Screener1']}</span></td></tr>
+            <tr><td colspan="4">2. <span class="val">@{body('Parse_JSON_1')?['Screener2']}</span></td></tr>
+            <tr><td colspan="4">3. <span class="val">@{body('Parse_JSON_1')?['Screener3']}</span></td></tr>
+
+            <tr>
+                <td colspan="4"><span class="bold">SUP:</span> <span class="val">@{body('Parse_JSON_1')?['Sup']}</span></td>
+            </tr>
+
+            <tr>
+                <td colspan="4" class="bold">
+                    ALL BAGS SENT ON BELT FROM TICKET COUNTER TO BAGGAGE MAKE - UP AREA HAVING PASSENGER ID, BAG TAGS, SEAT # SEQUENCE #
+                </td>
+            </tr>
+
+            <!-- GUARD SIGNATURE 1 -->
+            <tr>
+                <td colspan="4">
+                    <span class="bold">GUARD SIGNATURE:</span> 
+                    @{if(startsWith(string(body('Parse_JSON_1')?['GuardSig1']), 'data:image'), concat('<img class="img-firma" src="', body('Parse_JSON_1')?['GuardSig1'], '" />'), concat('<span class="val">', body('Parse_JSON_1')?['GuardSig1'], '</span>'))}
+                </td>
+            </tr>
+
+            <tr>
+                <td colspan="4">
+                    <span class="bold">ALL BAGS ENTERING BAGGAGE MAKE - UP AREA PROPERLY LOGGED WITH TAG #, SEAT #, SEQUENCE # AND ENTERED ON BAG LOG SHEET:</span><br/>
+                    <span class="bold">YES:</span> [ @{if(equals(body('Parse_JSON_1')?['BagsLoggedYesNo'],'YES'),'X',' ')} ] &nbsp;&nbsp;&nbsp;&nbsp; <span class="bold">NO:</span> [ @{if(equals(body('Parse_JSON_1')?['BagsLoggedYesNo'],'NO'),'X',' ')} ]
+                </td>
+            </tr>
+
+            <tr>
+                <td colspan="4"><span class="bold">NUMBER OF BAGS DESTINATED FOR U. S. PORT OF ENTRY:</span> <span class="val">@{body('Parse_JSON_1')?['BagsUSEntry']}</span></td>
+            </tr>
+
+            <!-- GUARD SIGNATURE 2 -->
+            <tr>
+                <td colspan="4">
+                    <span class="bold">GUARD SIGNATURE:</span> 
+                    @{ body('Parse_JSON_1')?['GuardSig2']}
+                </td>
+            </tr>
+
+            <tr>
+                <td colspan="4">
+                    <span class="bold">BAGS ESCORTED TO AIRCRAFT - GUARD SIGNATURE:</span> 
+                    @{ body('Parse_JSON_1')?['GuardSig2']}
+                </td>
+            </tr>
+
+            <tr>
+                <td colspan="4"><span class="bold">NUMBER OF BAGS LOADED IN FORWARD BIN:</span> <span class="val">@{body('Parse_JSON_1')?['BagsLoadedForward']}</span></td>
+            </tr>
+            <tr>
+                <td colspan="4"><span class="bold">PIECES OF CARGO LOADED IN FORWARD BIN:</span> <span class="val">@{body('Parse_JSON_1')?['CargoLoadedForward']}</span></td>
+            </tr>
+
+            <!-- GUARD SIGNATURE 3 -->
+            <tr>
+                <td colspan="4">
+                    <span class="bold">GUARD SIGNATURE:</span> 
+                    @{if(startsWith(string(body('Parse_JSON_1')?['GuardSig3']), 'data:image'), concat('<img class="img-firma" src="', body('Parse_JSON_1')?['GuardSig3'], '" />'), concat('<span class="val">', body('Parse_JSON_1')?['GuardSig3'], '</span>'))}
+                </td>
+            </tr>
+
+            <tr>
+                <td colspan="4"><span class="bold">PIECES OF CARGO MANIFESTED FOR FLIGHT:</span> <span class="val">@{body('Parse_JSON_1')?['CargoManifested']}</span></td>
+            </tr>
+            <tr>
+                <td colspan="4">
+                    <span class="bold">CARGO CHECKED BY - GUARD SIGNATURE:</span> 
+                    @{if(startsWith(string(body('Parse_JSON_1')?['CargoCheckedSig']), 'data:image'), concat('<img class="img-firma" src="', body('Parse_JSON_1')?['CargoCheckedSig'], '" />'), concat('<span class="val">', body('Parse_JSON_1')?['CargoCheckedSig'], '</span>'))}
+                </td>
+            </tr>
+            <tr>
+                <td colspan="4">
+                    <span class="bold">CARGO ESCORTED TO BAK MAKE - UP AREA - GUARD SIGNATURE:</span> 
+                    @{if(startsWith(string(body('Parse_JSON_1')?['CargoEscortedBakSig']), 'data:image'), concat('<img class="img-firma" src="', body('Parse_JSON_1')?['CargoEscortedBakSig'], '" />'), concat('<span class="val">', body('Parse_JSON_1')?['CargoEscortedBakSig'], '</span>'))}
+                </td>
+            </tr>
+            <tr>
+                <td colspan="4">
+                    <span class="bold">CARGO ESCORTED TO AIRCRAFT - GUARD SIGNATURE:</span> 
+                    @{if(startsWith(string(body('Parse_JSON_1')?['CargoEscortedAircraftSig']), 'data:image'), concat('<img class="img-firma" src="', body('Parse_JSON_1')?['CargoEscortedAircraftSig'], '" />'), concat('<span class="val">', body('Parse_JSON_1')?['CargoEscortedAircraftSig'], '</span>'))}
+                </td>
+            </tr>
+
+            <tr>
+                <td colspan="4"><span class="bold">THROUGH PASSENGERS ON AIRCRAFT:</span> <span class="val">@{body('Parse_JSON_1')?['ThroughPassengers']}</span></td>
+            </tr>
+            <tr>
+                <td colspan="4"><span class="bold">NUMBER OF PASSENGERS ON DEPARTING AIRCRAFT:</span> <span class="val">@{body('Parse_JSON_1')?['DepartingPassengers']}</span></td>
+            </tr>
+            <tr>
+                <td colspan="4"><span class="bold">NUMBER OF PASSENGERS MISSING FLIGHT:</span> <span class="val">@{body('Parse_JSON_1')?['MissingPassengers']}</span></td>
+            </tr>
+
+            <!-- PASAJEROS FALTANTES (ALTURA EXPANDIDA COMO LA HOJA IMPRESA ORIGINAL) -->
+            <tr>
+                <td colspan="4" class="missing-names-cell">
+                    <span class="bold">NAMES OF PASSENGERS MISSING FLIGHT:</span><br/>
+                    <span class="val">@{body('Parse_JSON_1')?['NamesMissingPassengers']}</span>
+                </td>
+            </tr>
+
+            <tr>
+                <td colspan="4"><span class="bold">PIECES OF FREIGHT ACCEPTED:</span> <span class="val">@{body('Parse_JSON_1')?['FreightAccepted']}</span></td>
+            </tr>
+            <tr>
+                <td colspan="4"><span class="bold">PIECES OF FREIGHT LOADED:</span> <span class="val">@{body('Parse_JSON_1')?['FreightLoaded']}</span></td>
+            </tr>
+            <tr>
+                <td colspan="4"><span class="bold">NUMBER OF BAGS CHECKED IN:</span> <span class="val">@{body('Parse_JSON_1')?['BagsCheckedIn']}</span></td>
+            </tr>
+            <tr>
+                <td colspan="4"><span class="bold">NUMBER OF BAGS LOADED:</span> <span class="val">@{body('Parse_JSON_1')?['BagsLoaded']}</span></td>
+            </tr>
+            <tr>
+                <td colspan="4"><span class="bold">NUMBER OF BAGS OFF LOADED:</span> <span class="val">@{body('Parse_JSON_1')?['BagsOffLoaded']}</span></td>
+            </tr>
+            <tr>
+                <td colspan="4">
+                    <span class="bold">DID BAGS REMOVED MATCH THE PASSENGERS NAME MISSING FLIGHT:</span><br/>
+                    <span class="bold">YES:</span> [ @{if(equals(body('Parse_JSON_1')?['MatchMissingYesNo'],'YES'),'X',' ')} ] &nbsp;&nbsp;&nbsp;&nbsp; <span class="bold">NO:</span> [ @{if(equals(body('Parse_JSON_1')?['MatchMissingYesNo'],'NO'),'X',' ')} ]
+                </td>
+            </tr>
+
+            <!-- GUARD SUP SIGNATURE -->
+            <tr>
+                <td colspan="4" style="height: 38px;">
+                    <span class="bold">GUARD SUP. SIGNATURE:</span> 
+                    <span class="val">@{body('Parse_JSON_1')?['GuardSupSig']}</span>
+                    @{if(or(empty(body('Parse_JSON_1')?['FirmaGuardSup']), equals(body('Parse_JSON_1')?['FirmaGuardSup'], null)), '', if(startsWith(string(body('Parse_JSON_1')?['FirmaGuardSup']), 'data:image'), concat('<img class="img-firma" src="', body('Parse_JSON_1')?['FirmaGuardSup'], '" />'), concat('<img class="img-firma" src="data:image/png;base64,', body('Parse_JSON_1')?['FirmaGuardSup'], '" />')))}
+                </td>
+            </tr>
+
+            <!-- DL AGENT SIGNATURE -->
+            <tr>
+                <td colspan="4" style="height: 38px;">
+                    <span class="bold">DL AGENT:</span> 
+                    <span class="val">@{body('Parse_JSON_1')?['DLAgent']}</span>
+                    @{if(or(empty(body('Parse_JSON_1')?['FirmaDLAgent']), equals(body('Parse_JSON_1')?['FirmaDLAgent'], null)), '', if(startsWith(string(body('Parse_JSON_1')?['FirmaDLAgent']), 'data:image'), concat('<img class="img-firma" src="', body('Parse_JSON_1')?['FirmaDLAgent'], '" />'), concat('<img class="img-firma" src="data:image/png;base64,', body('Parse_JSON_1')?['FirmaDLAgent'], '" />')))}
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- PIE DE PÁGINA IMPRESO EN EL BORDE INFERIOR -->
+    <div class="footer">
+        <div>TO BE USED BY SECURITY SUPERVISOR AND DELTA AGENT</div>
+        <div>(1)</div>
+    </div>
+</div>
+</body>
+</html>

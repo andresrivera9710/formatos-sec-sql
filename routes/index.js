@@ -43,6 +43,7 @@ router.post('/api/formatos/verificar', apiLimiter, FormatosController.apiVerific
 router.get('/formatos/:formatoId/vista-preliminar', FormatosController.renderVistaPreliminarCP);
 router.get('/formatos/:formatoId', FormatosController.renderDetalleFormato);
 router.post('/api/formatos/procesar', apiLimiter, FormatosController.apiProcesarGuardado);
+router.post('/api/formatos/guardar', apiLimiter, FormatosController.apiProcesarGuardado);
 
 module.exports = router;
 

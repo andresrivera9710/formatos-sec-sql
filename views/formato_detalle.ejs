@@ -50,6 +50,38 @@
 
         <% if (formato && formato.id && formato.id.endsWith('-cp')) { %>
           <%- include('partials/formato_cp') %>
+        <% } else if (formato && formato.id && formato.id.endsWith('-er')) { %>
+          <%- include('partials/formato_er') %>
+        <% } else if (formato && formato.id && formato.id.endsWith('-eb')) { %>
+          <%- include('partials/formato_eb') %>
+        <% } else if (formato && formato.id && formato.id.endsWith('-cec')) { %>
+          <%- include('partials/formato_cec') %>
+        <% } else if (formato && formato.id && formato.id.endsWith('-ciec')) { %>
+          <%- include('partials/formato_ciec') %>
+        <% } else if (formato && formato.id && formato.id.endsWith('-mecd')) { %>
+          <%- include('partials/formato_mecd') %>
+        <% } else if (formato && formato.id && formato.id.endsWith('-po')) { %>
+          <%- include('partials/formato_po') %>
+        <% } else if (formato && formato.id && formato.id.endsWith('-cfr')) { %>
+          <%- include('partials/formato_cfr') %>
+        <% } else if (formato && formato.id && formato.id.endsWith('-rx')) { %>
+          <%- include('partials/formato_rx') %>
+        <% } else if (formato && formato.id && formato.id.endsWith('-cll')) { %>
+          <%- include('partials/formato_cll') %>
+        <% } else if (formato && formato.id && formato.id.endsWith('-sp')) { %>
+          <%- include('partials/formato_sp') %>
+        <% } else if (formato && formato.id && formato.id.endsWith('-dal')) { %>
+          <%- include('partials/formato_dal') %>
+        <% } else if (formato && formato.id && formato.id.endsWith('-sel')) { %>
+          <%- include('partials/formato_sel') %>
+        <% } else if (formato && formato.id && formato.id.endsWith('-ass')) { %>
+          <%- include('partials/formato_ass') %>
+        <% } else if (formato && formato.id && formato.id.endsWith('-anexoa')) { %>
+          <%- include('partials/formato_anexoa') %>
+        <% } else if (formato && formato.id && formato.id.endsWith('-anexob')) { %>
+          <%- include('partials/formato_anexob') %>
+        <% } else if (formato && formato.id && formato.id.endsWith('-liadc')) { %>
+          <%- include('partials/formato_liadc') %>
         <% } else { %>
         <!-- Formulario de Inspección de Seguridad -->
         <form id="formCapturaFormato">
@@ -160,8 +192,41 @@
     </div>
   </div>
 
+  <script src="/js/formato-validator.js"></script>
   <% if (formato && formato.id && formato.id.endsWith('-cp')) { %>
     <script src="/js/formato-cp.js"></script>
+  <% } else if (formato && formato.id && formato.id.endsWith('-er')) { %>
+    <script src="/js/formato-er.js"></script>
+  <% } else if (formato && formato.id && formato.id.endsWith('-eb')) { %>
+    <script src="/js/formato-eb.js"></script>
+  <% } else if (formato && formato.id && formato.id.endsWith('-cec')) { %>
+    <script src="/js/formato-cec.js"></script>
+  <% } else if (formato && formato.id && formato.id.endsWith('-ciec')) { %>
+    <script src="/js/formato-ciec.js"></script>
+  <% } else if (formato && formato.id && formato.id.endsWith('-mecd')) { %>
+    <script src="/js/formato-mecd.js"></script>
+  <% } else if (formato && formato.id && formato.id.endsWith('-po')) { %>
+    <script src="/js/formato-po.js"></script>
+  <% } else if (formato && formato.id && formato.id.endsWith('-cfr')) { %>
+    <script src="/js/formato-cfr.js"></script>
+  <% } else if (formato && formato.id && formato.id.endsWith('-rx')) { %>
+    <script src="/js/formato-rx.js"></script>
+  <% } else if (formato && formato.id && formato.id.endsWith('-cll')) { %>
+    <script src="/js/formato-cll.js"></script>
+  <% } else if (formato && formato.id && formato.id.endsWith('-sp')) { %>
+    <script src="/js/formato-sp.js"></script>
+  <% } else if (formato && formato.id && formato.id.endsWith('-dal')) { %>
+    <script src="/js/formato-dal.js"></script>
+  <% } else if (formato && formato.id && formato.id.endsWith('-sel')) { %>
+    <script src="/js/formato-sel.js"></script>
+  <% } else if (formato && formato.id && formato.id.endsWith('-ass')) { %>
+    <script src="/js/formato-ass.js"></script>
+  <% } else if (formato && formato.id && formato.id.endsWith('-anexoa')) { %>
+    <script src="/js/formato-anexoa.js"></script>
+  <% } else if (formato && formato.id && formato.id.endsWith('-anexob')) { %>
+    <script src="/js/formato-anexob.js"></script>
+  <% } else if (formato && formato.id && formato.id.endsWith('-liadc')) { %>
+    <script src="/js/formato-liadc.js"></script>
   <% } else { %>
     <script src="/js/formato-detalle.js"></script>
   <% } %>

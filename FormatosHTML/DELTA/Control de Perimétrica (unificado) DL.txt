@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>CONTROL DE PERIMÉTRICA - DELTA</title>
+    <style>
+        * { box-sizing: border-box; -webkit-print-color-adjust: exact; }
+        body { margin: 0; padding: 0; background-color: #f4f4f4; font-family: Arial, sans-serif; display: flex; justify-content: center; color: #000; }
+        .page { background-color: white; width: 210mm; min-height: 297mm; height: auto; padding: 5mm; margin: 10mm auto; }
+        .inner-frame { border: 2px solid black; padding: 0mm 8mm 6mm 8mm; min-height: 287mm; height: auto; display: flex; flex-direction: column; }
+        .header { display: flex; align-items: center; margin-top: 2mm; margin-bottom: 2mm; }
+        .logo { height: 22mm; width: auto; }
+        .title-container { height: 9mm; background-color: #d1d1d1; border: 1.5px solid black; text-align: center; display: flex; align-items: center; justify-content: center; margin-top: 0; margin-bottom: 4mm; }
+        .title-text { margin: 0; font-size: 13pt; font-style: italic; font-weight: bold; text-transform: uppercase; }
+        .info-section { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5mm 10mm; margin-bottom: 3mm; }
+        
+        /* CORRECCIÓN: Usamos min-height para que pueda crecer si el texto se envuelve */
+        .info-item { 
+            display: flex; 
+            align-items: flex-end; 
+            font-size: 9.5pt; 
+            min-height: 4.5mm; 
+        }
+        
+        .info-label { margin-right: 2mm; white-space: nowrap; font-weight: normal; }
+        
+        /* CORRECCIÓN: Quitamos el height fijo y añadimos word-break para que la línea se mueva abajo del texto */
+        .info-line { 
+            flex-grow: 1; 
+            border-bottom: 1px solid black; 
+            padding-left: 5px; 
+            font-weight: bold; 
+            font-size: 9.5pt; 
+            line-height: 1.2;
+            word-break: break-word; 
+        }
+        
+        .table-container { margin-bottom: 3mm; flex-grow: 1; }
+        table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+        th, td { border: 1px solid black; text-align: center; height: 6mm; }
+        th { background-color: #e0e0e0; font-weight: bold; }
+        @media print { body { background: none; } .page { margin: 0; box-shadow: none; } }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="inner-frame">
+            <div class="header">
+                <img src="data:image/png;base64, @{variables('varLogoDelta')}" alt="Logo Delta" class="logo">
+            </div>
+            <div class="title-container">
+                <h1 class="title-text">CONTROL DE PERIMÉTRICA</h1>
+            </div>
+            <div class="info-section">
+                <div class="info-item"><span class="info-label">FECHA:</span><div class="info-line">@{body('Parse_JSON_17')?['Fecha']}</div></div>
+                <div class="info-item"><span class="info-label">SUPERVISOR:</span><div class="info-line">@{body('Parse_JSON_17')?['Supervisor']}</div></div>
+                <div class="info-item"><span class="info-label">HORA INICIO / PUERTA:</span><div class="info-line">@{body('Parse_JSON_17')?['HoraInicioPuerta']}</div></div>
+                <div class="info-item"><span class="info-label">AGENTE:</span><div class="info-line">@{body('Parse_JSON_17')?['Agente']}</div></div>
+                <div class="info-item"><span class="info-label">VUELO:</span><div class="info-line">@{body('Parse_JSON_17')?['Vuelo']}</div></div>
+                <div class="info-item"><span class="info-label">MATRICULA:</span><div class="info-line">@{body('Parse_JSON_17')?['Matricula']}</div></div>
+                <div class="info-item"><span class="info-label">ARRIBO DE VUELO:</span><div class="info-line">@{body('Parse_JSON_17')?['ArriboVuelo']}</div></div>
+                <div class="info-item"><span class="info-label">AERONAVE ASEGURADA:</span><div class="info-line">@{body('Parse_JSON_17')?['AeronaveAsegurada']}</div></div>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 4%;">No.</th>
+                            <th style="width: 25%;">NOMBRE DEL PERSONAL</th>
+                            <th style="width: 10%;">No. TIA</th>
+                            <th style="width: 10%;">HORA INGRESO</th>
+                            <th style="width: 15%;">EMPRESA</th>
+                            <th style="width: 26%;">MOTIVO</th>
+                            <th style="width: 10%;">HORA SALIDA</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{body('Parse_JSON_17')?['FilasTabla']}
+                    </tbody>
+                </table>
+            </div>
+            <div class="info-section" style="margin-top: 3mm; margin-bottom: 0;">
+                <div class="info-item"><span class="info-label">TRACTORISTA / UNIDAD:</span><div class="info-line">@{body('Parse_JSON_17')?['TractoristaUnidad']}</div></div>
+                <div class="info-item">
+                    <span class="info-label">ALEROS:</span>
+                    <div class="info-line">@{body('Parse_JSON_17')?['Aleros']}</div>
+                </div>
+            </div>
+            <div style="margin-top: 2mm;">
+                <div style="font-weight: bold; font-size: 10pt; margin-bottom: 2mm;">OBSERVACIONES:</div>
+                <div style="font-size: 9.5pt; border-bottom: 1px solid black; min-height: 5mm; margin-bottom: 3mm; padding-bottom: 2px;">@{body('Parse_JSON_17')?['Observaciones']}</div>
+                <div style="border-bottom: 1px solid black; height: 5mm;"></div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

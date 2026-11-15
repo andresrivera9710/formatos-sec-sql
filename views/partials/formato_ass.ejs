@@ -1,0 +1,308 @@
+<%
+  const det = (assState && assState.detalle) ? assState.detalle : {};
+  const meta = (det.Meta && typeof det.Meta === 'object') ? det.Meta : {};
+
+  const extractHHMM = (val) => {
+    if (!val) return '';
+    const s = String(val).trim();
+    if (s.includes('T') && s.length >= 16) return s.substring(11, 16);
+    const m = s.match(/(\d{2}:\d{2})/);
+    return m ? m[1] : '';
+  };
+
+  let fechaInicial = '';
+  if (det.Fecha) {
+    fechaInicial = String(det.Fecha instanceof Date ? det.Fecha.toISOString() : det.Fecha).substring(0, 10);
+  } else if (vuelo && vuelo.FechaItinerado) {
+    fechaInicial = String(vuelo.FechaItinerado instanceof Date ? vuelo.FechaItinerado.toISOString() : vuelo.FechaItinerado).substring(0, 10);
+  } else {
+    fechaInicial = new Date().toISOString().substring(0, 10);
+  }
+
+  const tipoBusquedaInicial = String(det.TipoBusqueda || 'PHYSICAL').trim().toUpperCase() === 'VISUAL' ? 'VISUAL' : 'PHYSICAL';
+  const supDefault = det.TeamSupervisor || (user && (user.nombreCompleto || user.usuario)) || '';
+  const empNoDefault = det.EmpleadoId ? String(det.EmpleadoId) : (user && user.empleadoId ? String(user.empleadoId) : '');
+
+  const isTrue = (v, defVal = true) => {
+    if (v === undefined || v === null) return defVal;
+    return v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'true';
+  };
+
+  const initialAssPayload = {
+    formatoId: formato.id,
+    formatoNombre: formato.nombre,
+    itinerarioId: vuelo.itinerarioId,
+    encabezadoId: encabezadoId || null,
+    esNuevo: Boolean(esNuevo),
+    noVuelo: vuelo.novuelo || '',
+    matricula: vuelo.Matricula || '',
+    fecha: fechaInicial,
+    departureStation: meta.departureStation || 'GUA',
+    originInbound: meta.originInbound || vuelo.Origen || '',
+    destinationOutbound: meta.destinationOutbound || vuelo.Destino || 'GUA',
+    horaInicio: extractHHMM(det.HoraInicio),
+    horaFin: extractHHMM(det.HoraFin),
+    tipoBusqueda: tipoBusquedaInicial,
+    supervisorNombre: supDefault,
+    company: meta.company || 'LAATS',
+    empleadoNo: empNoDefault,
+    observaciones: det.Observaciones || '',
+    signature: meta.signature || '',
+    checks: {
+      OverheadBins: isTrue(det.CompartimientosSuperiores, true),
+      ClosetsStorage: isTrue(det.ArmariosAreasTripulacion, true),
+      Lavatories: isTrue(det.LavatoriosSellosSeguridad, true),
+      SeatsUnder: isTrue(det.AsientosBolsillosPared, true),
+      SeatBacksTrays: isTrue(det.RespaldosBolsillosBandejas, true),
+      GalleyAreas: isTrue(det.CocinasCarritos, true),
+      UnderSeatCushions: isTrue(det.CojinesAsientos, true),
+      LifeVestPackages: isTrue(det.ChalecosSalvavidas, true),
+      CrewRestAreasNA: isTrue(det.AreasDescansoTripulacion, true)
+    }
+  };
+%>
+
+<form id="formCapturaASS" novalidate>
+  <input type="hidden" id="assFormatoId" value="<%= formato.id %>">
+  <input type="hidden" id="assItinerarioId" value="<%= vuelo.itinerarioId %>">
+  <input type="hidden" id="assEncabezadoId" value="<%= encabezadoId || '' %>">
+
+  <!-- 1. ENCABEZADO DEL VUELO (AircraftSecuritySearch - AIR CANADA) -->
+  <div class="card">
+    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+      <h3 class="cp-section-title">
+        <i class="fas fa-plane-departure"></i> Encabezado — Aircraft Security Search (ACF632)
+      </h3>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <% if (!esNuevo && encabezadoId) { %>
+          <a href="/formatos/<%= encodeURIComponent(formato.id) %>?nuevo=1" class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;">
+            <i class="fas fa-plus-circle"></i> Crear Nuevo Registro
+          </a>
+        <% } %>
+        <span class="badge badge-brand" id="assBadgeEstadoEncabezado">
+          <%= (!esNuevo && encabezadoId) ? `REGISTRO CARGADO #${encabezadoId}` : 'NUEVA CAPTURA' %>
+        </span>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px;">
+      <div class="form-group">
+        <label for="assNoVuelo"><i class="fas fa-plane"></i> Flight # <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="assNoVuelo" class="form-control" value="<%= vuelo.novuelo || '' %>" readonly style="background-color: var(--bg); font-weight: 700; color: var(--brand-deep);">
+      </div>
+
+      <div class="form-group">
+        <label for="assMatricula"><i class="fas fa-hashtag"></i> FIN / Tail # <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="assMatricula" class="form-control" value="<%= vuelo.Matricula || 'Pendiente' %>" readonly style="background-color: var(--bg); font-weight: 700;">
+      </div>
+
+      <div class="form-group">
+        <label for="assFecha"><i class="far fa-calendar-alt"></i> Date <span style="color: var(--danger);">*</span></label>
+        <input type="date" id="assFecha" class="form-control" value="<%= fechaInicial %>" required>
+      </div>
+
+      <div class="form-group">
+        <label for="assDepartureStation"><i class="fas fa-map-marker-alt"></i> Departure Station <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="assDepartureStation" class="form-control" maxlength="20" value="<%= initialAssPayload.departureStation %>" placeholder="Ej. GUA" required>
+      </div>
+
+      <div class="form-group">
+        <label for="assOriginInbound"><i class="fas fa-plane-arrival"></i> Origin Inbound <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="assOriginInbound" class="form-control" maxlength="100" value="<%= initialAssPayload.originInbound %>" placeholder="Ej. YYZ / YUL" required>
+      </div>
+
+      <div class="form-group">
+        <label for="assDestinationOutbound"><i class="fas fa-route"></i> Destination Outbound <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="assDestinationOutbound" class="form-control" maxlength="100" value="<%= initialAssPayload.destinationOutbound %>" placeholder="Ej. YUL / YYZ" required>
+      </div>
+
+      <div class="form-group">
+        <label for="assHoraInicio"><i class="far fa-clock"></i> Search Start Time <span style="color: var(--danger);">*</span></label>
+        <div class="cp-time-row">
+          <input type="time" id="assHoraInicio" class="form-control" value="<%= initialAssPayload.horaInicio %>" required>
+          <button type="button" id="btnAssHoraInicioAhora" class="cp-clock-btn" title="Usar hora actual">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="assHoraFin"><i class="fas fa-clock"></i> Time Search Completed <span style="color: var(--danger);">*</span></label>
+        <div class="cp-time-row">
+          <input type="time" id="assHoraFin" class="form-control" value="<%= initialAssPayload.horaFin %>" required>
+          <button type="button" id="btnAssHoraFinAhora" class="cp-clock-btn" title="Usar hora actual">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="assTipoBusqueda"><i class="fas fa-search"></i> Type of Search Performed <span style="color: var(--danger);">*</span></label>
+        <select id="assTipoBusqueda" class="form-control" required>
+          <option value="PHYSICAL" <%= tipoBusquedaInicial === 'PHYSICAL' ? 'selected' : '' %>>PHYSICAL (Búsqueda Física Completa)</option>
+          <option value="VISUAL" <%= tipoBusquedaInicial === 'VISUAL' ? 'selected' : '' %>>VISUAL (Búsqueda Visual)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. CHECKLIST DE INSPECCIÓN DE CABINA -->
+  <div class="card" style="border-top: 3px solid var(--brand);">
+    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+      <h3 class="cp-section-title">
+        <i class="fas fa-tasks"></i> Aircraft Cabin Search — Checklist de Áreas Inspeccionadas
+      </h3>
+      <button type="button" id="btnAssMarcarTodo" class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;">
+        <i class="fas fa-check-double"></i> Marcar Estándar Done
+      </button>
+    </div>
+
+    <div class="er-table-wrap">
+      <table class="er-table">
+        <thead>
+          <tr>
+            <th style="width: 50px; text-align: center;">#</th>
+            <th>Area / Item Inspected</th>
+            <th style="width: 190px; text-align: center;">Estado en Documento</th>
+            <th style="width: 120px; text-align: center;">Aplicado / N/A</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="text-align: center; font-weight: 700;">1</td>
+            <td><strong>Overhead Bins:</strong> Compartimientos superiores</td>
+            <td style="text-align: center;" id="assLblOverheadBins">Done (✓)</td>
+            <td style="text-align: center;"><input type="checkbox" id="assChkOverheadBins" class="ass-check-item" data-mode="done" <%= initialAssPayload.checks.OverheadBins ? 'checked' : '' %>></td>
+          </tr>
+          <tr>
+            <td style="text-align: center; font-weight: 700;">2</td>
+            <td><strong>Closets, Storage Compartments &amp; Crew Lockers:</strong> Armarios y almacenamiento</td>
+            <td style="text-align: center;" id="assLblClosetsStorage">Done (✓)</td>
+            <td style="text-align: center;"><input type="checkbox" id="assChkClosetsStorage" class="ass-check-item" data-mode="done" <%= initialAssPayload.checks.ClosetsStorage ? 'checked' : '' %>></td>
+          </tr>
+          <tr>
+            <td style="text-align: center; font-weight: 700;">3</td>
+            <td><strong>Lavatories &amp; Safety Seals:</strong> Lavabos y sellos de seguridad</td>
+            <td style="text-align: center;" id="assLblLavatories">Done (✓)</td>
+            <td style="text-align: center;"><input type="checkbox" id="assChkLavatories" class="ass-check-item" data-mode="done" <%= initialAssPayload.checks.Lavatories ? 'checked' : '' %>></td>
+          </tr>
+          <tr>
+            <td style="text-align: center; font-weight: 700;">4</td>
+            <td><strong>Seats (Under &amp; Pockets between):</strong> Debajo de asientos y bolsillos</td>
+            <td style="text-align: center;" id="assLblSeatsUnder">Done (✓)</td>
+            <td style="text-align: center;"><input type="checkbox" id="assChkSeatsUnder" class="ass-check-item" data-mode="done" <%= initialAssPayload.checks.SeatsUnder ? 'checked' : '' %>></td>
+          </tr>
+          <tr>
+            <td style="text-align: center; font-weight: 700;">5</td>
+            <td><strong>Seat Backs, Pockets &amp; Tray Tables:</strong> Respaldos y bandejas</td>
+            <td style="text-align: center;" id="assLblSeatBacksTrays">Done (✓)</td>
+            <td style="text-align: center;"><input type="checkbox" id="assChkSeatBacksTrays" class="ass-check-item" data-mode="done" <%= initialAssPayload.checks.SeatBacksTrays ? 'checked' : '' %>></td>
+          </tr>
+          <tr>
+            <td style="text-align: center; font-weight: 700;">6</td>
+            <td><strong>Galley Areas &amp; Trolleys:</strong> Cocinas y carritos de servicio</td>
+            <td style="text-align: center;" id="assLblGalleyAreas">Done (✓)</td>
+            <td style="text-align: center;"><input type="checkbox" id="assChkGalleyAreas" class="ass-check-item" data-mode="done" <%= initialAssPayload.checks.GalleyAreas ? 'checked' : '' %>></td>
+          </tr>
+          <tr style="background-color: #FEF3C7;">
+            <td colspan="4" style="font-size: 11px; font-weight: 800; color: #92400E; text-transform: uppercase; letter-spacing: 0.04em; padding: 8px 12px;">
+              *** Physical Search Only ***
+            </td>
+          </tr>
+          <tr>
+            <td style="text-align: center; font-weight: 700;">7</td>
+            <td><strong>Seats: under seat cushions</strong> (Marcar = Done, Desmarcar = N/A)</td>
+            <td style="text-align: center;" id="assLblUnderSeatCushions">Done (✓)</td>
+            <td style="text-align: center;"><input type="checkbox" id="assChkUnderSeatCushions" class="ass-check-item" data-mode="done-or-na" <%= initialAssPayload.checks.UnderSeatCushions ? 'checked' : '' %>></td>
+          </tr>
+          <tr>
+            <td style="text-align: center; font-weight: 700;">8</td>
+            <td><strong>Life Vest Packages / Holders</strong> (Marcar = Done, Desmarcar = N/A)</td>
+            <td style="text-align: center;" id="assLblLifeVestPackages">Done (✓)</td>
+            <td style="text-align: center;"><input type="checkbox" id="assChkLifeVestPackages" class="ass-check-item" data-mode="done-or-na" <%= initialAssPayload.checks.LifeVestPackages ? 'checked' : '' %>></td>
+          </tr>
+          <tr>
+            <td style="text-align: center; font-weight: 700;">9</td>
+            <td><strong>Crew Rest Areas (OFAR and OFCR)</strong> — <em>Marque si es N/A (No aplica a esta aeronave); desmarque si se inspeccionó (Done)</em></td>
+            <td style="text-align: center;" id="assLblCrewRestAreasNA">N/A (✓)</td>
+            <td style="text-align: center;"><input type="checkbox" id="assChkCrewRestAreasNA" class="ass-check-item" data-mode="na-flag" <%= initialAssPayload.checks.CrewRestAreasNA ? 'checked' : '' %>></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 3. RESPONSABLES, OBSERVACIONES Y FIRMA -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="cp-section-title"><i class="fas fa-user-shield"></i> Supervisión y Observaciones</h3>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr; gap: 14px;">
+        <div class="form-group">
+          <label for="assSupervisorNombre"><i class="fas fa-user-tie"></i> Team Supervisor / Lead Name <span style="color: var(--danger);">*</span></label>
+          <input type="text" id="assSupervisorNombre" class="form-control" list="assSupervisoresList" maxlength="150" value="<%= initialAssPayload.supervisorNombre %>" placeholder="Nombre completo del supervisor o líder" required>
+          <datalist id="assSupervisoresList">
+            <% (supervisores || []).forEach(sup => { %>
+              <option value="<%= sup.Nombre || sup.Usuario %>"></option>
+            <% }) %>
+          </datalist>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label for="assCompany"><i class="fas fa-building"></i> Company Name <span style="color: var(--danger);">*</span></label>
+            <input type="text" id="assCompany" class="form-control" maxlength="100" value="<%= initialAssPayload.company %>" required>
+          </div>
+          <div class="form-group">
+            <label for="assEmpleadoNo"><i class="fas fa-id-badge"></i> Employee No. / TIA <span style="color: var(--danger);">*</span></label>
+            <input type="number" id="assEmpleadoNo" class="form-control" min="1" step="1" value="<%= initialAssPayload.empleadoNo %>" placeholder="Ej. 1024" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="assObservaciones">Observaciones / Novedades (Opcional)</label>
+          <textarea id="assObservaciones" class="form-control" rows="3" maxlength="2000" placeholder="(Opcional) Hallazgos, incidencias o notas de inspección..."><%= initialAssPayload.observaciones %></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 class="cp-section-title">
+          <i class="fas fa-signature"></i> Inspector / Supervisor Signature <span style="color: var(--danger);">*</span>
+        </h3>
+        <button type="button" id="btnLimpiarFirmaASS" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;">
+          <i class="fas fa-eraser"></i> Limpiar Firma
+        </button>
+      </div>
+
+      <% if (initialAssPayload.signature) { %>
+        <div id="assNoticeFirmaExistente" style="background-color: var(--success-light); border: 1px solid #BBF7D0; color: var(--success); padding: 8px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+          <span><i class="fas fa-check-circle"></i> Firma digital guardada en el registro. Puede trazar encima si desea reemplazarla.</span>
+          <img src="<%= initialAssPayload.signature %>" alt="Firma previa" style="max-height: 28px; background: #fff; padding: 2px; border-radius: 3px; border: 1px solid #BBF7D0;">
+        </div>
+      <% } %>
+
+      <div class="signature-box" id="assSignatureBox">
+        <canvas id="assCanvasFirma"></canvas>
+      </div>
+      <p style="font-size: 11px; color: var(--text-3); text-align: center; margin-top: 6px;">
+        BY SIGNING BELOW, I CONFIRM ALL THE ABOVE HAVE BEEN SEARCHED AND NO TAMPERING OR PROHIBITED ARTICLES WERE FOUND.
+      </p>
+    </div>
+  </div>
+
+  <!-- 4. BOTONES DE ACCIÓN -->
+  <div style="display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 14px; margin-bottom: 40px;">
+    <button type="button" id="btnVistaPreliminarASS" class="btn btn-secondary" style="padding: 12px 24px;">
+      <i class="fas fa-eye"></i> Vista Preliminar (Formato Oficial <%= vuelo.operador %>)
+    </button>
+    <button type="button" id="btnGuardarDefinitivoASS" class="btn btn-primary" style="padding: 12px 28px;">
+      <i class="fas fa-save"></i> <%= esNuevo ? 'Guardar Formato Definitivo' : 'Actualizar Formato Definitivo' %>
+    </button>
+  </div>
+</form>
+
+<script type="application/json" id="assInitialStateJson"><%- JSON.stringify(initialAssPayload).replace(/</g, '\\u003c') %></script>

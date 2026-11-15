@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Aircraft Security Search - Air Canada</title>
+    <style>
+        @page {
+            size: letter portrait;
+            margin: 8mm 12mm 6mm 12mm;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            color: #000000;
+            background-color: #525659;
+            margin: 0;
+            padding: 20px 0;
+            display: flex;
+            justify-content: center;
+            font-size: 9.5px;
+            line-height: 1.25;
+        }
+
+        /* Contenedor Hoja Tamaño Carta (8.5 x 11 pulgadas) */
+        .hoja-carta {
+            width: 215.9mm;
+            min-height: 279.4mm;
+            background-color: #ffffff;
+            padding: 10mm 15mm;
+            box-sizing: border-box;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+            margin: 0 auto;
+        }
+
+        @media print {
+            body {
+                background-color: #ffffff;
+                padding: 0;
+            }
+            .hoja-carta {
+                width: 100%;
+                min-height: auto;
+                padding: 0;
+                margin: 0;
+                box-shadow: none;
+            }
+        }
+
+        /* Encabezado */
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 6px;
+        }
+
+        .header-table td {
+            border: none;
+            padding: 0;
+            vertical-align: middle;
+        }
+
+        /* Logo Air Canada Grande */
+        .logo-img {
+            height: 92px;
+            max-width: 400px;
+            object-fit: contain;
+            display: block;
+        }
+
+        .top-security-notice {
+            font-size: 11px;
+            font-weight: bold;
+            font-style: italic;
+            text-align: right;
+            margin-bottom: 3px;
+        }
+
+        .form-title {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: right;
+            color: #000000;
+            letter-spacing: -0.4px;
+            line-height: 1.1;
+        }
+
+        /* Tablas generales */
+        table.grid {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 7px;
+        }
+
+        table.grid th, table.grid td {
+            border: 1.5px solid #000000;
+            padding: 4px 6px;
+        }
+
+        /* Tabla de Información de Vuelo */
+        .flight-info-table td {
+            vertical-align: top;
+            height: 36px;
+        }
+
+        .field-lbl {
+            font-size: 8.5px;
+            font-weight: bold;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .field-val {
+            font-size: 14px;
+            font-weight: bold;
+            color: #000000;
+            display: block;
+        }
+
+        /* Caja de Directivas Legales */
+        .directives-box {
+            border: 1.5px solid #000000;
+            padding: 5px 7px;
+            font-size: 8px;
+            line-height: 1.25;
+            margin-bottom: 7px;
+        }
+
+        .directives-box p {
+            margin: 0 0 2.5px 0;
+        }
+
+        .directives-box p:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Tipo de Búsqueda */
+        .search-type-table td {
+            padding: 5px 8px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .chk-box {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 1.5px solid #000000;
+            text-align: center;
+            line-height: 13px;
+            vertical-align: middle;
+            margin-left: 6px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        /* Checklist Cabina */
+        .checklist-table th {
+            background-color: #f2f2f2;
+            text-align: center;
+            font-size: 10.5px;
+            font-weight: bold;
+            padding: 5px;
+        }
+
+        .checklist-table td {
+            padding: 3.5px 6px;
+            font-size: 10px;
+        }
+
+        .section-header td {
+            background-color: #ffffff;
+            font-weight: bold;
+            font-size: 11px;
+            text-align: center;
+            padding: 4.5px;
+            letter-spacing: 0.3px;
+        }
+
+        .physical-header td {
+            background-color: #ffffff;
+            font-weight: bold;
+            font-size: 10px;
+            text-align: center;
+            padding: 3.5px;
+        }
+
+        .col-check {
+            width: 50px;
+            text-align: center;
+            vertical-align: middle;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .na-crosshatch {
+            background: repeating-linear-gradient(
+                -45deg,
+                #bcbcbc,
+                #bcbcbc 2px,
+                #ececec 2px,
+                #ececec 5px
+            ) !important;
+        }
+
+        .sub-bullet-text {
+            font-size: 8.5px;
+            font-style: italic;
+            display: block;
+            margin-top: 2px;
+        }
+
+        /* Nota Operativa Cockpit */
+        .flight-deck-note {
+            border: 1.5px solid #000000;
+            border-top: none;
+            padding: 4px 7px;
+            font-size: 8px;
+            line-height: 1.25;
+            margin-bottom: 7px;
+        }
+
+        /* Banner de Confirmación */
+        .confirm-banner {
+            border: 1.5px solid #000000;
+            border-bottom: none;
+            padding: 4px;
+            text-align: center;
+            font-size: 9px;
+            font-weight: bold;
+            letter-spacing: 0.2px;
+        }
+
+        /* Tabla de Firmas */
+        .signatures-table td {
+            vertical-align: top;
+            height: 58px;
+            padding: 4px 6px;
+        }
+
+        /* Advertencia de Seguridad Final */
+        .security-warning-footer {
+            font-size: 7.2px;
+            line-height: 1.2;
+            text-align: justify;
+            margin-top: 6px;
+            color: #111111;
+        }
+
+        .footer-metadata {
+            display: flex;
+            justify-content: space-between;
+            font-size: 9px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="hoja-carta">
+
+    <!-- 1. ENCABEZADO: LOGO AIR CANADA MÁS GRANDE Y TÍTULO -->
+    <table class="header-table">
+        <tr>
+            <td style="width: 50%; vertical-align: middle;">
+                <img class="logo-img" src="data:image/png;base64,@{variables('varLogoAirCanada')}" alt="Air Canada" />
+            </td>
+            <td style="width: 50%; vertical-align: middle; text-align: right;">
+                <div class="top-security-notice">Security Sensitive Information</div>
+                <div class="form-title">Aircraft Security Search</div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- 2. DATOS DE VUELO E ITINERARIO -->
+    <table class="grid flight-info-table">
+        <tr>
+            <td style="width: 22%;">
+                <span class="field-lbl">Flight #:</span>
+                <span class="field-val">@{body('Parse_JSON_30')?['Flight']}</span>
+            </td>
+            <td style="width: 20%;">
+                <span class="field-lbl">FIN #:</span>
+                <span class="field-val">@{coalesce(body('Parse_JSON_30')?['Fin'], body('Parse_JSON_30')?['FIN'], body('Parse_JSON_30')?['Matricula'], body('Parse_JSON_30')?['matricula'], '')}</span>
+            </td>
+            <td style="width: 32%;">
+                <span class="field-lbl">Date:</span>
+                <span class="field-val">@{body('Parse_JSON_30')?['Date']}</span>
+            </td>
+            <td style="width: 26%;">
+                <span class="field-lbl">Departure Station:</span>
+                <span class="field-val">@{coalesce(body('Parse_JSON_30')?['DepartureStation'], 'GUA')}</span>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2">
+                <span class="field-lbl">Origin Previous Flight (Inbound):</span>
+                <span class="field-val">@{coalesce(body('Parse_JSON_30')?['OriginInbound'], body('Parse_JSON_30')?['OriginPreviousFlight'], body('Parse_JSON_30')?['Origin'], '')}</span>
+            </td>
+            <td>
+                <span class="field-lbl">Destination (Outbound):</span>
+                <span class="field-val">@{coalesce(body('Parse_JSON_30')?['DestinationOutbound'], body('Parse_JSON_30')?['Destination'], 'GUA')}</span>
+            </td>
+            <td>
+                <span class="field-lbl">Search Start Time:</span>
+                <span class="field-val">@{coalesce(body('Parse_JSON_30')?['SearchStartTime'], body('Parse_JSON_30')?['HoraInicio'], '')}</span>
+            </td>
+        </tr>
+    </table>
+
+    <!-- 3. DIRECTIVAS LEGALES Y OPERATIVAS -->
+    <div class="directives-box">
+        <p>Once the search has been completed, the aircraft is considered sterile and <strong>cannot</strong> be left unattended unless it is secured as per directives provided by Corporate Security.</p>
+        <p>The Aircraft Access Control Log Sheet (Annex A) must be completed.</p>
+        <p>The Zonal Search Form (Annex B) is to be completed by A Stations in Canada only.</p>
+        <p>If for any reason the aircraft was left unattended and was not secured, there was unauthorized access, or a prohibited item was found onboard, a complete physical search must be conducted.</p>
+        <p>Completed, signed forms must be kept for 90 days at the Departure Station, and for 2 years for One-Stop Security (OSS) flights departing Canadian stations.</p>
+        <p>Search completion to be communicated as per local Air Canada operational procedures.</p>
+    </div>
+
+    <!-- 4. TIPO DE BÚSQUEDA (CON SOPORTE PARA PHYSICAL / FISICA / VISUAL) -->
+    <table class="grid search-type-table" style="margin-bottom: 0; border-bottom: none;">
+        <tr>
+            <td style="width: 48%; background-color: #fafafa;">
+                Type of Search Performed:
+            </td>
+            <td style="width: 26%; text-align: center;">
+                Physical <span class="chk-box">@{if(or(equals(toUpper(coalesce(body('Parse_JSON_30')?['SearchType'], '')), 'PHYSICAL'), equals(toUpper(coalesce(body('Parse_JSON_30')?['SearchType'], '')), 'FÍSICA'), equals(toUpper(coalesce(body('Parse_JSON_30')?['SearchType'], '')), 'FISICA')), '&#10003;', '&nbsp;')}</span>
+            </td>
+            <td style="width: 26%; text-align: center;">
+                Visual <span class="chk-box">@{if(equals(toUpper(coalesce(body('Parse_JSON_30')?['SearchType'], '')), 'VISUAL'), '&#10003;', '&nbsp;')}</span>
+            </td>
+        </tr>
+    </table>
+
+    <!-- 5. CHECKLIST DE CABINA -->
+    <table class="grid checklist-table" style="margin-bottom: 0;">
+        <thead>
+            <tr class="section-header">
+                <td colspan="3">Aircraft Cabin Search</td>
+            </tr>
+            <tr>
+                <th style="text-align: left; padding-left: 8px;">Area / Item Inspected</th>
+                <th class="col-check">Done<br><span style="font-size: 11px;">&#10003;</span></th>
+                <th class="col-check">N/A<br><span style="font-size: 11px;">&#10003;</span></th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Overhead Bins</td>
+                <td class="col-check">@{if(body('Parse_JSON_30')?['Checks']?['OverheadBins'], '&#10003;', '&nbsp;')}</td>
+                <td class="col-check na-crosshatch"></td>
+            </tr>
+            <tr>
+                <td>Closets, Storage Bins &amp; Crew Storage Areas</td>
+                <td class="col-check">@{if(body('Parse_JSON_30')?['Checks']?['ClosetsStorage'], '&#10003;', '&nbsp;')}</td>
+                <td class="col-check na-crosshatch"></td>
+            </tr>
+            <tr>
+                <td>
+                    Lavatories and Lavatory Security Seals:
+                    <span class="sub-bullet-text">Seal inspection should include witness wire on toilet shroud</span>
+                </td>
+                <td class="col-check">@{if(body('Parse_JSON_30')?['Checks']?['Lavatories'], '&#10003;', '&nbsp;')}</td>
+                <td class="col-check na-crosshatch"></td>
+            </tr>
+            <tr>
+                <td>Seats: Under seats; seat pockets; between seats; between seat &amp; wall</td>
+                <td class="col-check">@{if(body('Parse_JSON_30')?['Checks']?['SeatsUnder'], '&#10003;', '&nbsp;')}</td>
+                <td class="col-check na-crosshatch"></td>
+            </tr>
+            <tr>
+                <td>Seat Backs / Pockets / Trays</td>
+                <td class="col-check">@{if(body('Parse_JSON_30')?['Checks']?['SeatBacksTrays'], '&#10003;', '&nbsp;')}</td>
+                <td class="col-check na-crosshatch"></td>
+            </tr>
+            <tr>
+                <td>Galley Areas &amp; Trolleys</td>
+                <td class="col-check">@{if(body('Parse_JSON_30')?['Checks']?['GalleyAreas'], '&#10003;', '&nbsp;')}</td>
+                <td class="col-check na-crosshatch"></td>
+            </tr>
+
+            <!-- Sección Exclusiva Búsqueda Física -->
+            <tr class="physical-header">
+                <td colspan="3">***Physical Search Only***</td>
+            </tr>
+            <tr>
+                <td>Seats: under seat cushions</td>
+                <td class="col-check">@{if(body('Parse_JSON_30')?['Checks']?['UnderSeatCushions'], '&#10003;', '&nbsp;')}</td>
+                <td class="col-check">
+                    <span class="chk-box">@{if(body('Parse_JSON_30')?['Checks']?['UnderSeatCushions'], '&nbsp;', '&#10003;')}</span>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Life Vest Packages / Holders: If the seal is broken, missing, or looks tampered with, take out the life vest package, search both the package and the holder carefully. Notify your supervisor or local AC Manager.
+                </td>
+                <td class="col-check">@{if(body('Parse_JSON_30')?['Checks']?['LifeVestPackages'], '&#10003;', '&nbsp;')}</td>
+                <td class="col-check">
+                    <span class="chk-box">@{if(body('Parse_JSON_30')?['Checks']?['LifeVestPackages'], '&nbsp;', '&#10003;')}</span>
+                </td>
+            </tr>
+            <tr>
+                <td>Crew Rest Areas (OFAR and OFCR) - N/A if not applicable to aircraft type</td>
+                <td class="col-check">
+                    <span class="chk-box">@{if(body('Parse_JSON_30')?['Checks']?['CrewRestAreasNA'], '&nbsp;', '&#10003;')}</span>
+                </td>
+                <td class="col-check">
+                    <span class="chk-box">@{if(body('Parse_JSON_30')?['Checks']?['CrewRestAreasNA'], '&#10003;', '&nbsp;')}</span>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- 6. NOTA DEL FLIGHT DECK Y ÁREA EXTERIOR -->
+    <div class="flight-deck-note">
+        *The flight deck is searched by the Flight Operations crew. The <strong>exterior and cargo hold</strong> are searched by the Ground Operations crew. As per FOM 8.3.6.1 and Pub 70 4.4.30: the release of the brake serves as an electronic signature confirming completion of all required security searches*.
+    </div>
+
+    <!-- 7. DECLARACIÓN DE CONFORMIDAD -->
+    <div class="confirm-banner">
+        BY SIGNING BELOW, I CONFIRM ALL THE ABOVE HAVE BEEN SEARCHED AND THERE WERE NO VISIBLE SIGNS OF TAMPERING OR ANY PROHIBITED ARTICLES FOUND.
+    </div>
+
+    <!-- 8. TABLA DE SUPERVISIÓN, HORA Y FIRMA -->
+    <table class="grid signatures-table">
+        <tr>
+            <td style="width: 48%;">
+                <span class="field-lbl">Team Supervisor / Lead and Company Name:</span>
+                <span class="field-val" style="font-size: 14px; margin-top: 6px;">
+                    @{coalesce(body('Parse_JSON_30')?['SupervisorName'], body('Parse_JSON_30')?['TeamSupervisor'], body('Parse_JSON_30')?['Supervisor'], '')} / @{coalesce(body('Parse_JSON_30')?['Company'], 'LAATS')}
+                </span>
+            </td>
+            <td style="width: 22%;">
+                <span class="field-lbl">Time Search Completed:</span>
+                <span class="field-val" style="font-size: 14px; margin-top: 6px;">
+                    @{coalesce(body('Parse_JSON_30')?['SearchCompletedTime'], body('Parse_JSON_30')?['SearchEndTime'], body('Parse_JSON_30')?['HoraFin'], body('Parse_JSON_30')?['HoraFinSearch'], '')}
+                </span>
+            </td>
+            <td style="width: 30%;">
+                <span class="field-lbl">Employee Number and Signature:</span>
+                <div style="display: flex; align-items: center; gap: 10px; margin-top: 2px;">
+                    <span class="field-val" style="font-size: 15px;">@{coalesce(body('Parse_JSON_30')?['EmployeeNo'], body('Parse_JSON_30')?['EmployeeNumber'], body('Parse_JSON_30')?['EmpleadoId'], '')}</span>
+                    <img src="@{body('Parse_JSON_30')?['Signature']}" style="max-height: 48px; max-width: 130px; object-fit: contain; vertical-align: middle;" />
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- 9. ADVERTENCIA LEGAL SENSITIVE SECURITY INFORMATION -->
+    <div class="security-warning-footer">
+        <strong>WARNING:</strong> This record contains Sensitive Security Information that is controlled under 49 C.F.R parts 15 and 1520. No part of this record may be disclosed to persons without a "need to know", as defined in 49 C.F.R parts 15 and 1520, without the written permission of the Administrator of the Transportation Security Administration or the Secretary of Transportation. Unauthorized release may result in the civil penalty or other action. For U.S. government agencies, public disclosure is governed by 5 U.S.C. 552 and 49 C.F.R parts 15 and 1520.
+    </div>
+
+    <!-- 10. CÓDIGO DEL DOCUMENTO Y NÚMERO DE PÁGINA -->
+    <div class="footer-metadata">
+        <span>ACF632-EN (2025-04-14)</span>
+        <span>4</span>
+    </div>
+
+</div>
+
+</body>
+</html>

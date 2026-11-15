@@ -1,0 +1,501 @@
+<%
+  const comp = (ciecState && ciecState.complemento) ? ciecState.complemento : {};
+  const initialRegistros = (ciecState && Array.isArray(ciecState.detalles)) ? ciecState.detalles : [];
+  const initialEquipajePuerta = (ciecState && Array.isArray(ciecState.equipajePuerta)) ? ciecState.equipajePuerta : [];
+  const empresasCIEC = [
+    'LAATS', 'GODARD(Cocinas)', 'ODA (Combustible)', 'OIRSA',
+    'DGAC (Operaciones)', 'AEROEXPRESS',
+    (formato && formato.id === 'dl-ciec')
+      ? 'DELTA'
+      : ((formato && formato.id === 'ara-ciec')
+        ? 'ARAJET'
+        : ((formato && formato.id === 'latam-ciec') ? 'LAN CARGO' : 'AEROMEXICO')),
+    'OTROS...'
+  ];
+
+  const extractHHMM = (val) => {
+    if (!val) return '';
+    const s = String(val instanceof Date ? val.toISOString() : val).trim();
+    if (s.includes('T') && s.length >= 16) return s.substring(11, 16);
+    const m = s.match(/(\d{2}:\d{2})/);
+    return m ? m[1] : '';
+  };
+
+  let fechaValue = new Date().toISOString().substring(0, 10);
+  if (comp && comp.Fecha) {
+    const d = new Date(comp.Fecha);
+    if (!Number.isNaN(d.getTime())) fechaValue = d.toISOString().substring(0, 10);
+  } else if (vuelo && vuelo.FechaItinerado) {
+    fechaValue = String(vuelo.FechaItinerado instanceof Date ? vuelo.FechaItinerado.toISOString() : vuelo.FechaItinerado).substring(0, 10);
+  }
+
+  const horaInicioVal = extractHHMM(comp.HoraInicio) || '';
+  const supSelectedId = comp && comp.EncabezadoEmpleadoId ? String(comp.EncabezadoEmpleadoId) : '';
+  const trSelectedId = comp && comp.MaquinariaEmpleadoId ? String(comp.MaquinariaEmpleadoId) : '';
+  const unitSelectedId = comp && comp.MaquinariaEquipoId ? String(comp.MaquinariaEquipoId) : '';
+
+  const arriboVal = extractHHMM(comp.ArriboDelVuelo) || extractHHMM(vuelo && vuelo.ata) || '';
+  const aseguradaVal = extractHHMM(comp.AeronaveAsegurada) || '';
+  const pasarelaVal = extractHHMM(comp.PasarelaAcoplada) || '';
+  const puertaAbiertaVal = extractHHMM(comp.PuertaAbierta) || '';
+  const egresoTripVal = extractHHMM(comp.EgresoTripulacion) || '';
+  const ingresoTripVal = extractHHMM(comp.IngresoTripulacion) || '';
+  const paxEntrandoVal = comp.PaxEntrando ?? '';
+  const primerPaxVal = extractHHMM(comp.PrimerPax) || '';
+  const ultimoPaxVal = extractHHMM(comp.UltimoPax) || '';
+  const paxAbordosVal = comp.PaxAbordos ?? '';
+  const puertaCerradaVal = extractHHMM(comp.PuertaCerrada) || '';
+  const desacopleVal = extractHHMM(comp.DesacoplePasarela) || '';
+  const pushbackVal = extractHHMM(comp.PushBack) || '';
+  const despegueVal = extractHHMM(comp.Despegue) || extractHHMM(vuelo && vuelo.atd) || '';
+
+  const aleroIdsRaw = comp && comp.AlerosEmpleadoIds
+    ? String(comp.AlerosEmpleadoIds).split(',').map(x => x.trim()).filter(Boolean)
+    : [];
+  const initialAleros = aleroIdsRaw.map(idStr => {
+    const emp = (empleados || []).find(e => String(e.EmpleadoId) === idStr);
+    return {
+      EmpleadoId: parseInt(idStr, 10),
+      Nombre: emp ? emp.Nombre : `Empleado #${idStr}`
+    };
+  }).filter(a => Number.isFinite(a.EmpleadoId) && a.EmpleadoId > 0);
+
+  const initialCiecPayload = {
+    formatoId: formato.id,
+    formatoNombre: formato.nombre,
+    itinerarioId: vuelo.itinerarioId,
+    encabezadoId: encabezadoId || null,
+    esNuevo: Boolean(esNuevo),
+    registros: initialRegistros,
+    equipajePuerta: initialEquipajePuerta,
+    aleros: initialAleros
+  };
+%>
+
+<form id="formControlCIEC" novalidate>
+  <input type="hidden" id="ciecFormatoId" value="<%= formato.id %>">
+  <input type="hidden" id="ciecItinerarioId" value="<%= vuelo.itinerarioId %>">
+  <input type="hidden" id="ciecEncabezadoId" value="<%= encabezadoId || '' %>">
+  <input type="hidden" id="ciecAgentesEmpleadoIds" value="<%= comp && comp.AgentesEmpleadoIds ? comp.AgentesEmpleadoIds : (user.empleadoId || '') %>">
+
+  <!-- Bloque 1: Cabecera de Inspección -->
+  <div class="card">
+    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+      <h3 class="cp-section-title"><i class="fas fa-clipboard-list"></i> Datos Generales — Control de Ingreso y Egreso Cabina</h3>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <% if (!esNuevo && encabezadoId) { %>
+          <a href="/formatos/<%= encodeURIComponent(formato.id) %>?nuevo=1" class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;">
+            <i class="fas fa-plus-circle"></i> Crear Nuevo Registro
+          </a>
+        <% } %>
+        <span class="badge badge-brand">
+          <%= (!esNuevo && encabezadoId) ? `REGISTRO CARGADO #${encabezadoId}` : 'NUEVA CAPTURA' %>
+        </span>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+      <div class="form-group">
+        <label for="ciecFecha"><i class="far fa-calendar-alt"></i> Fecha <span style="color: var(--danger);">*</span></label>
+        <input type="date" id="ciecFecha" class="form-control" value="<%= fechaValue %>" required>
+      </div>
+
+      <div class="form-group">
+        <label for="ciecHoraInicio"><i class="far fa-clock"></i> Hora de Inicio / Revisión <span style="color: var(--danger);">*</span></label>
+        <div class="cp-time-row">
+          <input type="time" id="ciecHoraInicio" class="form-control" value="<%= horaInicioVal %>" required>
+          <button type="button" class="cp-clock-btn" data-clock-target="ciecHoraInicio">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="ciecSupervisor"><i class="fas fa-user-tie"></i> Supervisor de Turno (LoginSEC) <span style="color: var(--danger);">*</span></label>
+        <select id="ciecSupervisor" class="form-control" required>
+          <option value="">-- Seleccione el Supervisor --</option>
+          <% (supervisores || []).forEach(sup => { %>
+            <option
+              value="<%= sup.EmpleadoId %>"
+              data-usuario="<%= sup.Usuario %>"
+              <%= String(sup.EmpleadoId) === supSelectedId ? 'selected' : '' %>
+            ><%= sup.Usuario %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="ciecAgente"><i class="fas fa-user-shield"></i> Agente Responsable</label>
+        <input type="text" id="ciecAgente" class="form-control" value="<%= user.usuario || user.nombreCompleto %>" readonly>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bloque 2: Tiempos Operativos de Aeronave y Pasajeros -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="cp-section-title"><i class="fas fa-plane-arrival"></i> Tiempos Operativos de Aeronave y Pasajeros</h3>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px;">
+      <div class="form-group">
+        <label for="ciecArriboVuelo">Arribo del Vuelo</label>
+        <div class="cp-time-row">
+          <input type="time" id="ciecArriboVuelo" class="form-control" value="<%= arriboVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="ciecArriboVuelo"><i class="far fa-clock"></i> Ahora</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="ciecAeronaveAsegurada">Aeronave Asegurada</label>
+        <div class="cp-time-row">
+          <input type="time" id="ciecAeronaveAsegurada" class="form-control" value="<%= aseguradaVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="ciecAeronaveAsegurada"><i class="far fa-clock"></i> Ahora</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="ciecPasarelaAcoplada">Pasarela Acoplada</label>
+        <div class="cp-time-row">
+          <input type="time" id="ciecPasarelaAcoplada" class="form-control" value="<%= pasarelaVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="ciecPasarelaAcoplada"><i class="far fa-clock"></i> Ahora</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="ciecPuertaAbierta">Puerta Abierta</label>
+        <div class="cp-time-row">
+          <input type="time" id="ciecPuertaAbierta" class="form-control" value="<%= puertaAbiertaVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="ciecPuertaAbierta"><i class="far fa-clock"></i> Ahora</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="ciecEgresoTripulacion">Egreso Tripulación</label>
+        <div class="cp-time-row">
+          <input type="time" id="ciecEgresoTripulacion" class="form-control" value="<%= egresoTripVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="ciecEgresoTripulacion"><i class="far fa-clock"></i> Ahora</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="ciecIngresoTripulacion">Ingreso Tripulación</label>
+        <div class="cp-time-row">
+          <input type="time" id="ciecIngresoTripulacion" class="form-control" value="<%= ingresoTripVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="ciecIngresoTripulacion"><i class="far fa-clock"></i> Ahora</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="ciecPaxEntrando">PAX Entrando (Desembarque)</label>
+        <input type="number" id="ciecPaxEntrando" class="form-control" min="0" step="1" value="<%= paxEntrandoVal %>" placeholder="0">
+      </div>
+
+      <div class="form-group">
+        <label for="ciecPrimerPax">Primer PAX Abordando</label>
+        <div class="cp-time-row">
+          <input type="time" id="ciecPrimerPax" class="form-control" value="<%= primerPaxVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="ciecPrimerPax"><i class="far fa-clock"></i> Ahora</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="ciecUltimoPax">Último PAX Abordando</label>
+        <div class="cp-time-row">
+          <input type="time" id="ciecUltimoPax" class="form-control" value="<%= ultimoPaxVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="ciecUltimoPax"><i class="far fa-clock"></i> Ahora</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="ciecPaxAbordos">Total PAX a Bordo</label>
+        <input type="number" id="ciecPaxAbordos" class="form-control" min="0" step="1" value="<%= paxAbordosVal %>" placeholder="0">
+      </div>
+
+      <div class="form-group">
+        <label for="ciecPuertaCerrada">Puerta Cerrada</label>
+        <div class="cp-time-row">
+          <input type="time" id="ciecPuertaCerrada" class="form-control" value="<%= puertaCerradaVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="ciecPuertaCerrada"><i class="far fa-clock"></i> Ahora</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="ciecDesacoplePasarela">Desacople Pasarela</label>
+        <div class="cp-time-row">
+          <input type="time" id="ciecDesacoplePasarela" class="form-control" value="<%= desacopleVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="ciecDesacoplePasarela"><i class="far fa-clock"></i> Ahora</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="ciecPushBack">PushBack</label>
+        <div class="cp-time-row">
+          <input type="time" id="ciecPushBack" class="form-control" value="<%= pushbackVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="ciecPushBack"><i class="far fa-clock"></i> Ahora</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="ciecDespegue">Despegue</label>
+        <div class="cp-time-row">
+          <input type="time" id="ciecDespegue" class="form-control" value="<%= despegueVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="ciecDespegue"><i class="far fa-clock"></i> Ahora</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bloque 3: REGISTRO (Ingreso de Personas a Cabina) -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="cp-section-title"><i class="fas fa-user-plus"></i> REGISTRO (Ingreso de Personal a Cabina)</h3>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+      <div class="form-group">
+        <label for="ciecRegNombre">Nombre <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="ciecRegNombre" class="form-control" placeholder="Ingrese Nombre" autocomplete="off">
+      </div>
+
+      <div class="form-group">
+        <label for="ciecRegNoTIA">No. TIA <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="ciecRegNoTIA" class="form-control" placeholder="Ingrese No. TIA" autocomplete="off">
+      </div>
+
+      <div class="form-group">
+        <label for="ciecRegHoraIngreso">Hora de Ingreso <span style="color: var(--danger);">*</span></label>
+        <div class="cp-time-row">
+          <input type="time" id="ciecRegHoraIngreso" class="form-control">
+          <button type="button" class="cp-clock-btn" data-clock-target="ciecRegHoraIngreso">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="ciecRegEmpresa">Empresa <span style="color: var(--danger);">*</span></label>
+        <select id="ciecRegEmpresa" class="form-control">
+          <option value="">-- Seleccione la Empresa --</option>
+          <% empresasCIEC.forEach(emp => { %>
+            <option value="<%= emp %>"><%= emp %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="form-group" id="grupoCiecEmpresaOtros" style="display: none;">
+        <label for="ciecRegEmpresaOtros">Especificar Nueva Empresa <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="ciecRegEmpresaOtros" class="form-control" placeholder="Ingrese la nueva empresa" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-top: 14px;">
+      <label for="ciecRegMotivo">Motivo <span style="color: var(--danger);">*</span></label>
+      <textarea id="ciecRegMotivo" rows="2" class="form-control" placeholder="Ingrese Motivo de ingreso a cabina..."></textarea>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+      <button type="button" id="btnCiecAgregarRegistro" class="btn btn-primary" style="min-width: 190px;">
+        <i class="fas fa-plus-circle"></i> GUARDAR REGISTRO
+      </button>
+    </div>
+  </div>
+
+  <!-- Bloque 4: Buscador y Lista de Registros en Cabina -->
+  <div class="card">
+    <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
+      <h3 class="cp-section-title"><i class="fas fa-users"></i> Registros en Cabina (Control Ingreso y Egreso)</h3>
+      <div id="ciecRegistrosEstadoBadge"></div>
+    </div>
+
+    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 12px;">
+      <div style="position: relative; flex: 1;">
+        <i class="fas fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-3);"></i>
+        <input
+          type="text"
+          id="ciecBuscador"
+          class="form-control"
+          style="padding-left: 36px; width: 100%;"
+          placeholder="Buscador: Ingrese nombre, empresa, TIA, motivo u hora a buscar..."
+          autocomplete="off"
+        >
+      </div>
+      <button type="button" id="btnCiecLimpiarBuscador" class="btn btn-secondary" title="Limpiar filtro">
+        <i class="fas fa-sync-alt"></i> Limpiar
+      </button>
+    </div>
+
+    <div id="ciecRegistrosLista" class="cp-registros-grid"></div>
+  </div>
+
+  <!-- Bloque 5: Equipajes Entregados en Puerta del Avión (Matriz A..J) -->
+  <div class="card">
+    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+      <div>
+        <h3 class="cp-section-title">
+          <i class="fas fa-suitcase"></i> Control de Equipajes en Puerta del Avión (Secuencias)
+        </h3>
+        <small style="color: var(--text-3); font-size: 11px;">
+          Opcional: Registre las secuencias de equipaje de mano / carriolas entregadas en puerta del avión.
+        </small>
+      </div>
+
+      <div class="er-total-counter-badge">
+        <span>Total Equipaje Puerta:</span>
+        <strong id="ciecTotalPuertaCount">0</strong>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-bottom: 16px; background: var(--bg); padding: 14px; border-radius: 8px; border: 1px solid var(--border-2);">
+      <div class="form-group" style="margin-bottom: 0; min-width: 220px; flex: 1;">
+        <label for="ciecInputSecuenciaPuerta"><i class="fas fa-barcode"></i> Secuencia Equipaje en Puerta</label>
+        <input type="number" id="ciecInputSecuenciaPuerta" class="form-control" min="1" step="1" placeholder="Ej: 12 (Presione Enter para agregar)">
+      </div>
+
+      <button type="button" id="btnAgregarSecuenciaPuertaCIEC" class="btn btn-primary" style="height: 38px;">
+        <i class="fas fa-plus-circle"></i> Agregar Equipaje Puerta
+      </button>
+
+      <button type="button" id="btnBorrarUltimoPuertaCIEC" class="btn btn-secondary" style="height: 38px;">
+        <i class="fas fa-undo"></i> Borrar Último
+      </button>
+    </div>
+
+    <div class="er-fluid-grid-wrapper">
+      <table class="er-fluid-table" id="ciecTablaMatrizPuerta" style="text-align: center;">
+        <thead>
+          <tr>
+            <th style="width: 55px; text-align: center;">FILA</th>
+            <th style="text-align: center;">A (1)</th>
+            <th style="text-align: center;">B (2)</th>
+            <th style="text-align: center;">C (3)</th>
+            <th style="text-align: center;">D (4)</th>
+            <th style="text-align: center;">E (5)</th>
+            <th style="text-align: center;">F (6)</th>
+            <th style="text-align: center;">G (7)</th>
+            <th style="text-align: center;">H (8)</th>
+            <th style="text-align: center;">I (9)</th>
+            <th style="text-align: center;">J (10)</th>
+          </tr>
+        </thead>
+        <tbody id="ciecTbodyMatrizPuerta">
+          <!-- Renderizado dinámico por public/js/formato-ciec.js -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Bloque 6: Tractorista, No. Unidad, Aleros y Observaciones -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="cp-section-title"><i class="fas fa-truck-pickup"></i> Maquinaria PushBack, Aleros y Observaciones</h3>
+    </div>
+
+    <% if (formato && formato.id === 'dl-ciec') { %>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
+        <div class="form-group">
+          <label for="ciecTractoristaDelta"><i class="fas fa-hard-hat"></i> Tractorista</label>
+          <input
+            type="text"
+            id="ciecTractoristaDelta"
+            class="form-control"
+            value="<%= comp.TractoristaDelta ?? comp.Tractorista ?? comp.NombreTractorista ?? (ciecState && ciecState.tractoristaDelta) ?? '' %>"
+            placeholder="Nombre del tractorista PushBack"
+            autocomplete="off"
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="ciecMaquinariaDelta"><i class="fas fa-tractor"></i> No. Unidad / Maquinaria</label>
+          <input
+            type="text"
+            id="ciecMaquinariaDelta"
+            class="form-control"
+            value="<%= comp.MaquinariaDelta ?? comp.Maquinaria ?? (ciecState && ciecState.maquinariaDelta) ?? '' %>"
+            placeholder="Ej: TR-04"
+            autocomplete="off"
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="ciecAlerosDelta"><i class="fas fa-user-friends"></i> Aleros</label>
+          <input
+            type="text"
+            id="ciecAlerosDelta"
+            class="form-control"
+            value="<%= comp.AlerosDelta ?? comp.Aleros ?? (ciecState && ciecState.alerosDelta) ?? '' %>"
+            placeholder="Nombres de los aleros"
+            autocomplete="off"
+          >
+        </div>
+      </div>
+    <% } else { %>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
+        <div class="form-group">
+          <label for="ciecTractorista"><i class="fas fa-hard-hat"></i> Tractorista</label>
+          <select id="ciecTractorista" class="form-control">
+            <option value="">-- Seleccione a la persona que realiza PushBack --</option>
+            <% (empleados || []).forEach(emp => { %>
+              <option
+                value="<%= emp.EmpleadoId %>"
+                <%= String(emp.EmpleadoId) === trSelectedId ? 'selected' : '' %>
+              ><%= emp.Nombre %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="ciecNoUnidad"><i class="fas fa-tractor"></i> No. Unidad</label>
+          <select id="ciecNoUnidad" class="form-control">
+            <option value="">-- Seleccione la unidad --</option>
+            <% (maquinaria || []).forEach(m => { %>
+              <option
+                value="<%= m.MaquinariaEquipoId %>"
+                <%= String(m.MaquinariaEquipoId) === unitSelectedId ? 'selected' : '' %>
+              ><%= m.NoUnidad %><%= m.TipoMaquinaria ? ` — ${m.TipoMaquinaria}` : '' %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="ciecAleroSelect"><i class="fas fa-user-friends"></i> Aleros (Máximo 2)</label>
+          <select id="ciecAleroSelect" class="form-control">
+            <option value="">-- Seleccionar agentes para aleros --</option>
+            <% (empleados || []).forEach(emp => { %>
+              <option value="<%= emp.EmpleadoId %>"><%= emp.Nombre %></option>
+            <% }) %>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-top: 18px;">
+        <label style="font-size: 12px; font-weight: 600; color: var(--text-2); display: block; margin-bottom: 8px;">
+          <i class="fas fa-users"></i> Aleros Seleccionados:
+        </label>
+        <div id="ciecAlerosLista"></div>
+      </div>
+    <% } %>
+
+    <div class="form-group" style="margin-top: 18px;">
+      <label for="ciecObservaciones"><i class="fas fa-comment-alt"></i> Observaciones</label>
+      <textarea
+        id="ciecObservaciones"
+        rows="3"
+        class="form-control"
+        placeholder="Ingrese Observaciones (Opcional)..."
+      ><%= comp && comp.Observacion ? comp.Observacion : '' %></textarea>
+    </div>
+  </div>
+
+  <!-- Botones Finales -->
+  <div style="display: flex; justify-content: flex-end; gap: 14px; margin-bottom: 40px; flex-wrap: wrap;">
+    <button type="button" id="btnVistaPreliminarCIEC" class="btn btn-secondary" style="padding: 12px 24px;">
+      <i class="fas fa-eye"></i> Vista Preliminar (Formato Oficial <%= vuelo.operador %>)
+    </button>
+    <button type="button" id="btnGuardarDefinitivoCIEC" class="btn btn-primary" style="padding: 12px 28px;">
+      <i class="fas fa-save"></i> <%= esNuevo ? 'Guardar Formato Definitivo' : 'Actualizar Formato Definitivo' %>
+    </button>
+  </div>
+</form>
+
+<script type="application/json" id="ciecInitialStateJson"><%- JSON.stringify(initialCiecPayload).replace(/</g, '\\u003c') %></script>
