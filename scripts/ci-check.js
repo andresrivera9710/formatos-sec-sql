@@ -288,6 +288,19 @@ function runUnitChecks() {
     );
   }
 
+  // Verificar coincidencia exacta de mayúsculas/minúsculas (evita fallos en Linux)
+  const previewSrc = fs.readFileSync(path.join(ROOT_DIR, 'services', 'HtmlPreviewService.js'), 'utf8');
+  const mapBlock = previewSrc.match(/const FORMAT_HTML_MAP = \{([\s\S]*?)\};/);
+  assert(mapBlock, 'No se pudo localizar FORMAT_HTML_MAP en HtmlPreviewService.js');
+  for (const [, id, rel] of mapBlock[1].matchAll(/'([^']+)':\s*'([^']+)'/g)) {
+    const [folder, file] = rel.split('/');
+    const entries = fs.readdirSync(path.join(ROOT_DIR, 'FormatosHTML', folder));
+    assert(
+      entries.includes(file),
+      `Case-mismatch Linux detectado en FORMAT_HTML_MAP['${id}']: '${rel}'`
+    );
+  }
+
   const xssProbe = '<script>alert("XSS")</script>';
   const previewTargets = [
     {

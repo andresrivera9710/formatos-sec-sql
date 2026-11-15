@@ -19,7 +19,7 @@ const FORMAT_HTML_MAP = {
   'amx-cp': 'AEROMEXICO/Control de Perimétrica (unificado).html',
   'amx-ciec': 'AEROMEXICO/Control Ingreso y Egreso Cabina.html',
   'amx-er': 'AEROMEXICO/Control de Equipaje en Revisión AVSECSGDAIA Banda de Salida (rayos x) AMX.html',
-  'amx-eb': 'AEROMEXICO/Control de Equipajes en Banda de Salida (Rayos X).html',
+  'amx-eb': 'AEROMEXICO/Control de Equipajes en Banda de Salida (rayos x).html',
   'amx-cec': 'AEROMEXICO/Control de Equipajes en Compartimentos.html',
   'amx-mecd': 'AEROMEXICO/Equipaje en mal estado.html',
   'amx-po': 'AEROMEXICO/Puestos por Operación.html',
