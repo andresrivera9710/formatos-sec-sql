@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js",
-    "check:env": "node -e \"require('./config/validateEnv')()\""
+    "check:env": "node -e \"require('dotenv').config(); require('./config/validateEnv')()\""
   },
   "keywords": [
     "laats",

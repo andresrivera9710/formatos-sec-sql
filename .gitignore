@@ -11,6 +11,8 @@ node_modules/
 !**/.env.example
 readmegithub.md
 **/readmegithub.md
+GEMINI.md
+**/GEMINI.md
 
 # Artefactos de compilación y despliegue
 dist/
