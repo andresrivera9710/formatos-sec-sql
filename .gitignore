@@ -17,6 +17,8 @@ GEMINI.md
 # Artefactos de compilación y despliegue
 dist/
 build/
+release/
+coverage/
 .netlify/
 **/.netlify/
 

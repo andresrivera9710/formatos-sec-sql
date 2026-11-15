@@ -6,7 +6,12 @@
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js",
-    "check:env": "node -e \"require('dotenv').config(); require('./config/validateEnv')()\""
+    "check:env": "node -e \"require('dotenv').config(); require('./config/validateEnv')()\"",
+    "ci:security": "node scripts/ci-check.js --security",
+    "ci:syntax": "node scripts/ci-check.js --syntax",
+    "ci:unit": "node scripts/ci-check.js --unit",
+    "ci": "node scripts/ci-check.js --all",
+    "test": "node scripts/ci-check.js --all"
   },
   "keywords": [
     "laats",

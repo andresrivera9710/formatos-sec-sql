@@ -1,0 +1,104 @@
+name: CD - Empaquetado Release y Despliegue Netlify
+
+on:
+  workflow_run:
+    workflows: ["CI - Calidad, Seguridad CSP y Tests SEC"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package-release:
+    name: Empaquetado de Release Portable
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Checkout código verificado
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Configurar Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: 'package-lock.json'
+
+      - name: Instalar dependencias de producción
+        run: npm ci --omit=dev
+
+      - name: Validar contrato Boot-Cycle en modo producción
+        env:
+          NODE_ENV: production
+          DB_SERVER: release-validation.database.windows.net
+          DB_USER: release_validator
+          DB_PASSWORD: release_validation_only_placeholder
+          DB_DATABASE: SIO
+          SESSION_SECRET: laats_release_validation_secret_key_min_32_chars
+        run: node -e "require('./config/validateEnv')()"
+
+      - name: Construir paquete release portable (.tar.gz)
+        run: |
+          mkdir -p release
+          tar --exclude='.git' \
+              --exclude='node_modules' \
+              --exclude='release' \
+              --exclude='.env' \
+              --exclude='.env.*' \
+              --exclude='readmegithub.md' \
+              --exclude='GEMINI.md' \
+              -czf release/formatos-sec-sql-release.tar.gz .
+          ls -lh release/formatos-sec-sql-release.tar.gz
+
+      - name: Publicar artefacto de Release en GitHub Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: formatos-sec-sql-release
+          path: release/formatos-sec-sql-release.tar.gz
+          retention-days: 30
+
+      - name: Resumen del paquete generado
+        run: |
+          echo "### Paquete Portable Generado" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Commit: \`${{ github.event.workflow_run.head_sha || github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Artefacto: \`formatos-sec-sql-release\` (retención 30 días)" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-netlify:
+    name: Despliegue Estático a Netlify (Opcional vía Secrets)
+    runs-on: ubuntu-latest
+    needs: package-release
+
+    steps:
+      - name: Checkout código verificado
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Configurar Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Sincronizar carpeta public/ con Netlify si existen secretos
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          if [ -n "${NETLIFY_AUTH_TOKEN:-}" ] && [ -n "${NETLIFY_SITE_ID:-}" ]; then
+            npx --yes netlify-cli@latest deploy --prod --dir=public --message "GitHub Actions CD (${GITHUB_SHA::7})"
+            echo "### Despliegue Netlify Completado" >> "$GITHUB_STEP_SUMMARY"
+            echo "Sincronizada la carpeta \`public/\` en producción." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::notice::NETLIFY_AUTH_TOKEN o NETLIFY_SITE_ID no configurados en Repository Secrets; se omitió el deploy automático en Netlify."
+            echo "### Despliegue Netlify Omitido" >> "$GITHUB_STEP_SUMMARY"
+            echo "Para habilitar despliegue automático en CD, configura \`NETLIFY_AUTH_TOKEN\` y \`NETLIFY_SITE_ID\` en **Settings > Secrets and variables > Actions**." >> "$GITHUB_STEP_SUMMARY"
+          fi
