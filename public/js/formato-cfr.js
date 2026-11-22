@@ -389,8 +389,16 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    let previewWin = null;
+    if (!guardar) {
+      previewWin = window.open('', '_blank');
+      if (previewWin) {
+        try { previewWin.document.title = 'Generando Vista Preliminar...'; } catch (_) {}
+      }
+    }
+
     try {
-      const res = await fetch('/formatos/api/guardar', {
+      const res = await fetch('/api/formatos/guardar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -404,6 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const data = await res.json();
       if (!res.ok || !data.success) {
+        if (previewWin && !previewWin.closed) previewWin.close();
         if (window.SioFormatValidator && Array.isArray(data.errors) && data.errors.length > 0) {
           window.SioFormatValidator.notifyValidationErrors({
             valid: false,
@@ -421,7 +430,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (!guardar) {
         if (data.previewUrl) {
-          window.open(data.previewUrl, '_blank', 'noopener,noreferrer');
+          if (previewWin && !previewWin.closed) {
+            previewWin.location.href = data.previewUrl;
+            previewWin.focus();
+          } else {
+            window.location.href = data.previewUrl;
+          }
+        } else if (previewWin && !previewWin.closed) {
+          previewWin.close();
         }
         return;
       }
@@ -450,20 +466,19 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (window.Swal) {
-        const swalRes = await window.Swal.fire({
+        await window.Swal.fire({
           icon: 'success',
           title: '¡Formato Guardado!',
           text: data.mensaje || `Control de Flejes en Rayos X guardado con ID #${encabezadoId}.`,
-          showCancelButton: true,
-          confirmButtonText: 'Ver Formato Controlado (PDF)',
-          cancelButtonText: 'Continuar Editando',
-          confirmButtonColor: '#0F2744'
+          timer: 1100,
+          showConfirmButton: false
         });
-        if (swalRes.isConfirmed) {
-          await enviarFormato({ guardar: false });
-        }
+      }
+      if (data.previewUrl) {
+        window.location.href = data.previewUrl;
       }
     } catch (err) {
+      if (previewWin && !previewWin.closed) previewWin.close();
       console.error('[CFR SAVE ERROR]', err);
       if (window.Swal) {
         window.Swal.fire({

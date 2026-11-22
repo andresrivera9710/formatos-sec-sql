@@ -278,7 +278,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const supervisorNombre = supOpt ? (supOpt.getAttribute('data-usuario') || supOpt.textContent || '').trim() : '';
 
     const agOpt = selectAgente?.options?.[selectAgente.selectedIndex];
-    const agenteNombre = agOpt ? (agOpt.getAttribute('data-usuario') || agOpt.textContent || '').trim() : '';
+    const agenteNombre = agOpt
+      ? (agOpt.getAttribute('data-usuario') || agOpt.textContent || '').trim()
+      : String(selectAgente?.getAttribute('data-usuario') || selectAgente?.value || '').trim();
 
     return {
       formatoId: inputFormatoId?.value || 'amx-cec',
@@ -293,8 +295,9 @@ document.addEventListener('DOMContentLoaded', () => {
         compCerrado: String(inputCompCerrado?.value || '').trim(),
         supervisorLoginId: selectSupervisor?.value ? parseInt(selectSupervisor.value, 10) : null,
         supervisorNombre,
-        agenteLoginId: selectAgente?.value ? parseInt(selectAgente.value, 10) : null,
+        agenteLoginId: (selectAgente?.options && selectAgente.value) ? parseInt(selectAgente.value, 10) : null,
         agenteNombre,
+        agente: agenteNombre,
         embarqueInicio: String(inputEmbarqueInicio?.value || '').trim(),
         embarqueFinal: String(inputEmbarqueFinal?.value || '').trim(),
         desembarqueInicio: String(inputDesembarqueInicio?.value || '').trim(),
@@ -389,6 +392,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const payload = recopilarPayload(guardarDefinitivo);
 
+    let previewWin = null;
+    if (!guardarDefinitivo) {
+      previewWin = window.open('', '_blank');
+      if (previewWin) {
+        try { previewWin.document.title = 'Generando Vista Preliminar...'; } catch (_) {}
+      }
+    }
+
     try {
       Swal.fire({
         title: guardarDefinitivo ? 'Guardando Formato...' : 'Generando Vista Preliminar...',
@@ -405,6 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const json = await res.json();
 
       if (!res.ok || !json.success) {
+        if (previewWin && !previewWin.closed) previewWin.close();
         Swal.close();
         if (Validator && Array.isArray(json.errors) && json.errors.length > 0) {
           Validator.applyBackendErrors(json.errors, {
@@ -428,9 +440,18 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      if (!guardarDefinitivo && json.previewUrl) {
+      if (!guardarDefinitivo) {
         Swal.close();
-        window.open(json.previewUrl, '_blank');
+        if (json.previewUrl) {
+          if (previewWin && !previewWin.closed) {
+            previewWin.location.href = json.previewUrl;
+            previewWin.focus();
+          } else {
+            window.location.href = json.previewUrl;
+          }
+        } else if (previewWin && !previewWin.closed) {
+          previewWin.close();
+        }
         return;
       }
 
@@ -441,14 +462,18 @@ document.addEventListener('DOMContentLoaded', () => {
       await Swal.fire({
         icon: 'success',
         title: '¡Formato Guardado!',
-        text: json.message || 'Control de Equipajes en Compartimentos guardado correctamente.',
-        confirmButtonColor: '#0F2744'
+        text: json.mensaje || json.message || 'Control de Equipajes en Compartimentos guardado correctamente.',
+        timer: 1100,
+        showConfirmButton: false
       });
 
-      if (json.encabezadoId) {
+      if (json.previewUrl) {
+        window.location.href = json.previewUrl;
+      } else if (json.encabezadoId) {
         window.location.href = `/formatos/${encodeURIComponent(payload.formatoId)}?encabezadoId=${json.encabezadoId}`;
       }
     } catch (err) {
+      if (previewWin && !previewWin.closed) previewWin.close();
       console.error('[CEC SAVE ERROR]', err);
       Swal.fire({
         icon: 'error',

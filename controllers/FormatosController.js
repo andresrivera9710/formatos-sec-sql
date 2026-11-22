@@ -143,7 +143,9 @@ class FormatosController {
         assState: formatoData.assState || null,
         anexoAState: formatoData.anexoAState || null,
         anexoBState: formatoData.anexoBState || null,
-        liadcState: formatoData.liadcState || null
+        liadcState: formatoData.liadcState || null,
+        ccdaState: formatoData.ccdaState || null,
+        lisaState: formatoData.lisaState || null
       });
     } catch (err) {
       console.error('[RENDER DETALLE FORMATO ERROR]', err);
@@ -179,21 +181,46 @@ class FormatosController {
         return res.status(resultado.statusCode || 400).json(resultado);
       }
 
-      if (resultado.modo === 'preliminar') {
+      if (resultado.modo === 'preliminar' || resultado.modo === 'persistido') {
         const formatoId = String(payload?.formatoId || '');
         const vuelo = req.session.vueloSeleccionado || {};
+        const esPersistido = resultado.modo === 'persistido';
+        const targetEncId = resultado.encabezadoId || payload.encabezadoId || null;
         req.session.formatPreviews = req.session.formatPreviews || {};
+
+        let hydrated = { datos: [], complementos: [] };
+        if (targetEncId) {
+          try {
+            hydrated = await FormatosService.prepararFormato({
+              formatoId,
+              itinerarioId: vuelo.itinerarioId,
+              encabezadoId: targetEncId,
+              user: req.session.user
+            });
+          } catch (err) {
+            console.warn('[PREVIEW HYDRATION WARNING]', err.message);
+          }
+        }
 
         if (HtmlPreviewService.hasControlledTemplate(formatoId)) {
           let vars;
           let meta = {};
 
           if (formatoId.endsWith('-cp')) {
+            const basePreview = (esPersistido && hydrated && hydrated.cpState)
+              ? FormatosService.construirPreviewCPDesdeBD({
+                  hydrated,
+                  formatoMeta: hydrated.meta,
+                  vuelo,
+                  user: req.session.user,
+                  fallbackPayload: payload.datos?.cpPayload || payload.datos || {}
+                })
+              : (resultado.preview || {});
             const puerta = vuelo.puertaposicion || '--';
-            const horaInicio = resultado.preview?.horaInicio || '--:--';
+            const horaInicio = basePreview?.horaInicio || '--:--';
             const cpDoc = {
-              ...resultado.preview,
-              aerolinea: vuelo.operador || resultado.preview?.aerolinea || '',
+              ...basePreview,
+              aerolinea: vuelo.operador || basePreview?.aerolinea || '',
               vuelo: vuelo.novuelo || '--',
               matricula: vuelo.Matricula || 'Pendiente',
               puerta,
@@ -206,19 +233,6 @@ class FormatosController {
             });
             meta = { pendientesSalidaCount: cpDoc.pendientesSalidaCount || 0 };
           } else {
-            let hydrated = { datos: [], complementos: [] };
-            if (payload.encabezadoId) {
-              try {
-                hydrated = await FormatosService.prepararFormato({
-                  formatoId,
-                  itinerarioId: vuelo.itinerarioId,
-                  encabezadoId: payload.encabezadoId,
-                  user: req.session.user
-                });
-              } catch (err) {
-                console.warn('[PREVIEW HYDRATION WARNING]', err.message);
-              }
-            }
             vars = HtmlPreviewService.buildAeromexicoOtherData({
               formatoId,
               formDatos: payload.datos || {},
@@ -226,9 +240,10 @@ class FormatosController {
               user: req.session.user,
               datosPrevios: hydrated.datos || [],
               complementos: hydrated.complementos || [],
-              hydrated
+              hydrated,
+              preferPersisted: esPersistido
             });
-            if (formatoId.endsWith('-ciec') || formatoId.endsWith('-anexoa')) {
+            if (formatoId.endsWith('-ciec') || formatoId.endsWith('-anexoa') || formatoId.endsWith('-ccda')) {
               meta = { pendientesSalidaCount: resultado.preview?.pendientesSalidaCount || 0 };
             }
           }
@@ -240,11 +255,20 @@ class FormatosController {
           };
           resultado.previewUrl = `/formatos/${encodeURIComponent(formatoId)}/vista-preliminar`;
         } else if (formatoId.endsWith('-cp')) {
+          const basePreview = (esPersistido && hydrated && hydrated.cpState)
+            ? FormatosService.construirPreviewCPDesdeBD({
+                hydrated,
+                formatoMeta: hydrated.meta,
+                vuelo,
+                user: req.session.user,
+                fallbackPayload: payload.datos?.cpPayload || payload.datos || {}
+              })
+            : (resultado.preview || {});
           const puerta = vuelo.puertaposicion || '--';
-          const horaInicio = resultado.preview?.horaInicio || '--:--';
+          const horaInicio = basePreview?.horaInicio || '--:--';
           const docPreview = {
-            ...resultado.preview,
-            aerolinea: vuelo.operador || resultado.preview?.aerolinea || '',
+            ...basePreview,
+            aerolinea: vuelo.operador || basePreview?.aerolinea || '',
             vuelo: vuelo.novuelo || '--',
             matricula: vuelo.Matricula || 'Pendiente',
             puerta,
@@ -261,6 +285,9 @@ class FormatosController {
         }
       }
 
+      if (req.session && typeof req.session.save === 'function') {
+        return req.session.save(() => res.json(resultado));
+      }
       return res.json(resultado);
     } catch (err) {
       console.error('[API GUARDAR FORMATO ERROR]', err);

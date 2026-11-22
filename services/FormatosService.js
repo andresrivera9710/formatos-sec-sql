@@ -7,6 +7,7 @@
 const { sql } = require('../config/database');
 const FormatosModel = require('../models/FormatosModel');
 const LoginModel = require('../models/LoginModel');
+const OperacionesModel = require('../models/OperacionesModel');
 const OperacionesService = require('./OperacionesService');
 const FormatoValidationService = require('./FormatoValidationService');
 
@@ -22,6 +23,8 @@ const EMPRESAS_CP = [
   'DELTA',
   'AIR CANADA',
   'LAN CARGO',
+  'FEDEX',
+  'AMERIJET',
   'OTROS...'
 ];
 
@@ -35,6 +38,7 @@ class FormatosService {
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/equipajes en rayos x/gi, 'equipaje en rayos x')
+      .replace(/\binpeccion\b/gi, 'inspeccion')
       .trim()
       .toLowerCase();
     return clean(dbTipo) === clean(reqTipo);
@@ -83,6 +87,8 @@ class FormatosService {
     const isANEXOA = formatoId.endsWith('-anexoa');
     const isANEXOB = formatoId.endsWith('-anexob');
     const isLIADC = formatoId.endsWith('-liadc');
+    const isCCDA = formatoId.endsWith('-ccda');
+    const isLISA = formatoId.endsWith('-lisa');
 
     const familyKey = isCP ? 'cp'
       : isER ? 'er'
@@ -101,7 +107,9 @@ class FormatosService {
                                 : isANEXOA ? 'anexoa'
                                   : isANEXOB ? 'anexob'
                                     : isLIADC ? 'liadc'
-                                      : null;
+                                      : isCCDA ? 'ccda'
+                                        : isLISA ? 'lisa'
+                                          : null;
 
     const encParamName = formatoMeta.paramEncabezado || (isCP ? 'EncabezadoCPId' : (isER ? 'EncabezadoControlERId' : 'EncabezadoId'));
     let encIdNum = encabezadoId ? parseInt(encabezadoId, 10) : null;
@@ -136,7 +144,7 @@ class FormatosService {
     let datosExistentes = null;
     let complementos = null;
 
-    if (encIdNum && formatoMeta.spConsulta && !isMECD && !isRX && !isDAL && !isSEL && !isASS && !isANEXOA && !isANEXOB && !isLIADC) {
+    if (encIdNum && formatoMeta.spConsulta && !isMECD && !isRX && !isDAL && !isSEL && !isASS && !isANEXOA && !isANEXOB && !isLIADC && !isCCDA && !isLISA) {
       try {
         const params = [{ name: encParamName, type: sql.Int, value: encIdNum }];
         const res = await FormatosModel.consultarDetalleFormato(formatoMeta.spConsulta, params);
@@ -200,12 +208,14 @@ class FormatosService {
     let anexoAState = null;
     let anexoBState = null;
     let liadcState = null;
+    let ccdaState = null;
+    let lisaState = null;
 
     if (isCP) {
       const complemento = complementos?.[0]?.[0] || null;
-      const detalles = (datosExistentes?.[0] || []).filter(
-        d => d && d.Nombre && String(d.Nombre).trim() !== ''
-      );
+      const detalles = (datosExistentes?.[0] || [])
+        .filter(d => d && d.Nombre && String(d.Nombre).trim() !== '')
+        .sort((a, b) => (parseInt(a.DetalleCPId, 10) || 0) - (parseInt(b.DetalleCPId, 10) || 0));
 
       cpState = {
         complemento,
@@ -281,6 +291,7 @@ class FormatosService {
       const rawRows = datosExistentes?.[0] || [];
       const detalles = rawRows
         .filter(d => d && d.Nombre && String(d.Nombre).trim() !== '')
+        .sort((a, b) => (parseInt(a.DetalleCIECId, 10) || 0) - (parseInt(b.DetalleCIECId, 10) || 0))
         .map((d, idx) => ({
           Numero: idx + 1,
           DetalleCIECId: parseInt(d.DetalleCIECId, 10) || 0,
@@ -632,6 +643,42 @@ class FormatosService {
       };
     }
 
+    if (isCCDA) {
+      let ccdaDoc = null;
+      if (encIdNum || (!forzarNuevo && itinerarioId)) {
+        try {
+          ccdaDoc = await FormatosModel.consultarDetalleCCDA(encIdNum, itinerarioId);
+          if (ccdaDoc?.encabezado?.EncabezadoCCDAId) {
+            encIdNum = parseInt(ccdaDoc.encabezado.EncabezadoCCDAId, 10);
+          }
+        } catch (ccdaErr) {
+          console.error('[CONSULTA CCDA ERROR]', ccdaErr.message);
+        }
+      }
+      ccdaState = {
+        encabezado: ccdaDoc?.encabezado || null,
+        detalles: ccdaDoc?.detalles || [],
+        empresas: ['LAATS', 'FEDEX', 'OTROS...']
+      };
+    }
+
+    if (isLISA) {
+      let lisaRow = null;
+      if (encIdNum || (!forzarNuevo && itinerarioId)) {
+        try {
+          lisaRow = await FormatosModel.consultarDetalleLISA(encIdNum, itinerarioId);
+          if (lisaRow?.EncabezadoLISAId) {
+            encIdNum = parseInt(lisaRow.EncabezadoLISAId, 10);
+          }
+        } catch (lisaErr) {
+          console.error('[CONSULTA LISA ERROR]', lisaErr.message);
+        }
+      }
+      lisaState = {
+        detalle: lisaRow
+      };
+    }
+
     return {
       meta: formatoMeta,
       esNuevo: !encIdNum,
@@ -660,7 +707,9 @@ class FormatosService {
       assState,
       anexoAState,
       anexoBState,
-      liadcState
+      liadcState,
+      ccdaState,
+      lisaState
     };
   }
 
@@ -680,7 +729,7 @@ class FormatosService {
     }
 
     if (formatoId.endsWith('-cp')) {
-      return await FormatosService.procesarGuardadoCP(payload, formatoMeta, user);
+      return await FormatosService.procesarGuardadoCP(payload, formatoMeta, user, vueloSesion);
     }
 
     if (formatoId.endsWith('-er')) {
@@ -747,6 +796,14 @@ class FormatosService {
       return await FormatosService.procesarGuardadoLIADC(payload, formatoMeta, user, vueloSesion);
     }
 
+    if (formatoId.endsWith('-ccda')) {
+      return await FormatosService.procesarGuardadoCCDA(payload, formatoMeta, user, vueloSesion);
+    }
+
+    if (formatoId.endsWith('-lisa')) {
+      return await FormatosService.procesarGuardadoLISA(payload, formatoMeta, user, vueloSesion);
+    }
+
     // Validación preliminar en memoria (otros formatos)
     const resultadoValidacion = {
       valido: true,
@@ -799,13 +856,126 @@ class FormatosService {
   }
 
   /**
+   * Construye el objeto preview de Control de Perimétrica directamente desde los registros hidratados de Azure SQL
+   */
+  static construirPreviewCPDesdeBD({ hydrated = {}, formatoMeta = {}, vuelo = {}, user = {}, fallbackPayload = {} }) {
+    const comp = hydrated?.cpState?.complemento || {};
+    const detallesDb = Array.isArray(hydrated?.cpState?.detalles) ? hydrated.cpState.detalles : [];
+    const sups = Array.isArray(hydrated?.supervisores) ? hydrated.supervisores : [];
+    const emps = Array.isArray(hydrated?.empleados) ? hydrated.empleados : [];
+    const maqs = Array.isArray(hydrated?.maquinaria) ? hydrated.maquinaria : [];
+
+    const fechaRaw = (vuelo && vuelo.FechaItinerado)
+      ? String(vuelo.FechaItinerado instanceof Date ? vuelo.FechaItinerado.toISOString() : vuelo.FechaItinerado).substring(0, 10)
+      : (comp.Fecha
+        ? String(comp.Fecha instanceof Date ? comp.Fecha.toISOString() : comp.Fecha).substring(0, 10)
+        : String(fallbackPayload.fecha || new Date().toISOString()).substring(0, 10));
+    const [yyyy, mm, dd] = (fechaRaw || '').split('-');
+    const fechaFormatoUS = yyyy && mm && dd ? `${mm}/${dd}/${yyyy}` : fechaRaw;
+
+    const supEmpId = parseInt(comp.EncabezadoEmpleadoId ?? fallbackPayload.supervisorEmpleadoId, 10) || 0;
+    const supObj = sups.find(s => Number(s.EmpleadoId) === supEmpId);
+    const supervisorNombre = supObj?.Usuario || String(fallbackPayload.supervisorNombre || '').trim();
+
+    const trEmpId = parseInt(comp.MaquinariaEmpleadoId ?? fallbackPayload.tractoristaEmpleadoId, 10) || 0;
+    const trObj = emps.find(e => Number(e.EmpleadoId) === trEmpId);
+    const tractoristaNombre = String(
+      comp.NombreTractoristaDelta || comp.NombreTractorista || trObj?.Nombre || fallbackPayload.tractoristaNombre || ''
+    ).trim();
+
+    const maqId = parseInt(comp.MaquinariaEquipoId ?? fallbackPayload.maquinariaEquipoId, 10) || 0;
+    const maqObj = maqs.find(m => Number(m.MaquinariaEquipoId) === maqId);
+    const noUnidadLabel = String(
+      comp.TractoristaDelta || comp.Tractorista || maqObj?.NoUnidad || fallbackPayload.noUnidadLabel || ''
+    ).trim();
+
+    const aleroIds = comp.AlerosEmpleadoIds
+      ? String(comp.AlerosEmpleadoIds).split(',').map(x => parseInt(x.trim(), 10)).filter(n => Number.isFinite(n) && n > 0)
+      : (Array.isArray(fallbackPayload.alerosIds) ? fallbackPayload.alerosIds : []);
+    const alerosNombres = aleroIds.map(id => {
+      const e = emps.find(emp => Number(emp.EmpleadoId) === Number(id));
+      return e ? String(e.Nombre || '').trim() : '';
+    }).filter(Boolean);
+    const finalAleros = alerosNombres.length > 0
+      ? alerosNombres
+      : (Array.isArray(fallbackPayload.alerosNombres) ? fallbackPayload.alerosNombres : []);
+
+    const sourceRows = detallesDb.length > 0
+      ? detallesDb
+      : (Array.isArray(fallbackPayload.registros) ? fallbackPayload.registros : []);
+
+    const filasNormalizadas = sourceRows.map((r, idx) => {
+      const hIn = FormatosService.normalizarHora5(r.HoraIngreso, '');
+      const hOut = FormatosService.normalizarHora5(r.HoraSalidaReal || r.HoraSalida || r.HoraSalidaEstimada, '');
+      return {
+        numero: idx + 1,
+        nombre: String(r.Nombre || '').trim(),
+        noTia: String(r.NoTIA || '').trim(),
+        horaIngreso: hIn,
+        empresa: String(r.Empresa || '').trim(),
+        motivo: String(r.Motivo || '').trim(),
+        horaSalida: hOut,
+        estaPendiente: Boolean(r.Nombre && !hOut)
+      };
+    });
+
+    const minFilas = Math.max(25, filasNormalizadas.length);
+    const filasTabla = [];
+    for (let i = 0; i < minFilas; i++) {
+      if (i < filasNormalizadas.length) {
+        filasTabla.push(filasNormalizadas[i]);
+      } else {
+        filasTabla.push({
+          numero: i + 1,
+          nombre: '',
+          noTia: '',
+          horaIngreso: '',
+          empresa: '',
+          motivo: '',
+          horaSalida: '',
+          estaPendiente: false
+        });
+      }
+    }
+
+    return {
+      aerolinea: formatoMeta?.aerolinea || vuelo?.operador || 'AEROMEXICO',
+      formatoNombre: formatoMeta?.nombre || 'Control de Perimétrica (unificado)',
+      formatoId: formatoMeta?.id || 'amx-cp',
+      encabezadoId: hydrated?.encabezadoId || null,
+      itinerarioId: vuelo?.itinerarioId || null,
+      fechaIso: fechaRaw,
+      fechaFormatoUS,
+      horaInicio: FormatosService.normalizarHora5(comp.HoraInicio || fallbackPayload.horaInicio, ''),
+      supervisor: supervisorNombre,
+      agente: comp.CreadoPor || user?.usuario || user?.nombreCompleto || '',
+      arriboVuelo: FormatosService.normalizarHora5(comp.ArriboDelVuelo || fallbackPayload.arriboDelVuelo || vuelo?.ata, ''),
+      aeronaveAsegurada: FormatosService.normalizarHora5(comp.HoraAsegurado || fallbackPayload.horaAsegurado, ''),
+      tractoristaNombre,
+      noUnidadLabel,
+      tractoristaUnidad: [tractoristaNombre, noUnidadLabel].filter(Boolean).join(' / '),
+      alero1: finalAleros[0] || '',
+      alero2: finalAleros[1] || '',
+      nombreAlerosDelta: String(comp.NombreAlerosDelta || comp.NombreAleros || finalAleros.join(', ') || '').trim(),
+      observaciones: String(comp.Observaciones ?? fallbackPayload.observaciones ?? '').trim(),
+      totalRegistros: filasNormalizadas.length,
+      pendientesSalidaCount: filasNormalizadas.filter(f => f.estaPendiente).length,
+      filasTabla,
+      generadoEn: new Date().toISOString()
+    };
+  }
+
+  /**
    * Orquesta la validación, creación y actualización completa de Control de Perimétrica (CP)
    */
-  static async procesarGuardadoCP(payload, formatoMeta, user) {
+  static async procesarGuardadoCP(payload, formatoMeta, user, vueloSesion = null) {
     const { itinerarioId, encabezadoId, guardar = true } = payload;
     const cp = payload.datos?.cpPayload || payload.datos || {};
 
-    const fechaIso = String(cp.fecha || '').trim().substring(0, 10);
+    const fechaItiAutoritativa = (vueloSesion && vueloSesion.FechaItinerado)
+      ? String(vueloSesion.FechaItinerado instanceof Date ? vueloSesion.FechaItinerado.toISOString() : vueloSesion.FechaItinerado).trim().substring(0, 10)
+      : '';
+    const fechaIso = fechaItiAutoritativa || String(cp.fecha || '').trim().substring(0, 10);
     const horaInicio = FormatosService.normalizarHora5(cp.horaInicio);
     const supervisorId = parseInt(cp.supervisorEmpleadoId, 10);
     const supervisorNombre = String(cp.supervisorNombre || '').trim();
@@ -1046,9 +1216,29 @@ class FormatosService {
     const encIdNum = parseInt(encabezadoId, 10) || 0;
     const esNuevo = encIdNum <= 0;
 
+    // Blindaje en Backend: Resolver y forzar siempre la fecha real del itinerario desde sesión o BD
+    let vueloReal = vueloSesion;
+    if ((!vueloReal || !vueloReal.FechaItinerado) && itinerarioId) {
+      const itiDb = await OperacionesModel.obtenerItinerarioPorId(parseInt(itinerarioId, 10)).catch(() => null);
+      if (itiDb) {
+        vueloReal = { ...(vueloSesion || {}), ...itiDb };
+      }
+    }
+    const fechaItinerarioAutoritativa = (vueloReal && vueloReal.FechaItinerado)
+      ? String(vueloReal.FechaItinerado instanceof Date ? vueloReal.FechaItinerado.toISOString() : vueloReal.FechaItinerado).trim().substring(0, 10)
+      : '';
+    if (fechaItinerarioAutoritativa) {
+      er.fecha = fechaItinerarioAutoritativa;
+      if (payload.datos && payload.datos.erPayload) {
+        payload.datos.erPayload.fecha = fechaItinerarioAutoritativa;
+      } else if (payload.datos) {
+        payload.datos.fecha = fechaItinerarioAutoritativa;
+      }
+    }
+
     // Si es Vista Preliminar (guardar: false), construimos el modelo en memoria
     if (!guardar) {
-      const fechaIso = String(er.fecha || vueloSesion?.FechaItinerado || new Date().toISOString()).trim().substring(0, 10);
+      const fechaIso = fechaItinerarioAutoritativa || String(er.fecha || new Date().toISOString()).trim().substring(0, 10);
       const observaciones = String(er.observaciones || '').trim();
       const firmaBase64 = String(er.firmaBase64 || er.firma || '').trim();
       const registrosRaw = Array.isArray(er.registros) ? er.registros : [];
@@ -1059,8 +1249,8 @@ class FormatosService {
         Pasajero: String(r?.Pasajero ?? r?.Nombre ?? '').trim(),
         Secuencia: String(r?.Secuencia ?? '').trim(),
         Colilla: String(r?.Colilla ?? '').trim(),
-        Vuelo: String(vueloSesion?.novuelo || r?.Vuelo || '').trim(),
-        Destino: String(r?.Destino || vueloSesion?.Destino || 'N/A').trim() || 'N/A',
+        Vuelo: String(vueloReal?.novuelo || r?.Vuelo || '').trim(),
+        Destino: String(r?.Destino || 'N/A').trim() || 'N/A',
         HoraRevision: FormatosService.normalizarHora5(r?.HoraRevision ?? r?.Hora, ''),
         AgenteAVSEC: String(r?.AgenteAVSEC ?? r?.Avsec ?? '').trim(),
         AgenteSeguridad: String(r?.AgenteSeguridad ?? r?.Seguridad ?? r?.CreadoPor ?? user?.usuario ?? '').trim()
@@ -1092,7 +1282,7 @@ class FormatosService {
     }
 
     // CAPA 2 DE VALIDACIÓN ESTRICTA EN BACKEND ANTES DE ABRIR TRANSACCIÓN SQL
-    const validacion = FormatoValidationService.validarControlER(payload, user, vueloSesion, {
+    const validacion = FormatoValidationService.validarControlER(payload, user, vueloReal, {
       requerirFirma: esNuevo
     });
 
@@ -2194,6 +2384,173 @@ class FormatosService {
       modo: 'persistido',
       encabezadoId: txResult.encabezadoId,
       mensaje: `¡Formato LIADC de LAN CARGO guardado exitosamente! (ID #${txResult.encabezadoId})`
+    };
+  }
+
+  /**
+   * 16. Procesa vista preliminar y persistencia transaccional de "Control de Cargue y Descargue de Aeronave" (fdx-ccda - FEDEX)
+   */
+  static async procesarGuardadoCCDA(payload, formatoMeta, user, vueloSesion = null) {
+    const { itinerarioId, encabezadoId, guardar = true } = payload;
+    const ccda = payload.datos?.ccdaPayload || payload.datos || {};
+    const encIdNum = parseInt(encabezadoId, 10) || 0;
+
+    if (!guardar) {
+      const personal = Array.isArray(ccda.personal)
+        ? ccda.personal
+        : (Array.isArray(ccda.registros) ? ccda.registros : []);
+      const pendientesSalidaCount = personal.filter((r) => !String(r?.Salida || r?.HoraSalida1 || '').trim()).length;
+
+      return {
+        success: true,
+        modo: 'preliminar',
+        resumen: {
+          valido: true,
+          formato: formatoMeta.nombre,
+          aerolinea: formatoMeta.aerolinea,
+          itinerarioId,
+          encabezadoId: encIdNum || 'NUEVO',
+          timestamp: new Date().toISOString(),
+          usuario: user?.usuario || ''
+        },
+        preview: {
+          ...ccda,
+          pendientesSalidaCount
+        }
+      };
+    }
+
+    const validacion = FormatoValidationService.validarControlCCDA(payload, user, vueloSesion);
+    if (!validacion.valido) {
+      return {
+        success: false,
+        statusCode: validacion.statusCode || 400,
+        message: validacion.message,
+        errors: validacion.errors
+      };
+    }
+
+    const norm = validacion.normalized;
+    const personalMeta = norm.personal.map((p) => ({
+      EmpleadoId: p.EmpleadoId,
+      Personal: p.Personal,
+      Empresa: p.Empresa
+    }));
+
+    const txResult = await FormatosModel.guardarControlCCDATransaccional({
+      encabezadoId: norm.encabezadoId,
+      itinerarioId: norm.itinerarioId,
+      loginId: parseInt(user?.loginId, 10) || 1,
+      fechaIso: norm.fecha,
+      pushBack: norm.pushBack,
+      salida: norm.salida,
+      cantCombustible: norm.cantCombustible,
+      operarioEmpleadoId: norm.operarioEmpleadoId,
+      acopla: norm.acopla,
+      desacopla: norm.desacopla,
+      aperturaAeronave: norm.aperturaAeronave,
+      cierreAeronave: norm.cierreAeronave,
+      inicioDescargue: norm.inicioDescargue,
+      terminaDescargue: norm.terminaDescargue,
+      iniciaCargue: norm.iniciaCargue,
+      terminaCargue: norm.terminaCargue,
+      arribo: norm.arribo,
+      puertaAbierta: norm.puertaAbierta,
+      puertaCerrada: norm.puertaCerrada,
+      escaleraAcoplada: norm.escaleraAcoplada,
+      escaleraDesacoplada: norm.escaleraDesacoplada,
+      observaciones: norm.observaciones,
+      agenteSeguridad: norm.agenteSeguridad,
+      supervisor: norm.supervisor,
+      personal: norm.personal,
+      meta: {
+        llegada: norm.llegada,
+        arribo: norm.arribo,
+        puertaAbierta: norm.puertaAbierta,
+        puertaCerrada: norm.puertaCerrada,
+        escaleraAcoplada: norm.escaleraAcoplada,
+        escaleraDesacoplada: norm.escaleraDesacoplada,
+        operarioNombre: norm.operarioNombre,
+        operarioEmpresa: norm.operarioEmpresa,
+        personalMeta
+      },
+      usuarioAuditoria: String(user?.usuario || '').trim()
+    });
+
+    return {
+      success: true,
+      modo: 'persistido',
+      encabezadoId: txResult.encabezadoId,
+      mensaje: `¡Formato Control Cargue y Descargue (FEDEX) guardado exitosamente! (ID #${txResult.encabezadoId})`
+    };
+  }
+
+  /**
+   * 17. Procesa vista preliminar y persistencia transaccional de "Lista de Inspección de Seguridad de la Aeronave" (ajt-lisa - AMERIJET)
+   */
+  static async procesarGuardadoLISA(payload, formatoMeta, user, vueloSesion = null) {
+    const { itinerarioId, encabezadoId, guardar = true } = payload;
+    const lisa = payload.datos?.lisaPayload || payload.datos || {};
+    const encIdNum = parseInt(encabezadoId, 10) || 0;
+
+    if (!guardar) {
+      return {
+        success: true,
+        modo: 'preliminar',
+        resumen: {
+          valido: true,
+          formato: formatoMeta.nombre,
+          aerolinea: formatoMeta.aerolinea,
+          itinerarioId,
+          encabezadoId: encIdNum || 'NUEVO',
+          timestamp: new Date().toISOString(),
+          usuario: user?.usuario || ''
+        },
+        preview: lisa
+      };
+    }
+
+    const validacion = FormatoValidationService.validarControlLISA(payload, user, vueloSesion);
+    if (!validacion.valido) {
+      return {
+        success: false,
+        statusCode: validacion.statusCode || 400,
+        message: validacion.message,
+        errors: validacion.errors
+      };
+    }
+
+    const norm = validacion.normalized;
+    let loginId = parseInt(user?.loginId, 10) || 0;
+    if (loginId <= 0) {
+      loginId = (await LoginModel.obtenerLoginIdPorUsuario(user?.usuario, user?.empleadoId)) || 1;
+    }
+
+    const txResult = await FormatosModel.guardarControlLISATransaccional({
+      encabezadoId: norm.encabezadoId,
+      itinerarioId: norm.itinerarioId,
+      loginId,
+      fechaIso: norm.fecha,
+      estacion: norm.estacion,
+      tipoAvion: norm.tipoAvion,
+      coordSeguridadTierra: norm.coordSeguridadTierra,
+      representanteAutorizado: norm.representanteAutorizado,
+      noSello: norm.noSello,
+      nombreEjecutoInspeccion: norm.nombreInspector,
+      horaInicio: norm.horaInicio,
+      horaFin: norm.horaFin,
+      horaSalida: norm.horaSalida,
+      observaciones: norm.observaciones,
+      sellos: norm.sellos,
+      checks: norm.checks,
+      usuarioAuditoria: String(user?.usuario || '').trim()
+    });
+
+    return {
+      success: true,
+      modo: 'persistido',
+      encabezadoId: txResult.encabezadoId,
+      mensaje: `¡Formato Lista de Inspección de Seguridad (AMERIJET) guardado exitosamente! (ID #${txResult.encabezadoId})`
     };
   }
 }

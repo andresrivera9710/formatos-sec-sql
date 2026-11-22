@@ -11,29 +11,6 @@
   <link rel="stylesheet" href="/css/cp-preview.css">
 </head>
 <body>
-  <div class="preview-toolbar no-print">
-    <div class="toolbar-left">
-      <span class="badge-draft">
-        <i class="fas fa-eye"></i> VISTA PRELIMINAR (SIN PERSISTIR EN BD)
-      </span>
-      <% if (doc.pendientesSalidaCount > 0) { %>
-        <span class="badge-warn">
-          <i class="fas fa-exclamation-triangle"></i>
-          <%= doc.pendientesSalidaCount %> persona(s) sin hora de salida — requerida antes de guardar
-        </span>
-      <% } %>
-    </div>
-
-    <div class="toolbar-actions">
-      <button type="button" id="btnPrintPreview" class="toolbar-btn print">
-        <i class="fas fa-print"></i> Imprimir / Guardar PDF
-      </button>
-      <button type="button" id="btnClosePreview" class="toolbar-btn close">
-        <i class="fas fa-times"></i> Cerrar Ventana
-      </button>
-    </div>
-  </div>
-
   <div class="sheet">
     <!-- Encabezado Institucional (FORMATOS_SECHTML) -->
     <div class="doc-header">

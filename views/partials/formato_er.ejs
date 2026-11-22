@@ -2,13 +2,14 @@
   const comp = (erState && erState.complemento) ? erState.complemento : {};
   const detalles = (erState && Array.isArray(erState.detalles)) ? erState.detalles : [];
 
-  let fechaInicial = '';
-  if (comp.Fecha) {
-    fechaInicial = String(comp.Fecha instanceof Date ? comp.Fecha.toISOString() : comp.Fecha).substring(0, 10);
-  } else if (vuelo && vuelo.FechaItinerado) {
-    fechaInicial = String(vuelo.FechaItinerado instanceof Date ? vuelo.FechaItinerado.toISOString() : vuelo.FechaItinerado).substring(0, 10);
+  // Regla de Negocio: Origen único de la Fecha = Fecha del Itinerario (tarjeta de operación elegida), bloqueada contra edición
+  let fechaItinerario = '';
+  if (vuelo && vuelo.FechaItinerado) {
+    fechaItinerario = String(vuelo.FechaItinerado instanceof Date ? vuelo.FechaItinerado.toISOString() : vuelo.FechaItinerado).substring(0, 10);
+  } else if (comp.Fecha) {
+    fechaItinerario = String(comp.Fecha instanceof Date ? comp.Fecha.toISOString() : comp.Fecha).substring(0, 10);
   } else {
-    fechaInicial = new Date().toISOString().substring(0, 10);
+    fechaItinerario = new Date().toISOString().substring(0, 10);
   }
 
   const observacionInicial = comp.Observacion ? String(comp.Observacion).trim() : '';
@@ -16,16 +17,24 @@
   const noVueloActivo = (vuelo && vuelo.novuelo) ? String(vuelo.novuelo).trim() : '';
   const destinoActivo = (vuelo && (vuelo.Destino || vuelo.destino)) ? String(vuelo.Destino || vuelo.destino).trim() : '';
 
+  const opUpper = String((vuelo && vuelo.operador) || '').toUpperCase();
+  const siglaAgenteSeguridad = opUpper.includes('AEROMEXICO') ? 'AMX'
+    : opUpper.includes('DELTA') ? 'DL'
+      : opUpper.includes('ARAJET') ? 'ARAJET'
+        : opUpper.includes('CANADA') ? 'AC'
+          : (opUpper || 'AMX');
+
   const initialErPayload = {
     formatoId: formato.id,
     formatoNombre: formato.nombre,
     itinerarioId: vuelo.itinerarioId,
     encabezadoId: encabezadoId || null,
     esNuevo: Boolean(esNuevo),
-    fecha: fechaInicial,
+    fecha: fechaItinerario,
     noVuelo: noVueloActivo,
     destinoVuelo: destinoActivo,
     agenteActual,
+    siglaAgenteSeguridad,
     observaciones: observacionInicial,
     detalles
   };
@@ -36,11 +45,11 @@
   <input type="hidden" id="erItinerarioId" value="<%= vuelo.itinerarioId %>">
   <input type="hidden" id="erEncabezadoId" value="<%= encabezadoId || '' %>">
 
-  <!-- 1. ENCABEZADO DEL FORMATO (ControlEquipajeAVSECAMX) -->
+  <!-- 1. FORMATO Y FECHA (btnFondoFormato_15 + lblFecha_18 + dteFechaFormato_18 en DisplayMode.Disabled) -->
   <div class="card">
     <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
       <h3 class="cp-section-title">
-        <i class="fas fa-x-ray"></i> Encabezado — Control de Equipaje en Revisión AVSEC/SGDAIA Banda de Salida (Rayos X)
+        <i class="fas fa-file-alt"></i> FORMATO: <%= formato.nombre %>
       </h3>
       <div style="display: flex; align-items: center; gap: 10px;">
         <% if (!esNuevo && encabezadoId) { %>
@@ -54,114 +63,183 @@
       </div>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+    <div style="max-width: 340px;">
       <div class="form-group">
-        <label for="erFecha"><i class="far fa-calendar-alt"></i> Fecha de Inspección <span style="color: var(--danger);">*</span></label>
-        <input type="date" id="erFecha" class="form-control" value="<%= fechaInicial %>" required>
-      </div>
-
-      <div class="form-group">
-        <label for="erNoVuelo"><i class="fas fa-plane-departure"></i> No. de Vuelo <span style="color: var(--danger);">*</span></label>
-        <input type="text" id="erNoVuelo" class="form-control" value="<%= noVueloActivo %>" readonly style="background-color: var(--bg); font-weight: 700; color: var(--brand-deep);">
-      </div>
-
-      <div class="form-group">
-        <label for="erDestinoOperacion"><i class="fas fa-map-pin"></i> Destino del Vuelo</label>
-        <input type="text" id="erDestinoOperacion" class="form-control" value="<%= destinoActivo || 'N/A' %>" readonly style="background-color: var(--bg); font-weight: 600;">
-      </div>
-
-      <div class="form-group">
-        <label for="erAgenteSeguridadHeader"><i class="fas fa-user-shield"></i> Nombre de Seguridad Aerolínea (LoginSEC) <span style="color: var(--danger);">*</span></label>
-        <input type="text" id="erAgenteSeguridadHeader" class="form-control" value="<%= agenteActual %>" readonly style="background-color: var(--bg); font-weight: 700; color: var(--brand);">
+        <label for="erFecha"><i class="far fa-calendar-alt"></i> Fecha:</label>
+        <input
+          type="date"
+          id="erFecha"
+          name="fecha"
+          class="form-control er-cell-readonly"
+          value="<%= fechaItinerario %>"
+          readonly
+          disabled
+          tabindex="-1"
+          aria-readonly="true"
+          title="Fecha vinculada estrictamente al itinerario de la operación seleccionada"
+        >
       </div>
     </div>
   </div>
 
-  <!-- 2. PANEL DE CAPTURA RÁPIDA ("Ingrese los Datos" - cntDatos_17 en Power Apps) -->
+  <!-- 2. INGRESE LOS DATOS (lblIngreseDatos_18 + btnFondoDatos_25 + btnFondoDatos1_15 + btnAgregarAMatriz_1) -->
   <div class="card" style="border-top: 3px solid var(--brand);">
     <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
       <h3 class="cp-section-title">
-        <i class="fas fa-Suitcase-rolling fa-luggage-cart"></i> Ingrese los Datos del Equipaje Revisado
+        <i class="fas fa-luggage-cart"></i> Ingrese los Datos:
       </h3>
-      <span style="font-size: 11px; color: var(--text-3);">
-        Los campos marcados con <strong style="color: var(--danger);">*</strong> son obligatorios
-      </span>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; align-items: end;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; align-items: end;">
+      <!-- 1. Nombre del Pasajero: (txtNamePassenger_5) -->
       <div class="form-group" style="grid-column: span 2; min-width: 240px;">
-        <label for="erInputPasajero"><i class="fas fa-user"></i> Nombre del Pasajero <span style="color: var(--danger);">*</span></label>
-        <input type="text" id="erInputPasajero" class="form-control" maxlength="200" placeholder="Ej: JUAN PÉREZ LÓPEZ" autocomplete="off">
+        <label for="erInputPasajero">Nombre del Pasajero: <span style="color: var(--danger);">*</span></label>
+        <input
+          type="text"
+          id="erInputPasajero"
+          class="form-control"
+          maxlength="200"
+          placeholder="Escriba el nombre del pasajero"
+          autocomplete="off"
+        >
       </div>
 
+      <!-- 2. Secuencia: (txtSecuenciaCP) -->
       <div class="form-group">
-        <label for="erInputSecuencia"><i class="fas fa-sort-numeric-up"></i> Secuencia <span style="color: var(--danger);">*</span></label>
-        <input type="number" id="erInputSecuencia" class="form-control" min="1" step="1" inputmode="numeric" placeholder="Ej: 45">
+        <label for="erInputSecuencia">Secuencia: <span style="color: var(--danger);">*</span></label>
+        <input
+          type="number"
+          id="erInputSecuencia"
+          class="form-control"
+          min="1"
+          step="1"
+          inputmode="numeric"
+          placeholder="Ingrese la secuencia"
+        >
       </div>
 
+      <!-- 3. Colilla: (txtSecuenciaCP_1) -->
       <div class="form-group">
-        <label for="erInputColilla"><i class="fas fa-barcode"></i> No. de Colilla / Marbete <span style="color: var(--danger);">*</span></label>
-        <input type="number" id="erInputColilla" class="form-control" min="1" step="1" inputmode="numeric" placeholder="Ej: 0139485721">
+        <label for="erInputColilla">Colilla: <span style="color: var(--danger);">*</span></label>
+        <input
+          type="number"
+          id="erInputColilla"
+          class="form-control"
+          min="1"
+          step="1"
+          inputmode="numeric"
+          placeholder="Ingrese la colilla"
+        >
       </div>
 
+      <!-- 4. NoVuelo: (lblNoVuelo_18 + lblNoVuelo1_18 = noVueloIti) -->
       <div class="form-group">
-        <label for="erInputDestino"><i class="fas fa-globe-americas"></i> Destino <span style="color: var(--text-3); font-weight: 400;">(Opcional)</span></label>
-        <input type="text" id="erInputDestino" class="form-control" maxlength="100" value="<%= destinoActivo %>" placeholder="Ej: <%= destinoActivo || 'MEX' %>">
+        <label for="erNoVuelo">NoVuelo:</label>
+        <input
+          type="text"
+          id="erNoVuelo"
+          class="form-control er-cell-readonly"
+          value="<%= noVueloActivo %>"
+          readonly
+          disabled
+          tabindex="-1"
+          aria-readonly="true"
+        >
       </div>
 
+      <!-- 5. Destino: (txtSecuenciaCP_2) -->
       <div class="form-group">
-        <label for="erInputHoraRevision"><i class="far fa-clock"></i> Hora de Revisión <span style="color: var(--danger);">*</span></label>
+        <label for="erInputDestino">Destino:</label>
+        <input
+          type="text"
+          id="erInputDestino"
+          class="form-control"
+          maxlength="100"
+          value=""
+          placeholder="Ingrese el destino"
+          autocomplete="off"
+        >
+      </div>
+
+      <!-- 6. Hora de Revisión: (txtHoraRev_14 + icoHoraRev_16) -->
+      <div class="form-group">
+        <label for="erInputHoraRevision">Hora de Revisión: <span style="color: var(--danger);">*</span></label>
         <div class="cp-time-row">
-          <input type="time" id="erInputHoraRevision" class="form-control">
+          <input
+            type="time"
+            id="erInputHoraRevision"
+            class="form-control"
+            placeholder="Ingrese hora de Revisión"
+          >
           <button type="button" id="btnRelojHoraER" class="cp-clock-btn" title="Capturar hora actual">
-            <i class="far fa-clock"></i> Ahora
+            <i class="far fa-clock"></i>
           </button>
         </div>
       </div>
 
+      <!-- 7. Nombre Agente AVSEC que realiza inspección: (txtNombreAVSEC_1) -->
       <div class="form-group">
-        <label for="erInputAgenteAVSEC"><i class="fas fa-id-badge"></i> Nombre Agente AVSEC (Inspección) <span style="color: var(--danger);">*</span></label>
-        <input type="text" id="erInputAgenteAVSEC" class="form-control" maxlength="150" placeholder="Nombre del agente AVSEC/SGDAIA" autocomplete="off">
+        <label for="erInputAgenteAVSEC">Nombre Agente AVSEC que realiza inspección: <span style="color: var(--danger);">*</span></label>
+        <input
+          type="text"
+          id="erInputAgenteAVSEC"
+          class="form-control"
+          maxlength="150"
+          value=""
+          placeholder="Escriba el nombre del Agente"
+          autocomplete="off"
+        >
       </div>
 
+      <!-- 8. Agente de seguridad AMX durante la inspección: (txtNombreAVSEC_2) -->
       <div class="form-group">
-        <label for="erInputAgenteSeguridad"><i class="fas fa-user-check"></i> Agente de Seguridad <%= vuelo.operador %> <span style="color: var(--danger);">*</span></label>
-        <input type="text" id="erInputAgenteSeguridad" class="form-control" maxlength="150" value="<%= agenteActual %>" placeholder="Agente de seguridad <%= vuelo.operador %>">
+        <label for="erInputAgenteSeguridad">Agente de seguridad <%= siglaAgenteSeguridad %> durante la inspección: <span style="color: var(--danger);">*</span></label>
+        <input
+          type="text"
+          id="erInputAgenteSeguridad"
+          class="form-control"
+          maxlength="150"
+          value=""
+          placeholder="Escriba el nombre del Agente"
+          autocomplete="off"
+        >
       </div>
     </div>
 
-    <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-2); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px;">
-      <button type="button" id="btnAgregarFilaVaciaER" class="btn btn-secondary">
-        <i class="fas fa-table"></i> + Insertar Fila en Blanco en Cuadrícula
+    <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-2); display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px;">
+      <button type="button" id="btnAgregarEquipajeER" class="btn btn-primary" style="min-width: 160px;">
+        <i class="fas fa-plus-circle"></i> Agregar
       </button>
-      <button type="button" id="btnAgregarEquipajeER" class="btn btn-primary">
-        <i class="fas fa-plus-circle"></i> Agregar Equipaje a la Cuadrícula
-      </button>
+
+      <a href="#erCardCuadricula" class="btn btn-secondary" id="btnVerDatosAgregadosER">
+        <i class="fas fa-eye"></i> Ver Datos Agregados
+      </a>
     </div>
   </div>
 
-  <!-- 3. CUADRÍCULA FLUIDA DE EQUIPAJES REVISADOS (ColPasajeros / DetalleControlER) -->
+  <!-- 3. PASAJEROS / VER DATOS AGREGADOS (grpVerPasajeros: txtBuscadorCP_6 + Icon4_13 + Gallery1_2 ColPasajeros) -->
   <div class="card" id="erCardCuadricula">
     <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
       <div>
         <h3 class="cp-section-title">
-          <i class="fas fa-th-list"></i> Cuadrícula Fluida — Equipajes en Revisión AVSEC / SGDAIA
+          <i class="fas fa-users"></i> PASAJEROS (Ver Datos Agregados)
         </h3>
-        <small style="color: var(--text-3); font-size: 11px;">
-          Puede editar directamente cualquier celda de la cuadrícula. Todos los campos con <span style="color: var(--danger); font-weight: 700;">*</span> son obligatorios para guardar.
-        </small>
       </div>
 
-      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px;">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
         <div style="position: relative; min-width: 240px;">
           <i class="fas fa-search" style="position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text-3); font-size: 12px;"></i>
-          <input type="search" id="erBuscarPasajero" class="form-control" style="padding-left: 32px; padding-top: 7px; padding-bottom: 7px; font-size: 12px;" placeholder="Buscar pasajero, secuencia, colilla...">
+          <input
+            type="search"
+            id="erBuscarPasajero"
+            class="form-control"
+            style="padding-left: 32px; padding-top: 7px; padding-bottom: 7px; font-size: 12px;"
+            placeholder="Ingrese dato a buscar"
+          >
         </div>
-
-        <div class="er-total-counter-badge">
-          <span>Recuento Total de equipajes revisados:</span>
-          <strong id="erRecuentoTotal"><%= detalles.length %></strong>
-        </div>
+        <button type="button" id="btnLimpiarBusquedaER" class="btn btn-secondary" style="padding: 7px 10px;" title="Reiniciar búsqueda">
+          <i class="fas fa-sync-alt"></i>
+        </button>
       </div>
     </div>
 
@@ -169,42 +247,32 @@
       <table class="er-fluid-table" id="erTablaCuadricula">
         <thead>
           <tr>
-            <th style="width: 52px; text-align: center;">NO.</th>
+            <th style="width: 52px; text-align: center;">No.</th>
             <th style="min-width: 200px;">NOMBRE DEL PASAJERO <span class="er-req-star">*</span></th>
             <th style="width: 115px; text-align: center;">SECUENCIA <span class="er-req-star">*</span></th>
             <th style="width: 145px; text-align: center;">NO. DE COLILLA <span class="er-req-star">*</span></th>
-            <th style="width: 95px; text-align: center;">VUELO</th>
+            <th style="width: 95px; text-align: center;">No. VUELO</th>
             <th style="width: 110px; text-align: center;">DESTINO</th>
             <th style="width: 155px; text-align: center;">HORA DE REVISIÓN <span class="er-req-star">*</span></th>
-            <th style="min-width: 185px;">NOMBRE AGENTE AVSEC QUE REALIZA INSPECCIÓN <span class="er-req-star">*</span></th>
-            <th style="min-width: 185px;">AGENTE DE SEGURIDAD <%= String(vuelo.operador || '').toUpperCase() %> DURANTE LA INSPECCIÓN <span class="er-req-star">*</span></th>
+            <th style="min-width: 185px;">NOMBRE DE AGENTE AVSEC QUE REALIZA LA INSPECCIÓN <span class="er-req-star">*</span></th>
+            <th style="min-width: 185px;">AGENTE DE SEGURIDAD <%= siglaAgenteSeguridad %> DURANTE LA INSPECCIÓN <span class="er-req-star">*</span></th>
             <th style="width: 68px; text-align: center;">ACCIÓN</th>
           </tr>
         </thead>
         <tbody id="erTbodyRegistros">
-          <!-- Renderizado dinámico y seguro por public/js/formato-er.js -->
+          <!-- Renderizado dinámico por public/js/formato-er.js -->
         </tbody>
       </table>
     </div>
   </div>
 
-  <!-- 4. OBSERVACIONES Y FIRMA DIGITAL DE SEGURIDAD -->
+  <!-- 4. FIRMA, NOMBRE DE SEGURIDAD AEROLÍNEA, RECUENTO TOTAL Y OBSERVACIONES (Orden exacto de ControlEquipajeAVSECAMX) -->
   <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px;">
-    <div class="card">
-      <div class="card-header">
-        <h3 class="cp-section-title"><i class="fas fa-comment-dots"></i> Observaciones</h3>
-        <span style="font-size: 11px; color: var(--text-3);">Opcional</span>
-      </div>
-      <div class="form-group">
-        <label for="erObservaciones">Observaciones y Novedades de Revisión en Banda de Salida (Rayos X)</label>
-        <textarea id="erObservaciones" class="form-control" rows="5" maxlength="2000" placeholder="(Opcional) Ingrese cualquier observación relevante durante la inspección de equipaje..."><%= observacionInicial %></textarea>
-      </div>
-    </div>
-
+    <!-- Columna Izquierda: FIRMA: + Nombre de Seguridad Aerolínea: -->
     <div class="card">
       <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
         <h3 class="cp-section-title">
-          <i class="fas fa-signature"></i> Firma de Seguridad Aerolínea
+          <i class="fas fa-signature"></i> FIRMA:
           <% if (esNuevo) { %>
             <span style="color: var(--danger);">*</span>
           <% } %>
@@ -224,19 +292,53 @@
       <div class="signature-box" id="erSignatureBox">
         <canvas id="erCanvasFirma"></canvas>
       </div>
-      <p style="font-size: 11px; color: var(--text-3); text-align: center; margin-top: 4px;">
-        Agente firmante: <strong style="color: var(--text);"><%= agenteActual %></strong> — Trace su firma dentro del recuadro.
-      </p>
+
+      <!-- Nombre de Seguridad Aerolínea: (lblNameSeguridadAerolinea_5 + cmbNameSeguridadAerolinea_5 en DisplayMode.View) -->
+      <div class="form-group" style="margin-top: 14px;">
+        <label for="erAgenteSeguridadHeader"><i class="fas fa-user-shield"></i> Nombre de Seguridad Aerolínea:</label>
+        <input
+          type="text"
+          id="erAgenteSeguridadHeader"
+          class="form-control er-cell-readonly"
+          value="<%= agenteActual %>"
+          readonly
+          disabled
+          tabindex="-1"
+          aria-readonly="true"
+        >
+      </div>
+    </div>
+
+    <!-- Columna Derecha: Recuento Total de equipajes revisados: + Observaciones: -->
+    <div class="card">
+      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <h3 class="cp-section-title"><i class="fas fa-calculator"></i> Recuento y Observaciones</h3>
+        <div class="er-total-counter-badge">
+          <span>Recuento Total de equipajes revisados:</span>
+          <strong id="erRecuentoTotal"><%= detalles.length %></strong>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="erObservaciones">Observaciones:</label>
+        <textarea
+          id="erObservaciones"
+          class="form-control"
+          rows="6"
+          maxlength="2000"
+          placeholder="(Opcional)"
+        ><%= observacionInicial %></textarea>
+      </div>
     </div>
   </div>
 
-  <!-- 5. BOTONES DE ACCIÓN (Vista Preliminar + Guardar Definitivo) -->
+  <!-- 5. BOTONES DE ACCIÓN (Vista Preliminar + Crear Formato) -->
   <div style="display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 14px; margin-bottom: 40px;">
     <button type="button" id="btnVistaPreliminarER" class="btn btn-secondary" style="padding: 12px 24px;">
-      <i class="fas fa-eye"></i> Vista Preliminar (Formato Oficial <%= vuelo.operador %>)
+      <i class="fas fa-eye"></i> Vista Preliminar
     </button>
     <button type="button" id="btnGuardarDefinitivoER" class="btn btn-primary" style="padding: 12px 28px;">
-      <i class="fas fa-save"></i> Guardar Formato Definitivo
+      <i class="fas fa-save"></i> Crear Formato
     </button>
   </div>
 </form>

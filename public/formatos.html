@@ -10,75 +10,25 @@
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="/js/theme-init.js"></script>
   
   <link rel="stylesheet" href="/css/laats-theme.css">
+  <link rel="stylesheet" href="/css/tab-bar.css">
   <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
-  <div class="app-container">
-    <aside class="sidebar">
-      <div class="sidebar-header">
-        <div style="font-size: 24px; color: var(--gold); margin-bottom: 6px;"><i class="fas fa-shield-alt"></i></div>
-        <h2>SIO — LAATS</h2>
-        <span>Seguridad Operacional (SEC)</span>
-      </div>
-
-      <nav class="sidebar-nav">
-        <a href="/operaciones" class="nav-item">
-          <i class="fas fa-plane-departure"></i>
-          <span>Operaciones</span>
-        </a>
-
-        <a href="/formatos" class="nav-item active">
-          <i class="fas fa-file-signature"></i>
-          <span>Formatos SEC</span>
-        </a>
-      </nav>
-
-      <div class="sidebar-user">
-        <div>
-          <div id="sidebarUserName" style="font-weight: 700; font-size: 12px; color: var(--brand-deep); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-            ANDRES RIVERA
-          </div>
-          <div id="sidebarUserRole" class="user-badge">
-            SUPERVISOR
-          </div>
-        </div>
-        <a href="/login" title="Cerrar Sesión" style="color: var(--danger); font-size: 16px; padding: 6px;">
-          <i class="fas fa-sign-out-alt"></i>
-        </a>
-      </div>
-    </aside>
-
-    <div class="workspace">
-      <header class="top-header">
-        <div style="display: flex; align-items: center; gap: 16px;">
-          <h1 id="headerTitle" style="font-size: 18px; color: var(--brand-deep); margin: 0;">
-            Formatos de Seguridad Operacional
-          </h1>
-          <div id="activeFlightBadge" style="display: inline-flex; align-items: center; gap: 8px; background: var(--gold-light); border: 1px solid var(--gold); border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 700; color: var(--brand-deep);">
-            <i class="fas fa-plane" style="color: var(--brand);"></i>
-            <span id="activeFlightBadgeText">AEROMEXICO (AMX-408)</span>
-          </div>
-        </div>
-
-        <div style="display: flex; align-items: center; gap: 14px;">
-          <button id="btnDarkModeToggle" class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" title="Alternar Modo Oscuro">
-            <i class="fas fa-moon"></i>
-          </button>
-        </div>
-      </header>
-
-      <main class="content-body">
+  <div class="app-container app-container-full">
+    <div class="workspace workspace-full">
+      <main class="content-body content-body-operaciones">
         <!-- Banner de Contexto de Vuelo -->
         <div class="flight-context-banner">
-          <div>
-            <div style="font-size: 11px; color: var(--gold); font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">
-              OPERACIÓN ACTIVA
+          <div class="flight-context-info">
+            <div class="flight-context-eyebrow">
+              <i class="fas fa-shield-alt"></i> OPERACIÓN ACTIVA — FORMATOS SEC
             </div>
-            <h3 id="flightBannerTitle" style="margin-top: 4px;">
+            <h1 id="flightBannerTitle" class="flight-context-title">
               AEROMEXICO — Vuelo AMX-408
-            </h3>
+            </h1>
             <div class="flight-context-tags">
               <span id="tagCorrelativo" class="flight-tag">Correlativo: #1042</span>
               <span id="tagRuta" class="flight-tag">Ruta: MEX ➔ GUA</span>
@@ -86,17 +36,17 @@
               <span id="tagPuerta" class="flight-tag">Puerta: Puerta 6</span>
             </div>
           </div>
-          <div>
-            <a href="/operaciones" class="btn btn-secondary" style="background: rgba(255,255,255,0.15); color: #FFF; border-color: rgba(255,255,255,0.3);">
+          <div class="flight-context-actions">
+            <a href="/operaciones" class="btn btn-change-flight">
               <i class="fas fa-exchange-alt"></i> Cambiar Operación
             </a>
           </div>
         </div>
 
-        <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+        <div class="formatos-section-header">
           <div>
-            <h2 id="sectionSubtitle" style="font-size: 18px; color: var(--brand-deep);">Formatos Disponibles para AEROMEXICO</h2>
-            <p style="font-size: 12px; color: var(--text-3);">Seleccione un formato de inspección para diligenciar o auditar.</p>
+            <h2 id="sectionSubtitle" class="formatos-section-title">Formatos Disponibles para AEROMEXICO</h2>
+            <p class="formatos-section-subtitle">Seleccione un formato de inspección para diligenciar o auditar.</p>
           </div>
           <span id="userRoleBadge" class="badge badge-gold">
             Rol Activo: SUPERVISOR
@@ -104,19 +54,89 @@
         </div>
 
         <!-- Grid de Formatos -->
-        <div id="gridFormatos" class="formats-grid">
+        <div id="formatsGrid" class="formats-grid">
           <!-- Inyectado dinámicamente -->
         </div>
       </main>
 
-      <footer style="padding: 18px 32px; background: var(--surface); border-top: 1px solid var(--border); font-size: 11px; color: var(--text-3); display: flex; justify-content: space-between; align-items: center;">
-        <div>
-          <strong>SIO LAATS</strong> — Sistema de Información Operacional & Seguridad SEC &copy; 2026
-        </div>
-        <div>
-          <span>Versión: v1.0.9 | Ambiente Seguro (TLS + Anti-IDOR)</span>
-        </div>
-      </footer>
+      <!-- Tab Bar Inferior Moderno con Efecto Sliding Pill -->
+      <div class="sio-bottom-nav-zone">
+        <nav id="sioTabBar" class="sio-tab-bar" data-active-route="formatos" aria-label="Navegación Principal de Operaciones">
+          <span id="navPillIndicator" class="nav-pill-indicator" aria-hidden="true"></span>
+
+          <a href="/operaciones" class="tab-bar-item is-active" data-tab="operaciones" aria-current="page">
+            <span class="tab-bar-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tab-svg-icon">
+                <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>
+              </svg>
+            </span>
+            <span class="tab-bar-label">Operaciones</span>
+          </a>
+
+          <button type="button" id="btnTabThemeToggle" class="tab-bar-item" data-tab="theme" aria-label="Alternar Modo Noche" aria-pressed="false">
+            <span class="tab-bar-icon tab-theme-icon-wrap" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tab-svg-icon icon-moon">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+              </svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tab-svg-icon icon-sun">
+                <circle cx="12" cy="12" r="5"/>
+                <line x1="12" y1="1" x2="12" y2="3"/>
+                <line x1="12" y1="21" x2="12" y2="23"/>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                <line x1="1" y1="12" x2="3" y2="12"/>
+                <line x1="21" y1="12" x2="23" y2="12"/>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+              </svg>
+            </span>
+            <span class="tab-bar-label" id="tabThemeText">Modo Noche</span>
+          </button>
+
+          <div id="btnTabUserProfile" class="tab-bar-item tab-bar-item-profile" data-tab="profile" role="button" tabindex="0" aria-expanded="false" aria-haspopup="dialog">
+            <span class="tab-profile-avatar" aria-hidden="true">AR</span>
+            <span class="tab-profile-info">
+              <span id="sidebarUserName" class="tab-profile-name">ANDRES RIVERA</span>
+              <span id="sidebarUserRole" class="tab-profile-role">SUPERVISOR</span>
+            </span>
+
+            <div id="tabProfileTooltip" class="tab-profile-tooltip" role="dialog" aria-label="Resumen de sesión del usuario">
+              <div class="tab-tooltip-header">
+                <span class="tab-tooltip-avatar">AR</span>
+                <div class="tab-tooltip-titles">
+                  <strong class="tab-tooltip-name">ANDRES RIVERA</strong>
+                  <span class="tab-tooltip-badge">SUPERVISOR</span>
+                </div>
+              </div>
+              <div class="tab-tooltip-body">
+                <div class="tab-tooltip-row">
+                  <span class="tab-tooltip-key">Login SEC</span>
+                  <span class="tab-tooltip-val">ANDRES RIVERA</span>
+                </div>
+                <div class="tab-tooltip-row">
+                  <span class="tab-tooltip-key">Departamento</span>
+                  <span class="tab-tooltip-val">E8. SEGURIDAD AEROPORTUARIA</span>
+                </div>
+                <div class="tab-tooltip-row">
+                  <span class="tab-tooltip-key">Estado</span>
+                  <span class="tab-tooltip-status"><span class="tab-status-dot"></span> Sesión Activa</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <a href="/logout" id="btnTabLogout" class="tab-bar-item tab-bar-item-logout" data-tab="logout" aria-label="Cerrar Sesión">
+            <span class="tab-bar-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tab-svg-icon">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+            </span>
+            <span class="tab-bar-label">Cerrar Sesión</span>
+          </a>
+        </nav>
+      </div>
     </div>
   </div>
 
@@ -124,13 +144,13 @@
   <div id="modalReanudar" class="modal-overlay">
     <div class="modal-content">
       <div class="modal-header">
-        <div style="font-size: 11px; color: var(--gold); font-weight: 700; text-transform: uppercase;">
+        <div class="modal-eyebrow">
           DOCUMENTOS PREVIOS DETECTADOS
         </div>
         <h3 id="modalFormatoNombre">Formatos Existentes</h3>
       </div>
       <div class="modal-body">
-        <p style="font-size: 13px; color: var(--text-2); margin-bottom: 16px;">
+        <p class="modal-desc">
           Se han encontrado registros previos para este vuelo. ¿Desea <strong>reanudar</strong> uno de los formatos seleccionándolo de la lista, o prefiere <strong>crear uno nuevo</strong>?
         </p>
 
@@ -139,125 +159,16 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="cerrarModalReanudar()">Cancelar</button>
-        <button id="btnCrearNuevoFormato" class="btn btn-gold">
+        <button type="button" id="btnCancelarModalReanudar" class="btn btn-secondary">Cancelar</button>
+        <button type="button" id="btnCrearNuevoFormato" class="btn btn-gold">
           <i class="fas fa-plus-circle"></i> Crear Nuevo
         </button>
       </div>
     </div>
   </div>
 
+  <script src="/js/tab-bar.js"></script>
   <script src="/js/signature-pad.js"></script>
   <script src="/js/app.js"></script>
-  <script>
-    // Recuperar datos de sesión
-    let vuelo = JSON.parse(sessionStorage.getItem('sio_vuelo') || 'null');
-    if (!vuelo) {
-      vuelo = {
-        itinerarioId: 501,
-        nocorrelativo: '1042',
-        FechaItinerado: new Date().toISOString(),
-        operador: 'AEROMEXICO',
-        novuelo: 'AMX-408',
-        Procedencia: 'MEX',
-        Destino: 'GUA',
-        Matricula: 'XA-AMX',
-        puertaposicion: 'Puerta 6'
-      };
-      sessionStorage.setItem('sio_vuelo', JSON.stringify(vuelo));
-    }
-
-    const u = JSON.parse(sessionStorage.getItem('sio_user') || 'null') || { usuario: 'ANDRES RIVERA', puestoSec: 'SUPERVISOR' };
-
-    // Actualizar etiquetas visuales
-    document.getElementById('flightBannerTitle').innerText = `${vuelo.operador} — Vuelo ${vuelo.novuelo}`;
-    document.getElementById('activeFlightBadgeText').innerText = `${vuelo.operador} (${vuelo.novuelo}) | Matrícula: ${vuelo.Matricula || 'S/N'}`;
-    document.getElementById('tagCorrelativo').innerText = `Correlativo: #${vuelo.nocorrelativo || 'N/A'}`;
-    document.getElementById('tagRuta').innerText = `Ruta: ${vuelo.Procedencia || 'GUA'} ➔ ${vuelo.Destino || 'MIA'}`;
-    document.getElementById('tagMatricula').innerText = `Matrícula: ${vuelo.Matricula || 'S/N'}`;
-    document.getElementById('tagPuerta').innerText = `Puerta: ${vuelo.puertaposicion || '--'}`;
-    document.getElementById('sectionSubtitle').innerText = `Formatos Disponibles para ${vuelo.operador}`;
-    document.getElementById('userRoleBadge').innerText = `Rol Activo: ${u.puestoSec || 'AGENTE'}`;
-
-    // Catálogo maestro de formatos de seguridad
-    const FORMATOS_AEREOS = [
-      { id: 'cp', nombre: 'Control de Perimétrica (unificado)', aerolineas: ['AEROMEXICO', 'ARAJET', 'DELTA', 'AIR CANADA', 'LAN CARGO', 'LATAM'], rangos: ['AGENTE', 'SUPERVISOR'], icono: 'shield-alt' },
-      { id: 'ciec', nombre: 'Control de ingreso y egreso cabina aeronave', aerolineas: ['AEROMEXICO', 'ARAJET', 'DELTA', 'LAN CARGO', 'AMERIJET'], rangos: ['AGENTE', 'SUPERVISOR'], icono: 'door-open' },
-      { id: 'er', nombre: 'Control de Equipaje en Revisión AVSEC/SGDAIA Banda de Salida (rayos x)', aerolineas: ['AEROMEXICO', 'ARAJET', 'DELTA', 'AIR CANADA'], rangos: ['AGENTE', 'SUPERVISOR'], icono: 'luggage-cart' },
-      { id: 'eb', nombre: 'Control de Equipajes en Banda de Salida (Rayos X)', aerolineas: ['AEROMEXICO', 'ARAJET', 'AIR CANADA'], rangos: ['AGENTE', 'SUPERVISOR'], icono: 'conveyor-belt' },
-      { id: 'cec', nombre: 'Control de Equipajes en Compartimentos', aerolineas: ['AEROMEXICO', 'ARAJET', 'DELTA', 'AIR CANADA', 'AMERIJET'], rangos: ['AGENTE', 'SUPERVISOR'], icono: 'box' },
-      { id: 'mecd', nombre: 'Equipajes en mal estado y carga dañada', aerolineas: ['AEROMEXICO'], rangos: ['AGENTE', 'SUPERVISOR'], icono: 'exclamation-triangle' },
-      { id: 'po', nombre: 'Puestos por Operación', aerolineas: ['AEROMEXICO'], rangos: ['SUPERVISOR'], icono: 'users-cog' },
-      { id: 'cfr', nombre: 'Control de Flejes en Rayos X', aerolineas: ['ARAJET'], rangos: ['AGENTE', 'SUPERVISOR'], icono: 'barcode' },
-      { id: 'cll', nombre: 'Cargo Loading Log', aerolineas: ['DELTA'], rangos: ['AGENTE', 'SUPERVISOR'], icono: 'truck-loading' },
-      { id: 'sp', nombre: 'Selected Passenger', aerolineas: ['DELTA'], rangos: ['AGENTE', 'SUPERVISOR'], icono: 'user-check' },
-      { id: 'dal', nombre: 'Daily Activity Log', aerolineas: ['DELTA'], rangos: ['SUPERVISOR'], icono: 'calendar-check' },
-      { id: 'sel', nombre: 'Sequence of Events Log', aerolineas: ['DELTA'], rangos: ['SUPERVISOR'], icono: 'history' },
-      { id: 'rx', nombre: 'Control de Equipajes en rayos X', aerolineas: ['DELTA'], rangos: ['AGENTE', 'SUPERVISOR'], icono: 'x-ray' },
-      { id: 'ass', nombre: 'Aircraft Security Search', aerolineas: ['AIR CANADA'], rangos: ['AGENTE', 'SUPERVISOR'], icono: 'plane-circle-check' },
-      { id: 'anexoa', nombre: 'Anexo A / Aircraft Access Control Log Sheet', aerolineas: ['AIR CANADA'], rangos: ['AGENTE', 'SUPERVISOR'], icono: 'file-signature' },
-      { id: 'anexob', nombre: 'Annex B, to aircraft security search checklist', aerolineas: ['AIR CANADA'], rangos: ['AGENTE', 'SUPERVISOR'], icono: 'tasks' },
-      { id: 'liadc', nombre: 'Lista de Inspección de Aeronave de Carga', aerolineas: ['LAN CARGO', 'LATAM'], rangos: ['AGENTE', 'SUPERVISOR'], icono: 'clipboard-list' },
-      { id: 'ccda', nombre: 'Control de Cargue y Descargue de Aeronave', aerolineas: ['FEDEX'], rangos: ['AGENTE', 'SUPERVISOR'], icono: 'dolly' },
-      { id: 'lisa', nombre: 'Lista de Inspección de Seguridad de la Aeronave', aerolineas: ['AMERIJET'], rangos: ['AGENTE', 'SUPERVISOR'], icono: 'clipboard-check' },
-      { id: 'ava-diamante', nombre: 'CONTROL DE ACCESO AERONAVE/DIAMANTE DE SEGURIDAD', aerolineas: ['AVIANCA'], rangos: ['AGENTE', 'SUPERVISOR'], icono: 'gem' },
-      { id: 'ava-novedades', nombre: 'REPORTE DE NOVEDADES OPERACIÓN', aerolineas: ['AVIANCA'], rangos: ['AGENTE', 'SUPERVISOR'], icono: 'file-alt' },
-      { id: 'ava-custodia', nombre: 'REGISTRO DE CUSTODIA DE CARGA', aerolineas: ['AVIANCA'], rangos: ['AGENTE', 'SUPERVISOR'], icono: 'shield-virus' }
-    ];
-
-    // Filtrar para el operador activo
-    const formatosFiltrados = FORMATOS_AEREOS.filter(f => {
-      const matchAero = f.aerolineas.some(a => vuelo.operador.toUpperCase().includes(a.toUpperCase()));
-      const matchRol = f.rangos.includes(u.puestoSec || 'AGENTE');
-      return matchAero && matchRol;
-    });
-
-    const grid = document.getElementById('gridFormatos');
-    if (grid) {
-      if (formatosFiltrados.length === 0) {
-        grid.innerHTML = `
-          <div style="grid-column: 1 / -1; padding: 40px; text-align: center; background: #FFF; border-radius: 12px; border: 1px solid var(--border);">
-            <i class="fas fa-lock fa-3x" style="color: var(--text-muted);"></i>
-            <h3 style="margin-top: 16px;">Sin formatos autorizados</h3>
-            <p style="color: var(--text-3); margin-top: 6px;">Su rol (${u.puestoSec}) no tiene formatos asignados para ${vuelo.operador}.</p>
-          </div>
-        `;
-      } else {
-        grid.innerHTML = formatosFiltrados.map(f => `
-          <div class="format-card" onclick="verificarYabrir('${f.id}', '${f.nombre}')">
-            <div>
-              <div style="font-size: 30px; color: var(--brand); margin-bottom: 14px;">
-                <i class="fas fa-${f.icono || 'file-signature'}"></i>
-              </div>
-              <h4>${f.nombre}</h4>
-              <p>Inspección y registro oficial de seguridad en rampa y operaciones para ${vuelo.operador}.</p>
-            </div>
-
-            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-2); padding-top: 14px; margin-top: 10px;">
-              <span style="font-size: 11px; font-weight: 600; color: var(--text-3);">
-                Permiso: ${f.rangos.join(', ')}
-              </span>
-              <button class="btn btn-primary" style="padding: 6px 14px; font-size: 11px;">
-                <i class="fas fa-pencil-alt"></i> Diligenciar
-              </button>
-            </div>
-          </div>
-        `).join('');
-      }
-    }
-
-    function verificarYabrir(formatoId, formatoNombre) {
-      // Simulación de detección de formatos existentes
-      const borradoresGuardados = JSON.parse(localStorage.getItem(`sio_borrador_${vuelo.itinerarioId}_${formatoId}`) || '[]');
-      
-      if (borradoresGuardados.length > 0) {
-        mostrarModalReanudar(formatoId, formatoNombre, borradoresGuardados);
-      } else {
-        sessionStorage.setItem('sio_formato_activo', JSON.stringify({ id: formatoId, nombre: formatoNombre }));
-        window.location.href = `/formatos/${formatoId}`;
-      }
-    }
-  </script>
 </body>
 </html>
-

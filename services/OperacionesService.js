@@ -424,6 +424,7 @@ class OperacionesService {
         aerolinea: 'FedEx',
         codigoAerolinea: 'FDX',
         rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoCCDAId',
         spConsulta: 'dbo.BuscarCCDA',
         spActualizar: 'dbo.ActualizarCCDA',
         icono: 'dolly'
@@ -436,6 +437,7 @@ class OperacionesService {
         aerolinea: 'Amerijet',
         codigoAerolinea: 'AJT',
         rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoLISAId',
         spConsulta: 'dbo.BuscarLISA',
         spActualizar: 'dbo.ActualizarLISA',
         icono: 'clipboard-check'
@@ -446,8 +448,11 @@ class OperacionesService {
         aerolinea: 'Amerijet',
         codigoAerolinea: 'AJT',
         rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoCECId',
         spConsulta: 'dbo.ConsultarDetalleCECDesp',
+        spComplementos: 'dbo.ConsultarComplementosCEC',
         spActualizar: 'dbo.ActualizarDetalleCECDespJson',
+        spActualizarComp: 'dbo.ActualizarComplementosCEC',
         icono: 'box'
       },
       {
@@ -456,8 +461,11 @@ class OperacionesService {
         aerolinea: 'Amerijet',
         codigoAerolinea: 'AJT',
         rangos: ['AGENTE', 'SUPERVISOR'],
+        paramEncabezado: 'EncabezadoCIECId',
         spConsulta: 'dbo.ConsultarDetallesCIEC',
+        spComplementos: 'dbo.ConsultarComplementosCIEC',
         spActualizar: 'dbo.SincronizarDetallesCIEC',
+        spActualizarComp: 'dbo.ActualizarComplementosCIEC',
         icono: 'door-open'
       },
 
@@ -554,6 +562,8 @@ class OperacionesService {
         (aeroNormalizada.includes('ARAJET') && f.aerolinea.toUpperCase() === 'ARAJET') ||
         (aeroNormalizada.replace(/\s+/g, '').includes('AIRCANADA') && f.aerolinea.toUpperCase() === 'AIR CANADA') ||
         ((aeroNormalizada.includes('LATAM') || aeroNormalizada.replace(/\s+/g, '').includes('LANCARGO')) && f.aerolinea.toUpperCase().includes('LAN CARGO')) ||
+        (aeroNormalizada.includes('FEDEX') && f.aerolinea.toUpperCase() === 'FEDEX') ||
+        (aeroNormalizada.includes('AMERIJET') && f.aerolinea.toUpperCase() === 'AMERIJET') ||
         (aeroNormalizada.includes('TAMPA') && f.aerolinea.toUpperCase().includes('AVIANCA'));
 
       const coincideRol = f.rangos.some(r => rolNormalizado.includes(r.toUpperCase()));

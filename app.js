@@ -3,8 +3,8 @@
  * Arquitectura MVC + Service Layer con 10 Capas de Seguridad
  */
 
-require('dotenv').config();
 const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
@@ -43,7 +43,16 @@ app.use(helmet({
 // 3. CORS Restrictivo (Capa 3 de Seguridad)
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000')
   .split(',')
-  .map(o => o.trim());
+  .map(o => o.trim())
+  .filter(Boolean);
+
+// Compatibilidad automática con Azure App Service (WEBSITE_HOSTNAME)
+if (process.env.WEBSITE_HOSTNAME) {
+  const azureOrigin = `https://${process.env.WEBSITE_HOSTNAME.trim()}`;
+  if (!allowedOrigins.includes(azureOrigin)) {
+    allowedOrigins.push(azureOrigin);
+  }
+}
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -67,6 +76,7 @@ app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 app.use(session({
   name: 'sio_session',
   secret: process.env.SESSION_SECRET || 'laats_fallback_secret_key_development_only',
+  proxy: isProduction,
   resave: false,
   saveUninitialized: false,
   rolling: true,
@@ -83,6 +93,7 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
 app.use(express.static(path.join(__dirname, 'public'), {
+  index: false,
   maxAge: isProduction ? '7d' : 0,
   etag: true
 }));
@@ -138,13 +149,22 @@ app.use((err, req, res, next) => {
 
 // Arranque del Servidor
 if (require.main === module) {
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`\n\x1b[36m====================================================\x1b[0m`);
     console.log(`\x1b[32m✔ Servidor SIO Formatos SEC ejecutándose en el puerto ${PORT}\x1b[0m`);
     console.log(`\x1b[34m✔ Modo: ${process.env.NODE_ENV || 'development'}\x1b[0m`);
     console.log(`\x1b[33m✔ URL Local: http://localhost:${PORT}\x1b[0m`);
     console.log(`\x1b[36m====================================================\x1b[0m\n`);
   });
+
+  // Apagado controlado para reinicios sin interrupciones en Azure App Service
+  const shutdown = (signal) => {
+    console.log(`[SHUTDOWN] Señal ${signal} recibida. Cerrando servidor HTTP...`);
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 10000).unref();
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
 module.exports = app;

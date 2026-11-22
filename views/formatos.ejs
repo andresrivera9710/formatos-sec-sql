@@ -2,22 +2,18 @@
 <html lang="es">
 <%- include('partials/head', { title: title }) %>
 <body>
-  <div class="app-container">
-    <%- include('partials/sidebar', { activeTab: 'formatos', currentUser: user }) %>
-
-    <div class="workspace">
-      <%- include('partials/header', { pageTitle: 'Formatos de Seguridad Operacional', vueloActivo: vuelo }) %>
-
-      <main class="content-body">
-        <!-- Banner de Contexto de Vuelo -->
+  <div class="app-container app-container-full">
+    <div class="workspace workspace-full">
+      <main class="content-body content-body-operaciones">
+        <!-- Banner de Contexto de Vuelo Seleccionado -->
         <div class="flight-context-banner">
-          <div>
-            <div style="font-size: 11px; color: var(--gold); font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">
-              OPERACIÓN ACTIVA
+          <div class="flight-context-info">
+            <div class="flight-context-eyebrow">
+              <i class="fas fa-shield-alt"></i> OPERACIÓN ACTIVA — FORMATOS SEC
             </div>
-            <h3 style="margin-top: 4px;">
+            <h1 class="flight-context-title">
               <%= vuelo.operador %> — Vuelo <%= vuelo.novuelo %>
-            </h3>
+            </h1>
             <div class="flight-context-tags">
               <span class="flight-tag">Correlativo: #<%= vuelo.nocorrelativo %></span>
               <span class="flight-tag">Ruta: <%= vuelo.Procedencia %> ➔ <%= vuelo.Destino %></span>
@@ -25,17 +21,17 @@
               <span class="flight-tag">Puerta: <%= vuelo.puertaposicion || '--' %></span>
             </div>
           </div>
-          <div>
-            <a href="/operaciones" class="btn btn-secondary" style="background: rgba(255,255,255,0.15); color: #FFF; border-color: rgba(255,255,255,0.3);">
+          <div class="flight-context-actions">
+            <a href="/operaciones" class="btn btn-change-flight">
               <i class="fas fa-exchange-alt"></i> Cambiar Operación
             </a>
           </div>
         </div>
 
-        <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+        <div class="formatos-section-header">
           <div>
-            <h2 style="font-size: 18px; color: var(--brand-deep);">Formatos Disponibles para <%= vuelo.operador %></h2>
-            <p style="font-size: 12px; color: var(--text-3);">Seleccione un formato de inspección para diligenciar o auditar.</p>
+            <h2 class="formatos-section-title">Formatos Disponibles para <%= vuelo.operador %></h2>
+            <p class="formatos-section-subtitle">Seleccione un formato de inspección para diligenciar o auditar.</p>
           </div>
           <span class="badge badge-gold">
             Rol Activo: <%= user.puestoSec %>
@@ -48,33 +44,34 @@
             <% formatos.forEach(fmt => { %>
               <div class="format-card" data-formato-id="<%= fmt.id %>" data-formato-nombre="<%= fmt.nombre %>" data-itinerario-id="<%= vuelo.itinerarioId %>">
                 <div>
-                  <div style="font-size: 30px; color: var(--brand); margin-bottom: 14px;">
+                  <div class="format-card-icon">
                     <i class="fas fa-<%= fmt.icono || 'file-signature' %>"></i>
                   </div>
                   <h4><%= fmt.nombre %></h4>
                   <p>Inspección y registro oficial de seguridad en rampa y operaciones para <%= fmt.aerolinea %>.</p>
                 </div>
 
-                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-2); padding-top: 14px; margin-top: 10px;">
-                  <span style="font-size: 11px; font-weight: 600; color: var(--text-3);">
+                <div class="format-card-footer">
+                  <span class="format-card-permiso">
                     Permiso: <%= fmt.rangos.join(', ') %>
                   </span>
-                  <button class="btn btn-primary" style="padding: 6px 14px; font-size: 11px;">
+                  <button type="button" class="btn btn-primary format-card-btn">
                     <i class="fas fa-pencil-alt"></i> Diligenciar
                   </button>
                 </div>
               </div>
             <% }) %>
           <% } else { %>
-            <div style="grid-column: 1 / -1; padding: 40px; text-align: center; background: #FFF; border-radius: 12px; border: 1px solid var(--border);">
-              <i class="fas fa-lock fa-3x" style="color: var(--text-muted);"></i>
-              <h3 style="margin-top: 16px;">Sin formatos autorizados</h3>
-              <p style="color: var(--text-3); margin-top: 6px;">Su usuario (<%= user.puestoSec %>) no cuenta con formatos asignados para <%= vuelo.operador %>.</p>
+            <div class="op-empty-state">
+              <i class="fas fa-lock fa-3x op-empty-icon-muted"></i>
+              <h3 class="op-empty-title">Sin formatos autorizados</h3>
+              <p class="op-empty-desc">Su usuario (<%= user.puestoSec %>) no cuenta con formatos asignados para <%= vuelo.operador %>.</p>
             </div>
           <% } %>
         </div>
       </main>
 
+      <%- include('partials/tab-bar', { activeTab: 'formatos', user: user, vueloActivo: vuelo }) %>
       <%- include('partials/footer') %>
     </div>
   </div>
@@ -83,13 +80,13 @@
   <div id="modalReanudar" class="modal-overlay">
     <div class="modal-content">
       <div class="modal-header">
-        <div style="font-size: 11px; color: var(--gold); font-weight: 700; text-transform: uppercase;">
+        <div class="modal-eyebrow">
           DOCUMENTOS PREVIOS DETECTADOS
         </div>
         <h3 id="modalFormatoNombre">Formatos Existentes</h3>
       </div>
       <div class="modal-body">
-        <p style="font-size: 13px; color: var(--text-2); margin-bottom: 16px;">
+        <p class="modal-desc">
           Se han encontrado registros previos para este vuelo. ¿Desea <strong>reanudar</strong> uno de los formatos seleccionándolo de la lista, o prefiere <strong>crear uno nuevo</strong>?
         </p>
 
@@ -107,4 +104,3 @@
   </div>
 </body>
 </html>
-

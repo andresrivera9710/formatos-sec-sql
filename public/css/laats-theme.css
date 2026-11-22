@@ -6,7 +6,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
 
 :root {
-  /* Paleta Institucional LAATS */
+  /* Paleta Institucional LAATS (Modo Claro por defecto) */
+  --navy-deep: #0F2744;
+  --navy-brand: #275B88;
   --brand-deep: #0F2744;
   --blue-deep: #0F2744;
   --brand: #275B88;
@@ -17,25 +19,49 @@
   --gold-accent: #C9A84C;
   --gold-light: #FBF8EE;
   --gold-soft: #E2C47A;
+  --gold-text: #8A6D14;
   --bg: #F4F7FB;
   --surface: #FFFFFF;
+  --surface-elevated: #F8FAFC;
+  --input-bg: #FFFFFF;
+  --locked-bg: #E2E8F0;
+  --locked-border: #CBD5E1;
+  --locked-text: #475569;
   --border: #CBD5E1;
   --border-2: #E2E8F0;
   --text: #0F172A;
+  --text-1: #0F172A;
   --text-2: #334155;
   --text-3: #64748B;
   --text-muted: #94A3B8;
+  --heading-color: #0F2744;
   --success: #16A34A;
   --success-dark: #15803D;
+  --success-light: #F0FDF4;
   --danger: #DC2626;
   --danger-light: #FEF2F2;
+  --danger-border: #FECACA;
   --warning: #F59E0B;
   --info: #0284C7;
 
+  /* Variables del Tab Bar (Glassmorphism Modo Claro) */
+  --tabbar-bg: rgba(255, 255, 255, 0.86);
+  --tabbar-border: rgba(203, 213, 225, 0.85);
+  --tabbar-shadow: 0 10px 30px -5px rgba(15, 39, 68, 0.12), 0 4px 12px -2px rgba(15, 39, 68, 0.06);
+  --pill-bg: linear-gradient(135deg, #0F2744 0%, #275B88 100%);
+  --pill-border: rgba(212, 175, 55, 0.65);
+  --pill-shadow: 0 4px 14px rgba(15, 39, 68, 0.25);
+  --pill-danger-bg: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%);
+  --pill-danger-border: #FCA5A5;
+  --tab-item-text: #334155;
+  --tab-item-active-text: #FFFFFF;
+  --tab-role-text: #275B88;
+  --tab-logout-text: #DC2626;
+
   /* Sombras y Elevación */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 3px 0 rgba(15, 39, 68, 0.06);
+  --shadow-md: 0 6px 14px -2px rgba(15, 39, 68, 0.1), 0 2px 6px -1px rgba(15, 39, 68, 0.06);
+  --shadow-lg: 0 14px 28px -4px rgba(15, 39, 68, 0.14), 0 4px 10px -2px rgba(15, 39, 68, 0.06);
   --shadow-gold: 0 4px 14px 0 rgba(212, 175, 55, 0.35);
 
   /* Bordes Redondeados */
@@ -45,16 +71,52 @@
   --radius-xl: 24px;
 }
 
-/* Modo Oscuro Opcional */
+/* Modo Noche Corporativo LAATS ([data-theme="dark"] y compatibilidad body.dark-mode) */
+[data-theme="dark"],
 body.dark-mode {
-  --bg: #0B132B;
-  --surface: #1C2541;
-  --border: #3A506B;
-  --border-2: #2C3E55;
-  --text: #F8FAFC;
+  color-scheme: dark;
+  --navy-deep: #0F2744;
+  --navy-brand: #275B88;
+  --brand-deep: #F4F7FB;
+  --blue-deep: #F4F7FB;
+  --brand: #60A5FA;
+  --blue-main: #60A5FA;
+  --bg: #091526;
+  --surface: #0F2744;
+  --surface-elevated: #153359;
+  --input-bg: #0B1B30;
+  --locked-bg: rgba(15, 23, 42, 0.65);
+  --locked-border: rgba(148, 163, 184, 0.2);
+  --locked-text: #94A3B8;
+  --border: #23476E;
+  --border-2: #1B3858;
+  --text: #F4F7FB;
+  --text-1: #F4F7FB;
   --text-2: #CBD5E1;
   --text-3: #94A3B8;
-  --gold-light: #1E293B;
+  --text-muted: #64748B;
+  --heading-color: #F4F7FB;
+  --gold-light: rgba(212, 175, 55, 0.16);
+  --gold-text: #D4AF37;
+  --success-light: rgba(22, 163, 74, 0.16);
+  --danger-light: rgba(220, 38, 38, 0.18);
+  --danger-border: rgba(248, 113, 113, 0.4);
+
+  /* Variables del Tab Bar (Glassmorphism Azul Marino #0F2744 Translúcido) */
+  --tabbar-bg: rgba(15, 39, 68, 0.88);
+  --tabbar-border: rgba(212, 175, 55, 0.32);
+  --tabbar-shadow: 0 14px 34px -4px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(212, 175, 55, 0.14);
+  --pill-bg: linear-gradient(135deg, #275B88 0%, #173B61 100%);
+  --pill-border: #D4AF37;
+  --pill-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), 0 0 12px rgba(212, 175, 55, 0.18);
+  --tab-item-text: #CBD5E1;
+  --tab-item-active-text: #FFFFFF;
+  --tab-role-text: #D4AF37;
+  --tab-logout-text: #F87171;
+
+  --shadow-sm: 0 2px 6px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 18px -2px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 18px 36px -4px rgba(0, 0, 0, 0.6);
 }
 
 * {
@@ -75,12 +137,17 @@ body {
 /* Tipografía de Encabezados */
 h1, h2, h3, h4, h5, h6 {
   font-weight: 700;
-  color: var(--brand-deep);
+  color: var(--heading-color);
 }
 
+[data-theme="dark"] h1,
+[data-theme="dark"] h2,
+[data-theme="dark"] h3,
+[data-theme="dark"] h4,
 body.dark-mode h1,
 body.dark-mode h2,
-body.dark-mode h3 {
+body.dark-mode h3,
+body.dark-mode h4 {
   color: #FFFFFF;
 }
 
@@ -106,7 +173,7 @@ body.dark-mode h3 {
 
 .sidebar-header {
   padding: 24px 20px;
-  background: linear-gradient(135deg, var(--brand-deep) 0%, var(--brand) 100%);
+  background: linear-gradient(135deg, var(--navy-deep, #0F2744) 0%, var(--navy-brand, #275B88) 100%);
   border-bottom: 3px solid var(--gold);
   color: #FFFFFF;
   text-align: center;
@@ -214,9 +281,9 @@ body.dark-mode h3 {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-deep) 100%);
+  background: linear-gradient(135deg, var(--navy-brand, #275B88) 0%, var(--navy-deep, #0F2744) 100%);
   color: #FFFFFF;
-  border-color: var(--brand-deep);
+  border-color: var(--navy-deep, #0F2744);
 }
 
 .btn-primary:hover {
@@ -224,9 +291,15 @@ body.dark-mode h3 {
   box-shadow: var(--shadow-md);
 }
 
+[data-theme="dark"] .btn-primary,
+body.dark-mode .btn-primary {
+  background: linear-gradient(135deg, #275B88 0%, #163A63 100%);
+  border-color: rgba(212, 175, 55, 0.45);
+}
+
 .btn-gold {
   background: linear-gradient(135deg, var(--gold) 0%, #B8972D 100%);
-  color: var(--brand-deep);
+  color: #0F2744;
   font-weight: 700;
   border-color: var(--gold-accent);
 }
@@ -289,8 +362,60 @@ body.dark-mode h3 {
 
 .badge-gold {
   background-color: var(--gold-light);
-  color: #927517;
+  color: var(--gold-text);
   border: 1px solid var(--gold);
+}
+
+.badge-brand {
+  background-color: rgba(39, 91, 136, 0.14);
+  color: var(--brand);
+  border: 1px solid rgba(39, 91, 136, 0.35);
+}
+
+[data-theme="dark"] .badge-brand,
+body.dark-mode .badge-brand {
+  background-color: rgba(212, 175, 55, 0.16);
+  color: var(--gold);
+  border-color: rgba(212, 175, 55, 0.45);
+}
+
+[data-theme="dark"] .badge-success,
+body.dark-mode .badge-success {
+  background-color: rgba(22, 163, 74, 0.22);
+  color: #4ADE80;
+  border: 1px solid rgba(74, 222, 128, 0.35);
+}
+
+/* Adaptación Global de SweetAlert2 en Modo Noche */
+[data-theme="dark"] .swal2-popup,
+body.dark-mode .swal2-popup {
+  background-color: var(--surface) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  border-top: 3px solid var(--gold) !important;
+}
+
+[data-theme="dark"] .swal2-title,
+[data-theme="dark"] .swal2-html-container,
+body.dark-mode .swal2-title,
+body.dark-mode .swal2-html-container {
+  color: var(--text) !important;
+}
+
+/* Pie de Página Corporativo Global */
+.sio-footer {
+  padding: 18px 32px;
+  background-color: var(--surface);
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-3);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.is-hidden {
+  display: none !important;
 }
 
 /* Pantalla Global de Carga (Loading Overlay Corporativo LAATS) */

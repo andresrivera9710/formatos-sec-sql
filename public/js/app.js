@@ -98,15 +98,23 @@ function escapeHtml(text) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // 1. Manejador del Modo Oscuro
+  // 1. Manejador del Modo Oscuro (Sincronizado con tab-bar.js y [data-theme="dark"])
   const btnDarkMode = document.getElementById('btnDarkModeToggle');
   if (btnDarkMode) {
-    const isDark = localStorage.getItem('sio_dark_mode') === 'true';
-    if (isDark) document.body.classList.add('dark-mode');
+    const isDark = localStorage.getItem('sio_theme') === 'dark' || localStorage.getItem('sio_dark_mode') === 'true';
+    if (isDark) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      document.body.setAttribute('data-theme', 'dark');
+      document.body.classList.add('dark-mode');
+    }
 
     btnDarkMode.addEventListener('click', () => {
-      document.body.classList.toggle('dark-mode');
-      localStorage.setItem('sio_dark_mode', document.body.classList.contains('dark-mode'));
+      const nextDark = !document.body.classList.contains('dark-mode');
+      document.documentElement.setAttribute('data-theme', nextDark ? 'dark' : 'light');
+      document.body.setAttribute('data-theme', nextDark ? 'dark' : 'light');
+      document.body.classList.toggle('dark-mode', nextDark);
+      localStorage.setItem('sio_theme', nextDark ? 'dark' : 'light');
+      localStorage.setItem('sio_dark_mode', String(nextDark));
     });
   }
 
@@ -140,7 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (checkRango && grupoFecha2) {
     checkRango.addEventListener('change', () => {
-      grupoFecha2.style.display = checkRango.checked ? 'flex' : 'none';
+      grupoFecha2.classList.toggle('is-hidden', !checkRango.checked);
       if (!checkRango.checked && inputFecha2) {
         inputFecha2.value = '';
       }
@@ -210,15 +218,15 @@ function renderizarEstadoInicialOperaciones() {
   _operacionesCache.clear();
 
   if (barraResumen) {
-    barraResumen.style.display = 'none';
+    barraResumen.classList.add('is-hidden');
   }
 
   if (container) {
     container.innerHTML = `
-      <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; background: var(--surface); border-radius: 12px; border: 1px solid var(--border);">
-        <i class="fas fa-search-location fa-3x" style="color: var(--brand);"></i>
-        <h3 style="margin-top: 16px; color: var(--text);">Itinerarios sin vuelos cargados</h3>
-        <p style="color: var(--text-3); margin-top: 8px;">Seleccione una fecha y busque una aerolínea / operador en el cuadro combinado, luego presione Consultar para visualizar los vuelos.</p>
+      <div class="op-empty-state">
+        <i class="fas fa-search-location fa-3x op-empty-icon"></i>
+        <h3 class="op-empty-title">Itinerarios sin vuelos cargados</h3>
+        <p class="op-empty-desc">Seleccione una fecha y busque una aerolínea / operador en el cuadro combinado, luego presione Consultar para visualizar los vuelos.</p>
       </div>
     `;
   }
@@ -292,9 +300,9 @@ async function consultarOperaciones() {
 
   if (container) {
     container.innerHTML = `
-      <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; background: var(--surface); border-radius: 12px; border: 1px solid var(--border);">
-        <i class="fas fa-spinner fa-spin fa-3x" style="color: var(--brand);"></i>
-        <p style="margin-top: 16px; font-weight: 600; color: var(--text-2);">Consultando operaciones en tiempo real...</p>
+      <div class="op-empty-state">
+        <i class="fas fa-spinner fa-spin fa-3x op-empty-icon"></i>
+        <p class="op-loading-text">Consultando operaciones en tiempo real...</p>
       </div>
     `;
   }
@@ -330,23 +338,25 @@ async function consultarOperaciones() {
     }
 
     const elapsedSec = ((performance.now() - t0) / 1000).toFixed(2);
-    if (barraResumen && textoResumen && badgeTiempo) {
-      barraResumen.style.display = 'flex';
+    if (barraResumen && textoResumen) {
+      barraResumen.classList.remove('is-hidden');
       const total = Array.isArray(res.data) ? res.data.length : 0;
-      textoResumen.innerHTML = `<i class="fas fa-plane-departure" style="color: var(--brand);"></i> <strong>${total}</strong> ${total === 1 ? 'operación encontrada' : 'operaciones encontradas'} para <strong>${escapeHtml(operadorNombre)}</strong> (${escapeHtml(fecha)}${fecha2 ? ' al ' + escapeHtml(fecha2) : ''})`;
-      badgeTiempo.textContent = `Azure SQL • ${elapsedSec}s`;
+      textoResumen.innerHTML = `<i class="fas fa-plane-departure op-summary-icon"></i> <strong>${total}</strong> ${total === 1 ? 'operación encontrada' : 'operaciones encontradas'} para <strong>${escapeHtml(operadorNombre)}</strong> (${escapeHtml(fecha)}${fecha2 ? ' al ' + escapeHtml(fecha2) : ''})`;
+      if (badgeTiempo) {
+        badgeTiempo.textContent = `${elapsedSec}s`;
+      }
     }
 
     renderizarTarjetas(res.data);
   } catch (err) {
     console.error('[CONSULTAR OPERACIONES ERROR]', err);
-    if (barraResumen) barraResumen.style.display = 'none';
+    if (barraResumen) barraResumen.classList.add('is-hidden');
     if (container) {
       container.innerHTML = `
-        <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; background: var(--surface); border-radius: 12px; border: 1px solid var(--border);">
-          <i class="fas fa-exclamation-triangle fa-3x" style="color: var(--danger);"></i>
-          <h3 style="margin-top: 16px; color: var(--text);">Error al consultar operaciones</h3>
-          <p style="color: var(--text-3); margin-top: 8px;">${escapeHtml(err.message) || 'Verifique la conexión con el servidor e intente nuevamente.'}</p>
+        <div class="op-empty-state">
+          <i class="fas fa-exclamation-triangle fa-3x op-empty-icon-danger"></i>
+          <h3 class="op-empty-title">Error al consultar operaciones</h3>
+          <p class="op-empty-desc">${escapeHtml(err.message) || 'Verifique la conexión con el servidor e intente nuevamente.'}</p>
         </div>
       `;
     }
@@ -376,10 +386,10 @@ function renderizarTarjetas(lista = []) {
 
   if (!lista || lista.length === 0) {
     container.innerHTML = `
-      <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; background: var(--surface); border-radius: 12px; border: 1px solid var(--border);">
-        <i class="fas fa-plane-slash fa-3x" style="color: var(--text-muted);"></i>
-        <h3 style="margin-top: 16px; color: var(--text);">No se encontraron datos</h3>
-        <p style="color: var(--text-3); margin-top: 8px;">No hay vuelos itinerados en las fechas y aerolínea seleccionadas.</p>
+      <div class="op-empty-state">
+        <i class="fas fa-plane-slash fa-3x op-empty-icon-muted"></i>
+        <h3 class="op-empty-title">No se encontraron datos</h3>
+        <p class="op-empty-desc">No hay vuelos itinerados en las fechas y aerolínea seleccionadas.</p>
       </div>
     `;
     return;
@@ -405,53 +415,52 @@ function renderizarTarjetas(lista = []) {
             </span>
           </div>
 
-          <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-3); margin-bottom: 8px;">
-            <span><strong>No. Correlativo:</strong> <span style="color: var(--danger); font-weight: 700;">#${escapeHtml(v.nocorrelativo || 'N/A')}</span></span>
+          <div class="op-meta-row">
+            <span><strong>No. Correlativo:</strong> <span class="op-correlativo">#${escapeHtml(v.nocorrelativo || 'N/A')}</span></span>
             <span><strong>Fecha:</strong> ${fechaStr}</span>
           </div>
 
           <div class="op-route">
             <div>
-              <div style="font-size: 10px; color: var(--text-3); text-transform: uppercase;">Procedencia</div>
+              <div class="op-route-label">Procedencia</div>
               <div class="route-city">${escapeHtml(v.Procedencia || '---')}</div>
             </div>
-            <div style="color: var(--brand); font-size: 18px;"><i class="fas fa-plane"></i></div>
-            <div style="text-align: right;">
-              <div style="font-size: 10px; color: var(--text-3); text-transform: uppercase;">Destino</div>
+            <div class="op-route-plane"><i class="fas fa-plane"></i></div>
+            <div class="op-route-end">
+              <div class="op-route-label">Destino</div>
               <div class="route-city">${escapeHtml(v.Destino || '---')}</div>
             </div>
           </div>
 
           <div class="op-times">
             <div class="time-box">
-              <small style="color: var(--text-3); display: block;">ETA</small>
+              <small class="time-box-label">ETA</small>
               <strong>${formatHora(v.eta)}</strong>
             </div>
             <div class="time-box">
-              <small style="color: var(--text-3); display: block;">ETD</small>
+              <small class="time-box-label">ETD</small>
               <strong>${formatHora(v.etd)}</strong>
             </div>
             <div class="time-box real">
-              <small style="color: var(--danger); display: block;">ATA</small>
+              <small class="time-box-label-real">ATA</small>
               <strong>${formatHora(v.ata)}</strong>
             </div>
             <div class="time-box real">
-              <small style="color: var(--danger); display: block;">ATD</small>
+              <small class="time-box-label-real">ATD</small>
               <strong>${formatHora(v.atd)}</strong>
             </div>
           </div>
 
-          <div style="font-size: 11px; color: var(--text-2); margin-bottom: 12px; display: flex; justify-content: space-between;">
-            <span><strong>Matrícula:</strong> ${matricula || '<span style="color:red">Pendiente</span>'}${v.tipoAeronave ? ` (${escapeHtml(v.tipoAeronave)})` : ''}</span>
+          <div class="op-footer-meta">
+            <span><strong>Matrícula:</strong> ${matricula || '<span class="op-matricula-pending">Pendiente</span>'}${v.tipoAeronave ? ` (${escapeHtml(v.tipoAeronave)})` : ''}</span>
             <span><strong>Puerta:</strong> ${escapeHtml(v.puertaposicion || '--')} | <strong>Faja:</strong> ${escapeHtml(v.faja ?? '--')}</span>
           </div>
         </div>
 
         <button 
           type="button"
-          class="btn btn-primary btn-seleccionar-operacion" 
+          class="btn btn-primary btn-seleccionar-operacion op-select-btn" 
           data-itinerario-id="${escapeHtml(v.itinerarioId)}"
-          style="width: 100%; margin-top: 10px;"
           ${esAnulado ? 'disabled' : ''}
         >
           <i class="fas fa-check-circle"></i> Elegir esta operación

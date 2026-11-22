@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FEDEX / LAATS - Control Cargue y Descargue Aeronave</title>
+    <style>
+        @page {
+            size: letter portrait;
+            margin: 8mm 12mm 6mm 12mm;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        body {
+            background-color: #525659;
+            display: flex;
+            justify-content: center;
+            padding: 20px 0;
+            color: #000;
+        }
+
+        .hoja-carta {
+            width: 215.9mm;
+            min-height: 279.4mm;
+            background: #ffffff;
+            padding: 10mm 12mm;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.4);
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        @media print {
+            body {
+                background: #ffffff;
+                padding: 0;
+            }
+            .hoja-carta {
+                width: 100%;
+                min-height: auto;
+                box-shadow: none;
+                padding: 0;
+                margin: 0;
+            }
+        }
+
+        /* Header */
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: none;
+            margin-bottom: 6px;
+        }
+        .header-table td {
+            border: none;
+            vertical-align: middle;
+            padding: 0;
+        }
+        .main-title {
+            font-size: 15.5px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            text-align: center;
+            color: #000;
+        }
+        .logos-cell {
+            width: 190px;
+            text-align: right;
+        }
+        .logo-fedex-img {
+            max-height: 44px;
+            max-width: 165px;
+            object-fit: contain;
+            display: inline-block;
+        }
+        .logo-laats-box {
+            text-align: right;
+            margin-top: 2px;
+            line-height: 1;
+        }
+        .logo-laats-title {
+            font-size: 22px;
+            font-weight: 900;
+            letter-spacing: 1.5px;
+            color: #000;
+        }
+        .logo-laats-sub {
+            display: block;
+            font-size: 6px;
+            font-weight: 800;
+            letter-spacing: 0.6px;
+            color: #222;
+        }
+
+        /* Top Metadata Block (Underlined fields like physical sheet) */
+        .meta-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: none;
+            margin-bottom: 8px;
+            font-size: 9.5px;
+            font-weight: 800;
+        }
+        .meta-table td {
+            border: none;
+            padding: 3px 2px;
+            vertical-align: bottom;
+            text-align: left;
+        }
+        .u-line {
+            display: inline-block;
+            border-bottom: 1.2px solid #000;
+            text-align: center;
+            font-weight: 900;
+            font-size: 11px;
+            padding: 0 4px;
+            min-height: 15px;
+            line-height: 14px;
+        }
+        .fuel-box {
+            display: inline-block;
+            border: 1.5px solid #000;
+            width: 78px;
+            height: 22px;
+            line-height: 20px;
+            text-align: center;
+            font-size: 11px;
+            font-weight: 900;
+            vertical-align: middle;
+            margin-right: 4px;
+        }
+
+        /* Data Grid Tables */
+        table.grid-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1.5px solid #000;
+            margin-bottom: 8px;
+        }
+        table.grid-table th,
+        table.grid-table td {
+            border: 1px solid #000;
+            text-align: center;
+            vertical-align: middle;
+        }
+        table.grid-table th {
+            background-color: #f3f4f6;
+            font-size: 8.5px;
+            font-weight: 900;
+            padding: 3.5px 3px;
+            text-transform: uppercase;
+        }
+        table.grid-table td {
+            height: 20px;
+            font-size: 10px;
+            font-weight: bold;
+            padding: 2px 4px;
+        }
+
+        /* Personal Table (20 rows) */
+        table.table-personal {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1.5px solid #000;
+            margin-bottom: 6px;
+            font-size: 9px;
+        }
+        table.table-personal th {
+            border: 1px solid #000;
+            background-color: #f3f4f6;
+            font-size: 8.5px;
+            font-weight: 900;
+            padding: 3.5px 2px;
+            text-align: center;
+            text-transform: uppercase;
+        }
+        table.table-personal td {
+            border: 1px solid #000;
+            height: 18px;
+            font-size: 9.5px;
+            padding: 1px 4px;
+        }
+
+        /* Observations Section (Ruled lines like physical form) */
+        .obs-section {
+            width: 100%;
+            margin-bottom: 8px;
+            font-size: 9.5px;
+        }
+        .obs-row-line {
+            width: 100%;
+            border-bottom: 1.2px solid #000;
+            min-height: 18px;
+            line-height: 17px;
+            padding: 1px 4px;
+            font-weight: bold;
+            font-size: 10px;
+        }
+        .obs-label {
+            font-weight: 900;
+            font-size: 9.5px;
+            margin-right: 8px;
+            text-transform: uppercase;
+        }
+
+        /* Signatures */
+        .sig-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: none;
+            margin-top: 10px;
+            margin-bottom: 8px;
+        }
+        .sig-table td {
+            border: none;
+            text-align: center;
+            vertical-align: bottom;
+            width: 50%;
+            padding: 0 28px;
+        }
+        .sig-value {
+            border-bottom: 1.3px solid #000;
+            min-height: 24px;
+            font-size: 12px;
+            font-weight: 900;
+            padding-bottom: 2px;
+            margin-bottom: 3px;
+        }
+        .sig-label {
+            font-size: 9px;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+
+        /* Legal Footer Box */
+        .footer-note-box {
+            border: 1.5px solid #000;
+            padding: 5px 8px;
+            font-size: 7.5px;
+            line-height: 1.28;
+            text-align: justify;
+        }
+    </style>
+</head>
+<body>
+
+<div class="hoja-carta">
+    <div>
+        <!-- Header -->
+        <table class="header-table">
+            <tr>
+                <td style="width: 190px;"></td>
+                <td>
+                    <div class="main-title">CONTROL CARGUE Y DESCARGUE AERONAVE</div>
+                </td>
+                <td class="logos-cell">
+                    <img class="logo-fedex-img" src="data:image/png;base64,@{variables('varLogoFedex')}" alt="FedEx" />
+                    <div class="logo-laats-box">
+                        <span class="logo-laats-title">LAATS</span>
+                        <span class="logo-laats-sub">SAFETY AND QUALITY SERVICES</span>
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        <!-- Flight Metadata Block -->
+        <table class="meta-table">
+            <tr>
+                <td style="width: 44%;">
+                    DIA <span class="u-line" style="width: 34px;">@{coalesce(body('Parse_JSON_33')?['Dia'], '')}</span>
+                    MES <span class="u-line" style="width: 34px;">@{coalesce(body('Parse_JSON_33')?['Mes'], '')}</span>
+                    AÑO <span class="u-line" style="width: 52px;">@{coalesce(body('Parse_JSON_33')?['Anio'], '')}</span>
+                </td>
+                <td style="width: 30%;">
+                    LLEGADA <span class="u-line" style="width: 75px;">@{coalesce(body('Parse_JSON_33')?['Llegada'], '')}</span> hrs.
+                </td>
+                <td style="width: 26%;"></td>
+            </tr>
+            <tr>
+                <td>
+                    PUSH BACK <span class="u-line" style="width: 75px;">@{coalesce(body('Parse_JSON_33')?['PushBack'], '')}</span> hrs.
+                </td>
+                <td>
+                    SALIDA <span class="u-line" style="width: 75px;">@{coalesce(body('Parse_JSON_33')?['Salida'], '')}</span> hrs.
+                </td>
+                <td rowspan="2" style="vertical-align: top; text-align: left;">
+                    <div style="font-size: 8.5px; font-weight: 900; margin-bottom: 3px;">CANT. COMBUSTIBLE COLOCADO</div>
+                    <div>
+                        <span class="fuel-box">@{coalesce(body('Parse_JSON_33')?['CantCombustible'], '')}</span>
+                        <span style="font-size: 8.5px; font-weight: 900;">GALONES</span>
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    VUELO <span class="u-line" style="width: 115px;">@{coalesce(body('Parse_JSON_33')?['Vuelo'], '')}</span>
+                </td>
+                <td>
+                    MATRICULA <span class="u-line" style="width: 95px;">@{coalesce(body('Parse_JSON_33')?['Matricula'], '')}</span>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    AEROLINEA <span class="u-line" style="width: 110px;">@{coalesce(body('Parse_JSON_33')?['Aerolinea'], 'FEDEX')}</span>
+                </td>
+                <td>
+                    DESTINO <span class="u-line" style="width: 95px;">@{coalesce(body('Parse_JSON_33')?['Destino'], '')}</span>
+                </td>
+                <td></td>
+            </tr>
+        </table>
+
+        <!-- Table 1: Operario de Loader o Faja -->
+        <table class="grid-table">
+            <thead>
+                <tr>
+                    <th style="width: 36%;">OPERARIO DE LOADER o FAJA</th>
+                    <th style="width: 14%;">ID#</th>
+                    <th style="width: 20%;">EMPRESA</th>
+                    <th style="width: 15%;">ACOPLA</th>
+                    <th style="width: 15%;">DESACOPLA</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>@{coalesce(body('Parse_JSON_33')?['OperarioNombre'], '')}</td>
+                    <td>@{coalesce(body('Parse_JSON_33')?['OperarioID'], '')}</td>
+                    <td>@{coalesce(body('Parse_JSON_33')?['OperarioEmpresa'], '')}</td>
+                    <td>@{coalesce(body('Parse_JSON_33')?['Acopla'], '')}</td>
+                    <td>@{coalesce(body('Parse_JSON_33')?['Desacopla'], '')}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- Table 2: Bodega Principal, Descargue, Cargue -->
+        <table class="grid-table">
+            <thead>
+                <tr>
+                    <th colspan="2" style="width: 36%;">BODEGA PRINCIPAL AERONAVE</th>
+                    <th colspan="2" style="width: 32%;">DESCARGUE</th>
+                    <th colspan="2" style="width: 32%;">CARGUE</th>
+                </tr>
+                <tr>
+                    <th style="width: 18%;">APERTURA</th>
+                    <th style="width: 18%;">CIERRE</th>
+                    <th style="width: 16%;">INICIA</th>
+                    <th style="width: 16%;">TERMINA</th>
+                    <th style="width: 16%;">INICIA</th>
+                    <th style="width: 16%;">TERMINA</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>@{coalesce(body('Parse_JSON_33')?['AperturaAeronave'], '')}</td>
+                    <td>@{coalesce(body('Parse_JSON_33')?['CierreAeronave'], '')}</td>
+                    <td>@{coalesce(body('Parse_JSON_33')?['InicioDescargue'], '')}</td>
+                    <td>@{coalesce(body('Parse_JSON_33')?['TerminaDescargue'], '')}</td>
+                    <td>@{coalesce(body('Parse_JSON_33')?['IniciaCargue'], '')}</td>
+                    <td>@{coalesce(body('Parse_JSON_33')?['TerminaCargue'], '')}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- Table 3: Personal (20 rows) -->
+        <table class="table-personal">
+            <thead>
+                <tr>
+                    <th style="width: 4%;">#</th>
+                    <th style="width: 32%;">PERSONAL</th>
+                    <th style="width: 10%;">ID#</th>
+                    <th style="width: 14%;">EMPRESA</th>
+                    <th style="width: 10%;">ENTRADA</th>
+                    <th style="width: 10%;">SALIDA</th>
+                    <th style="width: 10%;">ENTRADA</th>
+                    <th style="width: 10%;">SALIDA</th>
+                </tr>
+            </thead>
+            <tbody>
+                @{body('Parse_JSON_33')?['TablaPersonalHTML']}
+            </tbody>
+        </table>
+
+        <!-- Observations (3 Ruled Lines) -->
+        <div class="obs-section">
+            <div class="obs-row-line">
+                <span class="obs-label">OBSERVACIONES</span>
+                <span>Arribo = @{coalesce(body('Parse_JSON_33')?['Arribo'], '--:--')}</span>
+            </div>
+            <div class="obs-row-line">
+                Puerta Abierta / Cierre = @{coalesce(body('Parse_JSON_33')?['PuertaAbierta'], '--:--')} / @{coalesce(body('Parse_JSON_33')?['PuertaCerrada'], '--:--')}
+                &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
+                Escalera Acople / Desacople = @{coalesce(body('Parse_JSON_33')?['EscaleraAcoplada'], '--:--')} / @{coalesce(body('Parse_JSON_33')?['EscaleraDesacoplada'], '--:--')}
+            </div>
+            <div class="obs-row-line">
+                @{coalesce(body('Parse_JSON_33')?['Observaciones'], '')}
+            </div>
+        </div>
+
+        <!-- Signatures -->
+        <table class="sig-table">
+            <tr>
+                <td>
+                    <div class="sig-value">@{coalesce(body('Parse_JSON_33')?['Agente'], '')}</div>
+                    <div class="sig-label">AGENTE DE SEGURIDAD</div>
+                </td>
+                <td>
+                    <div class="sig-value">@{coalesce(body('Parse_JSON_33')?['Supervisor'], '')}</div>
+                    <div class="sig-label">SUPERVISOR</div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Legal Confidentiality Notice Box -->
+    <div class="footer-note-box">
+        <strong>Nota:</strong> este formato es de uso confidencial de seguridad y debe ser archivado bajo llave por la agencia de seguridad subcontratada y estará a disposición de Seguridad FedEx cuando sea necesario. Se debe llenar con letra imprenta completamente y de manera diaria en cada vuelo. Toda persona que ingrese y salga del perímetro de la aeronave debe ser inspeccionado por detector de metales y con pat down (inspección física), cada vez que lo haga. Se debe revisar la Declaración General (General Dec) para asegurar que la tripulación que aborde es la correcta. Prohibido el ingreso o salida de paquetes o mercancía personal o que no forme parte del abordaje/descargue regular del vuelo con los medios autorizados. Se debe revisar todo el equipo de tierra previo o posterior al inicio de operación de vuelo y mantenerlo en custodia visual luego de ser inspeccionado y hasta que inicie la operación de vuelo, al igual que al personal de tierra, FedEx y proveedores autorizados.
+    </div>
+</div>
+
+</body>
+</html>

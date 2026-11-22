@@ -92,23 +92,37 @@
       });
     }
 
-    // Botón: Agregar equipaje desde el panel de captura rápida
+    // Bloqueo estricto en cliente de la Fecha del Itinerario (#erFecha) y NoVuelo (#erNoVuelo)
+    const fechaHeaderEl = document.getElementById('erFecha');
+    if (fechaHeaderEl && _state.fecha) {
+      fechaHeaderEl.value = _state.fecha;
+      fechaHeaderEl.setAttribute('readonly', 'readonly');
+      fechaHeaderEl.setAttribute('disabled', 'disabled');
+      fechaHeaderEl.addEventListener('change', () => {
+        fechaHeaderEl.value = _state.fecha;
+      });
+    }
+
+    // Botón: Agregar equipaje desde el panel "Ingrese los Datos:" (btnAgregarAMatriz_1)
     const btnAgregarEquipaje = document.getElementById('btnAgregarEquipajeER');
     if (btnAgregarEquipaje) {
       btnAgregarEquipaje.addEventListener('click', agregarDesdePanelCaptura);
     }
 
-    // Botón: Insertar fila en blanco directamente en la cuadrícula fluida
-    const btnAgregarFilaVacia = document.getElementById('btnAgregarFilaVaciaER');
-    if (btnAgregarFilaVacia) {
-      btnAgregarFilaVacia.addEventListener('click', insertarFilaEnBlanco);
-    }
-
-    // Buscador en vivo de la cuadrícula
+    // Buscador en vivo de la cuadrícula (txtBuscadorCP_6 + Icon4_13)
     const inputBuscar = document.getElementById('erBuscarPasajero');
     if (inputBuscar) {
       inputBuscar.addEventListener('input', () => {
         filtrarFilasDOM(inputBuscar.value);
+      });
+    }
+
+    const btnLimpiarBusqueda = document.getElementById('btnLimpiarBusquedaER');
+    if (btnLimpiarBusqueda && inputBuscar) {
+      btnLimpiarBusqueda.addEventListener('click', () => {
+        inputBuscar.value = '';
+        filtrarFilasDOM('');
+        inputBuscar.focus();
       });
     }
 
@@ -157,9 +171,9 @@
           <td colspan="10">
             <div class="cp-empty-dashed" style="margin: 8px 0;">
               <i class="fas fa-luggage-cart fa-2x" style="color: var(--brand); margin-bottom: 8px; display: block;"></i>
-              No hay equipajes registrados en la cuadrícula para este vuelo.
+              No hay equipajes registrados en la lista de pasajeros para este vuelo.
               <div style="font-weight: 500; font-size: 12px; margin-top: 4px; color: var(--text-3);">
-                Utilice el panel superior <strong>"Ingrese los Datos del Equipaje Revisado"</strong> o el botón <strong>"+ Insertar Fila en Blanco en Cuadrícula"</strong>.
+                Complete los campos en <strong>"Ingrese los Datos:"</strong> y presione el botón <strong>"Agregar"</strong>.
               </div>
             </div>
           </td>
@@ -404,17 +418,20 @@
       Secuencia: String(elSecuencia.value || '').trim(),
       Colilla: String(elColilla.value || '').trim(),
       Vuelo: String(_state.noVuelo || '').trim(),
-      Destino: String(elDestino?.value || _state.destinoVuelo || '').trim(),
+      Destino: String(elDestino?.value || '').trim(),
       HoraRevision: normalizarHora5(elHora.value),
       AgenteAVSEC: String(elAvsec.value || '').trim(),
-      AgenteSeguridad: String(elSeguridad?.value || _state.agenteActual || '').trim()
+      AgenteSeguridad: String(elSeguridad?.value || '').trim()
     });
 
-    // Limpiar controles de captura individual manteniendo Destino, Agente AVSEC y Agente Seguridad para agilizar captura
+    // 4. Limpiamos los campos igual que en Power Apps (Reset de los 7 inputs de captura)
     elPasajero.value = '';
     elSecuencia.value = '';
     elColilla.value = '';
+    if (elDestino) elDestino.value = '';
     elHora.value = '';
+    elAvsec.value = '';
+    if (elSeguridad) elSeguridad.value = '';
 
     renderizarCuadricula();
     elPasajero.focus();
@@ -508,6 +525,7 @@
         r.Pasajero,
         r.Secuencia,
         r.Colilla,
+        r.Vuelo,
         r.Destino,
         r.AgenteAVSEC,
         r.AgenteSeguridad
@@ -595,7 +613,7 @@
           highlightElement: sigBox,
           required: true,
           type: 'string',
-          getValue: () => (_firmaPad && !_firmaPad.isBlank() ? _firmaPad.toDataURL() : ''),
+          getValue: () => (_firmaPad && !_firmaPad.isEmpty() ? _firmaPad.toDataURL() : ''),
           requiredMessage: 'debe ser trazada en el recuadro de firma antes de guardar.'
         });
       }
@@ -671,7 +689,23 @@
       }
     }
 
-    const firmaBase64 = (_firmaPad && !_firmaPad.isBlank()) ? _firmaPad.toDataURL() : '';
+    const firmaBase64 = (_firmaPad && !_firmaPad.isEmpty()) ? _firmaPad.toDataURL() : '';
+    const fechaFijaItinerario = _state.fecha || (fechaEl ? fechaEl.value : '');
+    if (fechaEl && fechaFijaItinerario) {
+      fechaEl.value = fechaFijaItinerario;
+    }
+
+    // Abrir pestaña de forma síncrona dentro del gesto de clic para evitar bloqueo de popups
+    let previewWin = null;
+    if (!guardarDefinitivo) {
+      previewWin = window.open('', '_blank');
+      if (previewWin) {
+        try {
+          previewWin.document.title = 'Generando Vista Preliminar...';
+        } catch (_) {}
+      }
+    }
+
     const payload = {
       formatoId: _state.formatoId || 'amx-er',
       itinerarioId: parseInt(_state.itinerarioId, 10),
@@ -679,7 +713,7 @@
       guardar: guardarDefinitivo,
       datos: {
         erPayload: {
-          fecha: fechaEl ? fechaEl.value : _state.fecha,
+          fecha: fechaFijaItinerario,
           observaciones: obsEl ? obsEl.value.trim() : '',
           firmaBase64,
           agente: _state.agenteActual || '',
@@ -688,8 +722,8 @@
             Pasajero: String(r.Pasajero || '').trim(),
             Secuencia: String(r.Secuencia || '').trim(),
             Colilla: String(r.Colilla || '').trim(),
-            Vuelo: String(r.Vuelo || _state.noVuelo || '').trim(),
-            Destino: String(r.Destino || _state.destinoVuelo || 'N/A').trim() || 'N/A',
+            Vuelo: String(_state.noVuelo || r.Vuelo || '').trim(),
+            Destino: String(r.Destino || '').trim() || 'N/A',
             HoraRevision: normalizarHora5(r.HoraRevision),
             AgenteAVSEC: String(r.AgenteAVSEC || '').trim(),
             AgenteSeguridad: String(r.AgenteSeguridad || _state.agenteActual || '').trim()
@@ -724,6 +758,7 @@
       }
 
       if (!response.ok || !result.success) {
+        if (previewWin && !previewWin.closed) previewWin.close();
         if (Array.isArray(result.errors) && result.errors.length > 0 && window.SioFormatValidator) {
           window.SioFormatValidator.applyBackendErrors(result.errors, {
             root: formEl,
@@ -749,7 +784,14 @@
 
       if (!guardarDefinitivo) {
         if (result.previewUrl) {
-          window.open(result.previewUrl, '_blank', 'noopener');
+          if (previewWin && !previewWin.closed) {
+            previewWin.location.href = result.previewUrl;
+            previewWin.focus();
+          } else {
+            window.location.href = result.previewUrl;
+          }
+        } else if (previewWin && !previewWin.closed) {
+          previewWin.close();
         }
         return;
       }
@@ -775,30 +817,19 @@
         renderizarCuadricula();
       }
 
-      Swal.fire({
+      await Swal.fire({
         icon: 'success',
         title: '¡Formato Guardado Exitosamente!',
-        html: `
-          <div style="font-size:13px; color:#334155; line-height:1.5;">
-            ${escapeHtml(result.mensaje || 'El formato ha sido registrado en Azure SQL.')}
-          </div>
-        `,
-        showDenyButton: true,
-        showCancelButton: true,
-        confirmButtonText: '<i class="fas fa-check"></i> Permanecer en el Formato',
-        denyButtonText: '<i class="fas fa-file-pdf"></i> Abrir Vista Preliminar',
-        cancelButtonText: 'Volver a Formatos',
-        confirmButtonColor: '#275B88',
-        denyButtonColor: '#0F2744',
-        cancelButtonColor: '#64748B'
-      }).then((choice) => {
-        if (choice.isDenied) {
-          ejecutarGuardadoER(false);
-        } else if (choice.isDismissed && choice.dismiss === Swal.DismissReason.cancel) {
-          window.location.href = '/formatos';
-        }
+        text: result.mensaje || 'El formato ha sido registrado en Azure SQL.',
+        timer: 1100,
+        showConfirmButton: false
       });
+
+      if (result.previewUrl) {
+        window.location.href = result.previewUrl;
+      }
     } catch (err) {
+      if (previewWin && !previewWin.closed) previewWin.close();
       if (typeof window.ocultarPantallaCarga === 'function') {
         window.ocultarPantallaCarga();
       }

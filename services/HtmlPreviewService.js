@@ -51,7 +51,13 @@ const FORMAT_HTML_MAP = {
   // LAN CARGO (LATAM)
   'latam-cp': 'LATAM/Control de Perimétrica (unificado) LATAM.txt',
   'latam-ciec': 'LATAM/Control de ingreso y egreso cabina aeronave LATAM.txt',
-  'latam-liadc': 'LATAM/LISTA DE INSPECCION DE AERONAVE DE CARGA LATAM.txt'
+  'latam-liadc': 'LATAM/LISTA DE INSPECCION DE AERONAVE DE CARGA LATAM.txt',
+  // FEDEX
+  'fdx-ccda': 'FEDEX/Control Cargue y Descargue Aeronave FEDEX.txt',
+  // AMERIJET
+  'ajt-lisa': 'AMERIJET/LISTA DE INPECCION DE SEGURIDAD DE LA AERONAVE AJT.txt',
+  'ajt-cec': 'AMERIJET/Control de Equipajes en Compartimentos AJT.txt',
+  'ajt-ciec': 'AMERIJET/Control de ingreso y egreso cabina aeronave AJT.txt'
 };
 
 const RAW_HTML_KEYS = new Set([
@@ -217,12 +223,15 @@ class HtmlPreviewService {
   /**
    * Construye el diccionario de variables Power Automate para los otros formatos de Aeroméxico, Arajet y Delta
    */
-  static buildAeromexicoOtherData({ formatoId, formDatos = {}, vuelo = {}, user = {}, datosPrevios = [], complementos = [], hydrated = {} }) {
+  static buildAeromexicoOtherData({ formatoId, formDatos = {}, vuelo = {}, user = {}, datosPrevios = [], complementos = [], hydrated = {}, preferPersisted = false }) {
     const esc = HtmlPreviewService.escapeHtml;
     const rows = Array.isArray(datosPrevios?.[0]) ? datosPrevios[0] : (Array.isArray(datosPrevios) ? datosPrevios : []);
     const comp = complementos?.[0]?.[0] || complementos?.[0] || {};
 
-    const fechaRaw = formDatos.fecha || comp.Fecha || vuelo.FechaItinerado || new Date().toISOString().substring(0, 10);
+    const fechaItiVuelo = (vuelo && vuelo.FechaItinerado)
+      ? String(vuelo.FechaItinerado instanceof Date ? vuelo.FechaItinerado.toISOString() : vuelo.FechaItinerado).trim().substring(0, 10)
+      : '';
+    const fechaRaw = fechaItiVuelo || formDatos.fecha || comp.Fecha || new Date().toISOString().substring(0, 10);
     const supervisor = formDatos.supervisor || comp.Supervisor || comp.TeamSupervisor || '';
     const agente = formDatos.agente || user.usuario || user.nombreCompleto || '';
     const vueloNo = vuelo.novuelo || comp.NoVuelo || '';
@@ -234,8 +243,12 @@ class HtmlPreviewService {
 
     if (formatoId.endsWith('-ciec')) {
       const ciecData = formDatos.ciecPayload || formDatos || {};
+      const ciecDb = hydrated?.ciecState || {};
+      const encDb = ciecDb.encabezado || {};
+      const compDb = ciecDb.complemento || comp || {};
+      const dbRows = Array.isArray(ciecDb.detalles) && ciecDb.detalles.length > 0 ? ciecDb.detalles : rows;
       const liveRows = Array.isArray(ciecData.registros) ? ciecData.registros : null;
-      const sourceRows = liveRows ? liveRows : rows;
+      const sourceRows = (preferPersisted && dbRows.length > 0) ? dbRows : (liveRows || dbRows);
       const total = Math.max(32, sourceRows.length);
       const filas = [];
       for (let i = 0; i < total; i++) {
@@ -256,14 +269,15 @@ class HtmlPreviewService {
         </tr>`);
       }
 
-      const rawEqPuerta = Array.isArray(ciecData.equipajePuerta)
-        ? ciecData.equipajePuerta
-        : (Array.isArray(hydrated?.ciecState?.equipajePuerta) ? hydrated.ciecState.equipajePuerta : []);
+      const dbEqPuerta = Array.isArray(ciecDb.equipajePuerta) ? ciecDb.equipajePuerta : [];
+      const rawEqPuerta = (preferPersisted && dbEqPuerta.length > 0)
+        ? dbEqPuerta
+        : (Array.isArray(ciecData.equipajePuerta) ? ciecData.equipajePuerta : dbEqPuerta);
       const eqPuertaList = rawEqPuerta
         .map(x => String(x?.Valor ?? x?.Secuencia ?? x ?? '').trim())
         .filter(v => v && v.toUpperCase() !== 'X' && v !== '0');
 
-      let equipajePuertaHtml = eqPuertaList.length > 0 ? esc(eqPuertaList.join(', ')) : esc(comp.EquipajePuertaHTML || '');
+      let equipajePuertaHtml = eqPuertaList.length > 0 ? esc(eqPuertaList.join(', ')) : esc(compDb.EquipajePuertaHTML || '');
       if (formatoId === 'dl-ciec') {
         const totalEqRows = Math.max(5, Math.ceil(rawEqPuerta.length / 10));
         let eqRowsHtml = '';
@@ -287,59 +301,99 @@ class HtmlPreviewService {
         equipajePuertaHtml = `<table style="width:100%; border-collapse:collapse;"><tbody>${eqRowsHtml}</tbody></table>`;
       }
 
-      const tractoristaDelta = String(ciecData.tractoristaDelta || comp.TractoristaDelta || hydrated?.ciecState?.tractoristaDelta || ciecData.tractoristaNombre || '').trim();
-      const maquinariaDelta = String(ciecData.maquinariaDelta || comp.MaquinariaDelta || hydrated?.ciecState?.maquinariaDelta || ciecData.noUnidadLabel || unidad || '').trim();
-      const alerosDelta = String(ciecData.alerosDelta || comp.AlerosDelta || hydrated?.ciecState?.alerosDelta || '').trim();
-      const tractoristaNombre = String(ciecData.tractoristaNombre || '').trim();
-      const noUnidadLabel = String(ciecData.noUnidadLabel || unidad || '').trim();
+      const sups = Array.isArray(hydrated?.supervisores) ? hydrated.supervisores : [];
+      const emps = Array.isArray(hydrated?.empleados) ? hydrated.empleados : [];
+      const maqs = Array.isArray(hydrated?.maquinaria) ? hydrated.maquinaria : [];
+
+      const supEmpId = parseInt(encDb.EmpleadoId ?? compDb.EncabezadoEmpleadoId ?? ciecData.supervisorEmpleadoId, 10) || 0;
+      const supFromDb = sups.find(s => Number(s.EmpleadoId) === supEmpId)?.Usuario || '';
+
+      const trEmpId = parseInt(compDb.MaquinariaEmpleadoId ?? ciecData.tractoristaEmpleadoId, 10) || 0;
+      const trFromDb = emps.find(e => Number(e.EmpleadoId) === trEmpId)?.Nombre || '';
+      const maqEqId = parseInt(compDb.MaquinariaEquipoId ?? ciecData.maquinariaEquipoId, 10) || 0;
+      const maqFromDb = maqs.find(m => Number(m.MaquinariaEquipoId) === maqEqId)?.NoUnidad || '';
+
+      const aleroIdsFromDb = compDb.AlerosEmpleadoIds
+        ? String(compDb.AlerosEmpleadoIds).split(',').map(x => parseInt(x.trim(), 10)).filter(n => Number.isFinite(n) && n > 0)
+        : [];
+      const alerosNombresFromDb = aleroIdsFromDb
+        .map(id => emps.find(e => Number(e.EmpleadoId) === Number(id))?.Nombre || '')
+        .filter(Boolean);
+
+      const tractoristaDelta = String(ciecData.tractoristaDelta || compDb.TractoristaDelta || ciecDb.tractoristaDelta || trFromDb || ciecData.tractoristaNombre || '').trim();
+      const maquinariaDelta = String(ciecData.maquinariaDelta || compDb.MaquinariaDelta || ciecDb.maquinariaDelta || maqFromDb || ciecData.noUnidadLabel || unidad || '').trim();
+      const alerosDelta = String(ciecData.alerosDelta || compDb.AlerosDelta || ciecDb.alerosDelta || '').trim();
+      const tractoristaNombre = String((preferPersisted && trFromDb) ? trFromDb : (ciecData.tractoristaNombre || trFromDb || '')).trim();
+      const noUnidadLabel = String((preferPersisted && maqFromDb) ? maqFromDb : (ciecData.noUnidadLabel || maqFromDb || unidad || '')).trim();
       const tractoristaUnidad = (formatoId === 'dl-ciec'
         ? [tractoristaDelta, maquinariaDelta].filter(Boolean).join(' / ')
         : [tractoristaNombre, noUnidadLabel].filter(Boolean).join(' / ')
-      ) || comp.TractoristaUnidad || '';
+      ) || compDb.TractoristaUnidad || '';
       const alerosText = (formatoId === 'dl-ciec' && alerosDelta)
         ? alerosDelta
-        : (Array.isArray(ciecData.alerosNombres)
-          ? ciecData.alerosNombres.filter(Boolean).join(', ')
-          : (ciecData.alerosText || comp.Aleros || ''));
+        : ((preferPersisted && alerosNombresFromDb.length > 0)
+          ? alerosNombresFromDb.join(', ')
+          : (Array.isArray(ciecData.alerosNombres) && ciecData.alerosNombres.length > 0
+            ? ciecData.alerosNombres.filter(Boolean).join(', ')
+            : (alerosNombresFromDb.join(', ') || ciecData.alerosText || compDb.Aleros || '')));
+
+      const pickTime = (liveVal, dbVal, fallbackVal = '') =>
+        HtmlPreviewService.extractHHMM(preferPersisted ? (dbVal || liveVal || fallbackVal) : (liveVal || dbVal || fallbackVal));
+
+      const obsVal = (preferPersisted && ciecDb.observacionesLimpia !== undefined)
+        ? ciecDb.observacionesLimpia
+        : (ciecData.observaciones !== undefined ? ciecData.observaciones : (ciecDb.observacionesLimpia ?? observaciones));
 
       return {
-        Fecha: String(ciecData.fecha || fechaRaw).substring(0, 10),
-        HoraInicio: HtmlPreviewService.extractHHMM(ciecData.horaInicio || comp.HoraInicio),
+        Fecha: String(fechaItiVuelo || encDb.Fecha || ciecData.fecha || fechaRaw).substring(0, 10),
+        HoraInicio: pickTime(ciecData.horaInicio, encDb.HoraInicio || compDb.HoraInicio),
         Vuelo: vueloNo,
-        Supervisor: ciecData.supervisorNombre || supervisor || 'SIN SUPERVISOR',
-        Agente: ciecData.agente || agente,
+        Supervisor: (preferPersisted && supFromDb) ? supFromDb : (ciecData.supervisorNombre || supFromDb || supervisor || 'SIN SUPERVISOR'),
+        Agente: encDb.CreadoPor || ciecData.agente || agente,
         Matricula: matricula,
         FilasInOutHTML: filas.join(''),
-        ArriboVuelo: HtmlPreviewService.extractHHMM(ciecData.arriboVuelo || comp.ArriboVuelo || vuelo.ata),
-        PrimerPax: HtmlPreviewService.extractHHMM(ciecData.primerPax || comp.PrimerPax),
-        AeronaveAsegurada: HtmlPreviewService.extractHHMM(ciecData.aeronaveAsegurada || comp.AeronaveAsegurada),
-        UltimoPax: HtmlPreviewService.extractHHMM(ciecData.ultimoPax || comp.UltimoPax),
-        PasarelaAcoplada: HtmlPreviewService.extractHHMM(ciecData.pasarelaAcoplada || comp.PasarelaAcoplada),
-        PaxAbordos: ciecData.paxAbordos !== undefined ? ciecData.paxAbordos : (comp.PaxAbordos ?? ''),
-        PuertaAbierta: HtmlPreviewService.extractHHMM(ciecData.puertaAbierta || comp.PuertaAbierta),
-        PuertaCerrada: HtmlPreviewService.extractHHMM(ciecData.puertaCerrada || comp.PuertaCerrada),
-        EgresoTripulacion: HtmlPreviewService.extractHHMM(ciecData.egresoTripulacion || comp.EgresoTripulacion),
-        DesacoplePasarela: HtmlPreviewService.extractHHMM(ciecData.desacoplePasarela || comp.DesacoplePasarela),
-        IngresoTripulacion: HtmlPreviewService.extractHHMM(ciecData.ingresoTripulacion || comp.IngresoTripulacion),
-        TotalEquipajePuerta: eqPuertaList.length > 0 ? eqPuertaList.length : (comp.TotalEquipaje ?? 0),
-        PushBack: HtmlPreviewService.extractHHMM(ciecData.pushBack || comp.PushBack),
-        PaxEntrandoGUA: ciecData.paxEntrando !== undefined ? ciecData.paxEntrando : (comp.PaxEntrando ?? ''),
-        Despegue: HtmlPreviewService.extractHHMM(ciecData.despegue || comp.Despegue),
-        Observaciones: ciecData.observaciones !== undefined ? ciecData.observaciones : observaciones,
+        ArriboVuelo: pickTime(ciecData.arriboVuelo || ciecData.arriboDelVuelo, compDb.ArriboVuelo, vuelo.ata),
+        PrimerPax: pickTime(ciecData.primerPax, compDb.PrimerPax),
+        AeronaveAsegurada: pickTime(ciecData.aeronaveAsegurada, compDb.AeronaveAsegurada),
+        UltimoPax: pickTime(ciecData.ultimoPax, compDb.UltimoPax),
+        PasarelaAcoplada: pickTime(ciecData.pasarelaAcoplada, compDb.PasarelaAcoplada),
+        PaxAbordos: preferPersisted
+          ? (compDb.PaxAbordos ?? ciecData.paxAbordos ?? '')
+          : (ciecData.paxAbordos !== undefined && ciecData.paxAbordos !== null ? ciecData.paxAbordos : (compDb.PaxAbordos ?? '')),
+        PuertaAbierta: pickTime(ciecData.puertaAbierta, compDb.PuertaAbierta),
+        PuertaCerrada: pickTime(ciecData.puertaCerrada, compDb.PuertaCerrada),
+        EgresoTripulacion: pickTime(ciecData.egresoTripulacion, compDb.EgresoTripulacion),
+        DesacoplePasarela: pickTime(ciecData.desacoplePasarela, compDb.DesacoplePasarela),
+        IngresoTripulacion: pickTime(ciecData.ingresoTripulacion, compDb.IngresoTripulacion),
+        TotalEquipajePuerta: eqPuertaList.length > 0 ? eqPuertaList.length : (compDb.TotalEquipaje ?? 0),
+        PushBack: pickTime(ciecData.pushBack, compDb.PushBack),
+        PaxEntrandoGUA: preferPersisted
+          ? (compDb.PaxEntrando ?? ciecData.paxEntrando ?? '')
+          : (ciecData.paxEntrando !== undefined && ciecData.paxEntrando !== null ? ciecData.paxEntrando : (compDb.PaxEntrando ?? '')),
+        Despegue: pickTime(ciecData.despegue, compDb.Despegue),
+        Observaciones: obsVal,
         EquipajePuertaHTML: equipajePuertaHtml,
         TractoristaUnidad: tractoristaUnidad,
         AlerosText: alerosText,
         Aleros: alerosText,
-        FirmaOperador: ciecData.agente || comp.FirmaOperador || agente
+        FirmaOperador: encDb.CreadoPor || ciecData.agente || compDb.FirmaOperador || agente
       };
     }
 
     if (formatoId.endsWith('-er')) {
       const erData = formDatos.erPayload || formDatos || {};
+      const dbRows = Array.isArray(hydrated?.erState?.detalles) && hydrated.erState.detalles.length > 0
+        ? hydrated.erState.detalles
+        : rows;
       const liveRows = Array.isArray(erData.registros) ? erData.registros : null;
-      const sourceRows = liveRows && liveRows.length > 0 ? liveRows : rows;
-      const fechaEr = erData.fecha || fechaRaw;
-      const obsEr = erData.observaciones !== undefined ? erData.observaciones : observaciones;
+      const sourceRows = (preferPersisted && dbRows.length > 0)
+        ? dbRows
+        : (liveRows && liveRows.length > 0 ? liveRows : dbRows);
+      const fechaEr = fechaItiVuelo || erData.fecha || fechaRaw;
+      const compEr = hydrated?.erState?.complemento || comp || {};
+      const obsEr = (preferPersisted && compEr.Observacion !== undefined)
+        ? String(compEr.Observacion || '').trim()
+        : (erData.observaciones !== undefined ? erData.observaciones : (compEr.Observacion || observaciones));
       const firmaEr = HtmlPreviewService.sanitizeSignatureDataUrl(
         erData.firmaBase64 || erData.firma || formDatos.firmaBase64 || formDatos.firma
       );
@@ -647,10 +701,20 @@ class HtmlPreviewService {
         </table>`;
       }
 
+      const vueloParts = String(vueloNo || '').split('/').map(s => s.trim()).filter(Boolean);
+      const vueloDes = (formatoId === 'ajt-cec')
+        ? (cecData.vueloDesembarque || vueloParts[0] || vueloNo)
+        : (cecData.vueloDesembarque || vueloNo);
+      const vueloEmb = (formatoId === 'ajt-cec')
+        ? (cecData.vueloEmbarque || vueloParts[vueloParts.length - 1] || vueloNo)
+        : (cecData.vueloEmbarque || vueloNo);
+
       return {
         HoraIniciaPuesto: HtmlPreviewService.extractHHMM(cecData.horaInicio || comp.HoraInicio),
         Supervisor: cecData.supervisor || supervisor,
-        Fecha: HtmlPreviewService.formatMMDDYYYY(cecData.fecha || fechaRaw),
+        Fecha: (formatoId === 'ajt-cec')
+          ? HtmlPreviewService.formatDDMMYYYY(cecData.fecha || fechaRaw)
+          : HtmlPreviewService.formatMMDDYYYY(cecData.fecha || fechaRaw),
         Agente: cecData.agente || comp.Agente || agente,
         Vuelo: vueloNo,
         Matricula: matricula,
@@ -658,9 +722,9 @@ class HtmlPreviewService {
         PuertaNo: puerta,
         CompAbierto: HtmlPreviewService.extractHHMM(cecData.compAbierto || comp.CompAbierto),
         CompCerrado: HtmlPreviewService.extractHHMM(cecData.compCerrado || comp.CompCerrado),
-        VueloEmbarque: vueloNo,
+        VueloEmbarque: vueloEmb,
         TablaEmbarqueHTML: tablaEmbarqueOut,
-        VueloDesembarque: vueloNo,
+        VueloDesembarque: vueloDes,
         TablaDesembarqueHTML: tablaDesembarqueHTML,
         TablaPersonalHTML: tablaPersonalHTML,
         Oirsa: [oirsaRaw, oirsaTiaRaw ? `(TIA: ${oirsaTiaRaw})` : ''].filter(Boolean).join(' '),
@@ -681,11 +745,18 @@ class HtmlPreviewService {
 
     if (formatoId === 'amx-mecd') {
       const mecdData = formDatos.mecdPayload || formDatos || {};
-      const revList = Array.isArray(mecdData.revisiones)
-        ? mecdData.revisiones
-        : (Array.isArray(mecdData.revision) ? mecdData.revision : []);
-      const cfList = Array.isArray(mecdData.conFirma) ? mecdData.conFirma : [];
-      const sfList = Array.isArray(mecdData.sinFirma) ? mecdData.sinFirma : [];
+      const mecdDb = hydrated?.mecdState || {};
+      const revList = (preferPersisted && Array.isArray(mecdDb.revisiones) && mecdDb.revisiones.length > 0)
+        ? mecdDb.revisiones
+        : (Array.isArray(mecdData.revisiones)
+          ? mecdData.revisiones
+          : (Array.isArray(mecdData.revision) ? mecdData.revision : (mecdDb.revisiones || [])));
+      const cfList = (preferPersisted && Array.isArray(mecdDb.conFirma) && mecdDb.conFirma.length > 0)
+        ? mecdDb.conFirma
+        : (Array.isArray(mecdData.conFirma) ? mecdData.conFirma : (mecdDb.conFirma || []));
+      const sfList = (preferPersisted && Array.isArray(mecdDb.sinFirma) && mecdDb.sinFirma.length > 0)
+        ? mecdDb.sinFirma
+        : (Array.isArray(mecdData.sinFirma) ? mecdData.sinFirma : (mecdDb.sinFirma || []));
 
       const totalPairsRev = Math.max(9, Math.ceil(revList.length / 2));
       let tablaRevisionHtml = '';
@@ -732,10 +803,12 @@ class HtmlPreviewService {
 
     if (formatoId === 'amx-po') {
       const poData = formDatos.poPayload || formDatos || {};
+      const poDb = hydrated?.poState || {};
+      const dbRows = Array.isArray(poDb.detalles) && poDb.detalles.length > 0 ? poDb.detalles : rows;
       const liveRows = Array.isArray(poData.registros)
         ? poData.registros
         : (Array.isArray(poData.detalles) ? poData.detalles : null);
-      const sourceRows = liveRows ? liveRows : rows;
+      const sourceRows = (preferPersisted && dbRows.length > 0) ? dbRows : (liveRows || dbRows);
       const total = Math.max(13, sourceRows.length);
       let filasHtml = '';
       for (let i = 0; i < total; i++) {
@@ -1256,6 +1329,200 @@ class HtmlPreviewService {
       };
     }
 
+    if (formatoId === 'fdx-ccda') {
+      const c = formDatos.ccdaPayload || formDatos || {};
+      const enc = hydrated?.ccdaState?.encabezado || {};
+      const dbPersonal = Array.isArray(hydrated?.ccdaState?.detalles) ? hydrated.ccdaState.detalles : [];
+      const livePersonal = Array.isArray(c.personal)
+        ? c.personal
+        : (Array.isArray(c.registros) ? c.registros : null);
+      const sourceRows = livePersonal || dbPersonal;
+
+      const fechaStr = String(c.fecha || enc.Fecha || fechaRaw || '').trim();
+      let dia = '';
+      let mes = '';
+      let anio = '';
+      if (/^\d{4}-\d{2}-\d{2}/.test(fechaStr)) {
+        const [y, m, d] = fechaStr.substring(0, 10).split('-');
+        dia = d;
+        mes = m;
+        anio = y;
+      } else {
+        const ddmmyyyy = HtmlPreviewService.formatDDMMYYYY(fechaStr);
+        const parts = ddmmyyyy.split('/');
+        if (parts.length === 3) {
+          [dia, mes, anio] = parts;
+        }
+      }
+
+      const pickStr = (liveV, dbV, fallback = '') => {
+        if (liveV !== undefined && liveV !== null && String(liveV).trim() !== '') return String(liveV).trim();
+        if (dbV !== undefined && dbV !== null && String(dbV).trim() !== '') return String(dbV).trim();
+        return fallback;
+      };
+      const pickTime = (liveV, dbV, fallback = '') => {
+        const liveT = liveV !== undefined && liveV !== null ? HtmlPreviewService.extractHHMM(liveV) : '';
+        if (liveT) return liveT;
+        const dbT = dbV !== undefined && dbV !== null ? HtmlPreviewService.extractHHMM(dbV) : '';
+        if (dbT) return dbT;
+        return fallback;
+      };
+
+      const totalRows = Math.max(20, sourceRows.length);
+      const filasPersonal = [];
+      for (let i = 0; i < totalRows; i++) {
+        const r = sourceRows[i] || null;
+        const personalNombre = r ? String(r.Personal || r.Nombre || r.NombreEmpleado || '').trim() : '';
+        const empId = r ? String(r.EmpleadoId ?? r.ID ?? '').trim() : '';
+        const empresa = r ? String(r.Empresa || 'LAATS').trim() : '';
+        const hIn1 = r ? HtmlPreviewService.extractHHMM(r.Entrada ?? r.HoraEntrada1) : '';
+        const hOut1 = r ? HtmlPreviewService.extractHHMM(r.Salida ?? r.HoraSalida1) : '';
+        const hIn2 = r ? HtmlPreviewService.extractHHMM(r.SegundaEntrada ?? r.HoraEntrada2) : '';
+        const hOut2 = r ? HtmlPreviewService.extractHHMM(r.SegundaSalida ?? r.HoraSalida2) : '';
+
+        const salida1Html = (personalNombre && !hOut1)
+          ? '<span style="color:#B91C1C; font-weight:bold;">Pendiente</span>'
+          : esc(hOut1);
+
+        filasPersonal.push(`<tr>
+          <td style="border: 1px solid #000; text-align: center; font-weight: bold; height: 18px;">${i + 1}</td>
+          <td style="border: 1px solid #000; text-align: left; padding-left: 4px;">${esc(personalNombre)}</td>
+          <td style="border: 1px solid #000; text-align: center;">${esc(empId)}</td>
+          <td style="border: 1px solid #000; text-align: center;">${esc(empresa)}</td>
+          <td style="border: 1px solid #000; text-align: center;">${esc(hIn1)}</td>
+          <td style="border: 1px solid #000; text-align: center;">${salida1Html}</td>
+          <td style="border: 1px solid #000; text-align: center;">${esc(hIn2)}</td>
+          <td style="border: 1px solid #000; text-align: center;">${esc(hOut2)}</td>
+        </tr>`);
+      }
+
+      const combustibleRaw = c.cantCombustible !== undefined && c.cantCombustible !== null && c.cantCombustible !== ''
+        ? c.cantCombustible
+        : (enc.CantCombustible !== undefined && enc.CantCombustible !== null ? enc.CantCombustible : '');
+
+      const llegadaDefault = HtmlPreviewService.extractHHMM(vuelo.ata) || HtmlPreviewService.extractHHMM(vuelo.eta) || '';
+      const salidaDefault = HtmlPreviewService.extractHHMM(vuelo.atd) || HtmlPreviewService.extractHHMM(vuelo.etd) || '';
+
+      return {
+        Dia: dia,
+        Mes: mes,
+        Anio: anio,
+        Llegada: pickTime(c.llegada, enc.LlegadaMeta || (enc.Llegada && enc.Llegada !== 'NA' ? enc.Llegada : ''), llegadaDefault),
+        PushBack: pickTime(c.pushBack, enc.PushBack, ''),
+        Salida: pickTime(c.salida, enc.Salida, salidaDefault),
+        CantCombustible: combustibleRaw !== '' ? String(combustibleRaw) : '',
+        Vuelo: String(vueloNo || enc.NoVuelo || ''),
+        Matricula: String(matricula || (enc.Matricula && enc.Matricula !== 'NA' ? enc.Matricula : '') || ''),
+        Aerolinea: 'FEDEX',
+        Destino: String(vuelo.Destino || vuelo.destino || enc.Destino || '').trim(),
+        OperarioNombre: pickStr(c.operarioNombre, enc.OperarioNombre, ''),
+        OperarioID: pickStr(c.operarioEmpleadoId, enc.OperarioEmpleadoId, ''),
+        OperarioEmpresa: pickStr(c.operarioEmpresa, enc.OperarioEmpresa, 'LAATS'),
+        Acopla: pickTime(c.acopla, enc.Acopla, ''),
+        Desacopla: pickTime(c.desacopla, enc.Desacopla, ''),
+        AperturaAeronave: pickTime(c.aperturaAeronave, enc.AperturaAeronave, ''),
+        CierreAeronave: pickTime(c.cierreAeronave, enc.CierreAeronave, ''),
+        InicioDescargue: pickTime(c.inicioDescargue, enc.InicioDescargue, ''),
+        TerminaDescargue: pickTime(c.terminaDescargue, enc.TerminaDescargue, ''),
+        IniciaCargue: pickTime(c.iniciaCargue, enc.IniciaCargue, ''),
+        TerminaCargue: pickTime(c.terminaCargue, enc.TerminaCargue, ''),
+        TablaPersonalHTML: filasPersonal.join(''),
+        Arribo: pickTime(c.arribo, enc.Arribo, '') || '--:--',
+        PuertaAbierta: pickTime(c.puertaAbierta, enc.PuertaAbierta, '') || '--:--',
+        PuertaCerrada: pickTime(c.puertaCerrada, enc.PuertaCerrada, '') || '--:--',
+        EscaleraAcoplada: pickTime(c.escaleraAcoplada, enc.EscaleraAcoplada, '') || '--:--',
+        EscaleraDesacoplada: pickTime(c.escaleraDesacoplada, enc.EscaleraDesacoplada, '') || '--:--',
+        Observaciones: c.observaciones !== undefined ? String(c.observaciones || '').trim() : String(enc.Observaciones || '').trim(),
+        Agente: pickStr(c.agenteSeguridad, enc.AgenteSeguridad, agente),
+        Supervisor: pickStr(c.supervisor, enc.Supervisor, supervisor)
+      };
+    }
+
+    if (formatoId.endsWith('-lisa')) {
+      const l = formDatos.lisaPayload || formDatos || {};
+      const det = (hydrated?.lisaState?.detalle && typeof hydrated.lisaState.detalle === 'object')
+        ? hydrated.lisaState.detalle
+        : {};
+      const toBool = (v) => v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'true';
+
+      const checkKeys = [
+        'AsientosTripChalecos',
+        'CompEquipoEmergencia',
+        'LavatorioParedesInodoro',
+        'AreaEquipajeCoatTrip',
+        'GalleyParedesGabinetes',
+        'CabinaCargaTechoParedPiso',
+        'PuertaIntCabinaCarga',
+        'PuertaExtCabinaMando',
+        'PuertaExtCabinaCarga',
+        'CompCargaDelanteroDer',
+        'CompInfCargaTraseroDer',
+        'CompInfCargaTraseroIzq',
+        'CompTrenAterrizajePrin',
+        'CompTrenAterrizajeDel',
+        'CompMotoresHidraulicoAvionica'
+      ];
+
+      const rawChecks = (l.checks && typeof l.checks === 'object') ? l.checks : l;
+      const checksOut = {};
+      checkKeys.forEach((k) => {
+        checksOut[k] = rawChecks[k] !== undefined ? toBool(rawChecks[k]) : toBool(det[k]);
+      });
+
+      const nombreInspector = String(
+        l.nombreInspector || l.NombreEjecutoInspeccion || det.NombreEjecutoInspeccion || agente || ''
+      ).trim();
+      const initialsAuto = nombreInspector
+        .split(/\s+/)
+        .filter(Boolean)
+        .map(w => `${w.charAt(0).toUpperCase()}.`)
+        .join('') || 'L.A.';
+
+      const rawSellos = (l.sellos && typeof l.sellos === 'object')
+        ? l.sellos
+        : (det.SellosParsed && typeof det.SellosParsed === 'object' ? det.SellosParsed : {});
+      const sellosOut = {};
+      let tieneSello = false;
+      for (let i = 1; i <= 15; i += 1) {
+        const item = rawSellos[i] || rawSellos[String(i)] || {};
+        const num = String(item.numero ?? item.sello ?? l[`Sello${i}`] ?? '').trim();
+        const ini = String(item.iniciales ?? item.ini ?? l[`Ini${i}`] ?? '').trim();
+        if (num) tieneSello = true;
+        sellosOut[`Sello${i}`] = num;
+        sellosOut[`Ini${i}`] = num ? (ini || initialsAuto) : '';
+      }
+
+      const tipoAeronaveDb = det.TipoAeronave && String(det.TipoAeronave).trim().toUpperCase() !== 'NA'
+        ? String(det.TipoAeronave).trim()
+        : '';
+      const rawFirma = String(l.firmaInspector || l.FirmaInspector || '').trim();
+
+      return {
+        Fecha: HtmlPreviewService.formatDDMMYYYY(l.fecha || det.Fecha || fechaRaw),
+        Vuelo: String(vueloNo || (det.NoVuelo && det.NoVuelo !== 'NA' ? det.NoVuelo : '') || '').trim(),
+        Matricula: String(matricula || (det.Matricula && det.Matricula !== 'NA' ? det.Matricula : '') || '').trim(),
+        TipoAvion: String(l.tipoAvion || det.TipoAvion || vuelo.TipoAeronave || tipoAeronaveDb || 'B767').trim(),
+        Estacion: String(l.estacion || det.Estacion || 'GUA').trim() || 'GUA',
+        CoordSeguridadTierra: l.coordSeguridadTierra !== undefined
+          ? toBool(l.coordSeguridadTierra)
+          : toBool(det.CoordSeguridadTierra),
+        RepresentanteAutorizado: l.representanteAutorizado !== undefined
+          ? toBool(l.representanteAutorizado)
+          : toBool(det.RepresentanteAutorizado),
+        NoSello: tieneSello || toBool(det.NoSello),
+        ...checksOut,
+        ...sellosOut,
+        HoraInicio: HtmlPreviewService.extractHHMM(l.horaInicio || det.HoraInicio),
+        HoraFin: HtmlPreviewService.extractHHMM(l.horaFin || det.HoraFin),
+        HoraSalida: HtmlPreviewService.extractHHMM(l.horaSalida || det.HoraSalida),
+        Observaciones: l.observaciones !== undefined
+          ? String(l.observaciones || '').trim()
+          : String(det.Observaciones || '').trim(),
+        NombreInspector: nombreInspector,
+        FirmaInspector: rawFirma ? HtmlPreviewService.sanitizeSignatureDataUrl(rawFirma) : ''
+      };
+    }
+
     return {};
   }
 
@@ -1551,6 +1818,20 @@ class HtmlPreviewService {
     );
     html = html.replace(/@\{variables\('varLogoLatam'\)\}\s*/gi, logoLatamB64);
 
+    const logoFedexB64 = HtmlPreviewService.getLogoBase64('fedex.png');
+    html = html.replace(
+      /data:image\/png;base64,\s*@\{variables\('varLogoFedex'\)\}\s*/gi,
+      `data:image/png;base64,${logoFedexB64}`
+    );
+    html = html.replace(/@\{variables\('varLogoFedex'\)\}\s*/gi, logoFedexB64);
+
+    const logoAmerijetB64 = HtmlPreviewService.getLogoBase64('amerijet.png');
+    html = html.replace(
+      /data:image\/png;base64,\s*@\{variables\('varLogoAmerijet'\)\}\s*/gi,
+      `data:image/png;base64,${logoAmerijetB64}`
+    );
+    html = html.replace(/@\{variables\('varLogoAmerijet'\)\}\s*/gi, logoAmerijetB64);
+
     // 2. Expresión especial de Aleros en CIEC
     html = html.replace(
       /@\{join\(xpath\([\s\S]*?\/\/Usuario\/text\(\)'\),\s*', '\)\}/g,
@@ -1617,28 +1898,15 @@ class HtmlPreviewService {
           varLogoDelta: logoDeltaB64,
           varLogoAirCanada: logoAirCanadaB64,
           varLogoLatam: logoLatamB64,
+          varLogoFedex: logoFedexB64,
+          varLogoAmerijet: logoAmerijetB64,
           FirmaFinal: vars.FirmaFinal || ''
         }
       });
     }
 
-    // 6. Barra flotante no imprimible (Imprimir / Cerrar) 100% CSP-safe
-    const pendientes = Number(meta.pendientesSalidaCount || 0);
-    const badgeWarn = pendientes > 0
-      ? `<span class="sio-preview-warn">${pendientes} sin salida</span>`
-      : '';
-
-    const toolbarHtml = `
-<div class="sio-preview-toolbar no-print">
-  <span class="sio-preview-badge">VISTA PRELIMINAR</span>
-  ${badgeWarn}
-  <button type="button" id="btnPrintPreview" class="sio-preview-btn print">Imprimir / PDF</button>
-  <button type="button" id="btnClosePreview" class="sio-preview-btn close">Cerrar</button>
-</div>`.trim();
-
+    // 6. Regla de Oro: hoja controlada 100% limpia con esquema claro (#FFFFFF) sin barra flotante
     html = html.replace(/<\/head>/i, `  <link rel="stylesheet" href="/css/preview-toolbar.css">\n</head>`);
-    html = html.replace(/<body([^>]*)>/i, `<body$1>\n${toolbarHtml}\n`);
-    html = html.replace(/<\/body>/i, `  <script src="/js/formato-cp-preview.js"></script>\n</body>`);
 
     return html;
   }

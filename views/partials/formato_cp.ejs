@@ -15,11 +15,11 @@
   };
 
   let fechaValue = new Date().toISOString().substring(0, 10);
-  if (comp && comp.Fecha) {
+  if (vuelo && vuelo.FechaItinerado) {
+    fechaValue = String(vuelo.FechaItinerado instanceof Date ? vuelo.FechaItinerado.toISOString() : vuelo.FechaItinerado).substring(0, 10);
+  } else if (comp && comp.Fecha) {
     const d = new Date(comp.Fecha);
     if (!Number.isNaN(d.getTime())) fechaValue = d.toISOString().substring(0, 10);
-  } else if (vuelo && vuelo.FechaItinerado) {
-    fechaValue = String(vuelo.FechaItinerado).substring(0, 10);
   }
 
   const arriboValue = extractHHMM(comp && comp.ArriboDelVuelo) || extractHHMM(vuelo && vuelo.ata) || '';
@@ -63,14 +63,15 @@
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
       <div class="form-group">
-        <label for="cpArriboVuelo"><i class="far fa-clock"></i> Arribo del Vuelo</label>
+        <label for="cpArriboVuelo"><i class="far fa-clock"></i> Arribo del Vuelo <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
         <input
           type="text"
           id="cpArriboVuelo"
           name="arriboDelVuelo"
-          class="form-control"
+          class="form-control input-locked"
           value="<%= arriboValue || '--:--' %>"
           readonly
+          tabindex="-1"
         >
       </div>
 
@@ -100,8 +101,8 @@
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px;">
       <div class="form-group">
-        <label for="cpFecha"><i class="far fa-calendar-alt"></i> Fecha</label>
-        <input type="date" id="cpFecha" name="fecha" class="form-control" value="<%= fechaValue %>" readonly required>
+        <label for="cpFecha"><i class="far fa-calendar-alt"></i> Fecha <i class="fas fa-lock input-lock-icon" title="Fecha vinculada al itinerario (Solo lectura)"></i></label>
+        <input type="date" id="cpFecha" name="fecha" class="form-control input-locked" value="<%= fechaValue %>" readonly tabindex="-1" required>
       </div>
 
       <div class="form-group">
@@ -115,18 +116,18 @@
       </div>
 
       <div class="form-group">
-        <label><i class="fas fa-door-open"></i> Puerta</label>
-        <input type="text" class="form-control" value="<%= vuelo.puertaposicion || '--' %>" readonly>
+        <label for="cpPuerta"><i class="fas fa-door-open"></i> Puerta <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <input type="text" id="cpPuerta" class="form-control input-locked" value="<%= vuelo.puertaposicion || '--' %>" readonly tabindex="-1">
       </div>
 
       <div class="form-group">
-        <label><i class="fas fa-plane"></i> No. Vuelo</label>
-        <input type="text" class="form-control" value="<%= vuelo.novuelo || '--' %>" readonly>
+        <label for="cpNoVuelo"><i class="fas fa-plane"></i> No. Vuelo <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <input type="text" id="cpNoVuelo" class="form-control input-locked" value="<%= vuelo.novuelo || '--' %>" readonly tabindex="-1">
       </div>
 
       <div class="form-group">
-        <label><i class="fas fa-barcode"></i> Matrícula</label>
-        <input type="text" class="form-control" value="<%= vuelo.Matricula || 'Pendiente' %>" readonly>
+        <label for="cpMatricula"><i class="fas fa-barcode"></i> Matrícula <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <input type="text" id="cpMatricula" class="form-control input-locked" value="<%= vuelo.Matricula || 'Pendiente' %>" readonly tabindex="-1">
       </div>
 
       <div class="form-group">
@@ -146,8 +147,8 @@
       </div>
 
       <div class="form-group">
-        <label for="cpAgente"><i class="fas fa-user-shield"></i> Agente</label>
-        <input type="text" id="cpAgente" class="form-control" value="<%= user.usuario || user.nombreCompleto %>" readonly>
+        <label for="cpAgente"><i class="fas fa-user-shield"></i> Agente <i class="fas fa-lock input-lock-icon" title="Agente autenticado en sesión (Solo lectura)"></i></label>
+        <input type="text" id="cpAgente" class="form-control input-locked" value="<%= user.usuario || user.nombreCompleto %>" readonly tabindex="-1">
       </div>
     </div>
   </div>

@@ -5,7 +5,9 @@
   padding: 0;
 }
 
+html,
 body {
+  color-scheme: light !important;
   font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background-color: #E2E8F0;
   color: #0F172A;

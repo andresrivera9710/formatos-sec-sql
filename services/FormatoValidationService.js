@@ -245,7 +245,11 @@ class FormatoValidationService {
     const esNuevo = encIdNum <= 0;
     const requerirFirma = options.requerirFirma !== undefined ? Boolean(options.requerirFirma) : esNuevo;
 
-    const fechaIso = String(er.fecha || '').trim().substring(0, 10);
+    // Blindaje en Backend: Forzar e imponer siempre la fecha real de la operación/itinerario
+    const fechaItinerarioSesion = (vueloSesion && vueloSesion.FechaItinerado)
+      ? String(vueloSesion.FechaItinerado instanceof Date ? vueloSesion.FechaItinerado.toISOString() : vueloSesion.FechaItinerado).trim().substring(0, 10)
+      : '';
+    const fechaIso = fechaItinerarioSesion || String(er.fecha || '').trim().substring(0, 10);
     const observaciones = String(er.observaciones || '').trim();
     const firmaBase64 = String(er.firmaBase64 || er.firma || '').trim();
     const registrosRaw = Array.isArray(er.registros) ? er.registros : [];
@@ -479,6 +483,16 @@ class FormatoValidationService {
   }
 
   /**
+   * Resuelve y fuerza siempre la fecha real de la operación/itinerario activo en sesión
+   */
+  static _resolverFechaItinerario(vueloSesion, fallbackFecha = '') {
+    const fechaIti = (vueloSesion && vueloSesion.FechaItinerado)
+      ? String(vueloSesion.FechaItinerado instanceof Date ? vueloSesion.FechaItinerado.toISOString() : vueloSesion.FechaItinerado).trim().substring(0, 10)
+      : '';
+    return fechaIti || String(fallbackFecha || '').trim().substring(0, 10);
+  }
+
+  /**
    * 1. Valida "Control de Equipajes en Banda de Salida (Rayos X)" (ControlEquipajeBandaSalidaAMX / amx-eb)
    */
   static validarControlEB(payload = {}, user = {}, vueloSesion = null) {
@@ -486,7 +500,7 @@ class FormatoValidationService {
     if (!ctx.valido) return ctx;
 
     const eb = payload.datos?.ebPayload || payload.datos || {};
-    const fechaIso = String(eb.fecha || '').trim().substring(0, 10);
+    const fechaIso = FormatoValidationService._resolverFechaItinerario(vueloSesion, eb.fecha);
     const horaInicio = FormatoValidationService.normalizarHora(eb.horaInicio);
     const horaCierre = FormatoValidationService.normalizarHora(eb.horaCierre);
     const supervisorLoginId = String(eb.supervisorLoginId ?? '').trim();
@@ -605,7 +619,7 @@ class FormatoValidationService {
     if (!ctx.valido) return ctx;
 
     const cec = payload.datos?.cecPayload || payload.datos || {};
-    const fechaIso = String(cec.fecha || '').trim().substring(0, 10);
+    const fechaIso = FormatoValidationService._resolverFechaItinerario(vueloSesion, cec.fecha);
     const horaInicio = FormatoValidationService.normalizarHora(cec.horaInicio);
     const supervisor = String(cec.supervisor || cec.supervisorNombre || (cec.supervisorLoginId ? `Supervisor #${cec.supervisorLoginId}` : '')).trim();
     const agente = String(cec.agente || cec.agenteNombre || user.usuario || '').trim();
@@ -770,7 +784,7 @@ class FormatoValidationService {
     if (!ctx.valido) return ctx;
 
     const ciec = payload.datos?.ciecPayload || payload.datos || {};
-    const fechaIso = String(ciec.fecha || '').trim().substring(0, 10);
+    const fechaIso = FormatoValidationService._resolverFechaItinerario(vueloSesion, ciec.fecha);
     const horaInicio = FormatoValidationService.normalizarHora(ciec.horaInicio);
     const supervisorEmpleadoId = String(ciec.supervisorEmpleadoId ?? '').trim();
     const supervisorNombre = String(ciec.supervisorNombre ?? '').trim();
@@ -956,7 +970,7 @@ class FormatoValidationService {
     const esNuevo = ctx.encabezadoId <= 0;
     const requerirFirmas = options.requerirFirmas !== undefined ? Boolean(options.requerirFirmas) : false;
 
-    const fechaIso = String(mecd.fecha || '').trim().substring(0, 10);
+    const fechaIso = FormatoValidationService._resolverFechaItinerario(vueloSesion, mecd.fecha);
     const ccoEmpleadoId = String(mecd.ccoEmpleadoId ?? mecd.ccoLoginId ?? '').trim();
     const agenteEmpleadoId = String(mecd.agenteEmpleadoId ?? mecd.agenteLoginSecId ?? '').trim();
     const supervisorEmpleadoId = String(mecd.supervisorEmpleadoId ?? mecd.supervisorLoginSecId ?? '').trim();
@@ -1109,7 +1123,7 @@ class FormatoValidationService {
     const po = payload.datos?.poPayload || payload.datos || {};
     const requerirFirma = options.requerirFirma !== undefined ? Boolean(options.requerirFirma) : false;
 
-    const fechaIso = String(po.fecha || '').trim().substring(0, 10);
+    const fechaIso = FormatoValidationService._resolverFechaItinerario(vueloSesion, po.fecha);
     const supervisorLoginId = String(po.supervisorLoginId ?? po.supervisorLoginSecId ?? '').trim();
     const supervisorNombre = String(po.supervisorNombre ?? '').trim();
     const observaciones = String(po.observaciones || '').trim();
@@ -2223,6 +2237,397 @@ class FormatoValidationService {
         firmaInspector,
         firmaSupervisor,
         checks
+      }
+    };
+  }
+
+  /**
+   * 16. Valida "Control de Cargue y Descargue de Aeronave" (ControlCargueYDescargueAeronaveFDX_1 / fdx-ccda - FEDEX)
+   */
+  static validarControlCCDA(payload = {}, user = {}, vueloSesion = null) {
+    const ctx = FormatoValidationService._validarContextoOperacion(payload, user, vueloSesion);
+    if (!ctx.valido) return ctx;
+
+    const c = payload.datos?.ccdaPayload || payload.datos || {};
+    const fecha = String(c.fecha || '').trim().substring(0, 10);
+    const llegada = FormatoValidationService.normalizarHora(c.llegada);
+    const arribo = FormatoValidationService.normalizarHora(c.arribo);
+
+    const operarioEmpleadoIdRaw = c.operarioEmpleadoId !== undefined && c.operarioEmpleadoId !== null
+      ? String(c.operarioEmpleadoId).trim()
+      : '';
+    const operarioNombre = String(c.operarioNombre || '').trim();
+    const operarioEmpresa = String(c.operarioEmpresa || 'LAATS').trim();
+    const acopla = FormatoValidationService.normalizarHora(c.acopla);
+
+    const puertaAbierta = FormatoValidationService.normalizarHora(c.puertaAbierta);
+    const escaleraAcoplada = FormatoValidationService.normalizarHora(c.escaleraAcoplada);
+    const aperturaAeronave = FormatoValidationService.normalizarHora(c.aperturaAeronave);
+    const inicioDescargue = FormatoValidationService.normalizarHora(c.inicioDescargue);
+    const iniciaCargue = FormatoValidationService.normalizarHora(c.iniciaCargue);
+
+    const terminaDescargue = FormatoValidationService.normalizarHora(c.terminaDescargue);
+    const terminaCargue = FormatoValidationService.normalizarHora(c.terminaCargue);
+    const cierreAeronave = FormatoValidationService.normalizarHora(c.cierreAeronave);
+    const desacopla = FormatoValidationService.normalizarHora(c.desacopla);
+    const puertaCerrada = FormatoValidationService.normalizarHora(c.puertaCerrada);
+    const escaleraDesacoplada = FormatoValidationService.normalizarHora(c.escaleraDesacoplada);
+
+    const pushBack = FormatoValidationService.normalizarHora(c.pushBack);
+    const salida = FormatoValidationService.normalizarHora(c.salida);
+    const cantCombustibleRaw = c.cantCombustible !== undefined && c.cantCombustible !== null
+      ? String(c.cantCombustible).trim()
+      : '';
+    const observaciones = String(c.observaciones || '').trim();
+    const supervisor = String(c.supervisor || '').trim();
+    const agenteSeguridad = String(user?.usuario || '').trim();
+
+    const rawRows = Array.isArray(c.personal)
+      ? c.personal
+      : (Array.isArray(c.registros) ? c.registros : []);
+
+    const normalizedRows = rawRows.map((r) => ({
+      DetalleIngresoCCDAId: parseInt(r?.DetalleIngresoCCDAId, 10) || 0,
+      Personal: String(r?.Personal ?? r?.Nombre ?? '').trim(),
+      EmpleadoId: r?.EmpleadoId !== undefined && r?.EmpleadoId !== null ? String(r.EmpleadoId).trim() : String(r?.ID ?? '').trim(),
+      Empresa: String(r?.Empresa || '').trim(),
+      Entrada: FormatoValidationService.normalizarHora(r?.Entrada ?? r?.HoraEntrada1),
+      Salida: FormatoValidationService.normalizarHora(r?.Salida ?? r?.HoraSalida1),
+      SegundaEntrada: FormatoValidationService.normalizarHora(r?.SegundaEntrada ?? r?.HoraEntrada2),
+      SegundaSalida: FormatoValidationService.normalizarHora(r?.SegundaSalida ?? r?.HoraSalida2)
+    }));
+
+    const headerRules = [
+      { field: 'fecha', label: 'Fecha', type: 'date', required: true },
+      { field: 'llegada', label: 'Llegada (ATA)', type: 'time', required: false },
+      { field: 'arribo', label: 'Arribo Aeronave', type: 'time', required: false },
+      { field: 'operarioEmpleadoId', label: 'Operario de Loader o Faja (LAATS)', type: 'integer', required: true, min: 1 },
+      { field: 'operarioNombre', label: 'Nombre Operario de Loader o Faja', type: 'string', required: true, maxLength: 150 },
+      { field: 'operarioEmpresa', label: 'Empresa Operario', type: 'string', required: true, maxLength: 100 },
+      { field: 'acopla', label: 'Hora Acopla Loader', type: 'time', required: true },
+      { field: 'puertaAbierta', label: 'Puerta Abierta', type: 'time', required: false },
+      { field: 'escaleraAcoplada', label: 'Escalera Acoplada', type: 'time', required: false },
+      { field: 'aperturaAeronave', label: 'Apertura Compuerta', type: 'time', required: false },
+      { field: 'inicioDescargue', label: 'Inicia Descarga', type: 'time', required: false },
+      { field: 'iniciaCargue', label: 'Inicia Carga', type: 'time', required: false },
+      { field: 'terminaDescargue', label: 'Termina Descarga', type: 'time', required: false },
+      { field: 'terminaCargue', label: 'Termina Carga', type: 'time', required: false },
+      { field: 'cierreAeronave', label: 'Cierre Compuerta', type: 'time', required: false },
+      { field: 'desacopla', label: 'Desacopla Loader', type: 'time', required: false },
+      { field: 'puertaCerrada', label: 'Puerta Cerrada', type: 'time', required: false },
+      { field: 'escaleraDesacoplada', label: 'Escalera Desacoplada', type: 'time', required: false },
+      { field: 'pushBack', label: 'Push Back', type: 'time', required: false },
+      { field: 'salida', label: 'Salida (ETD)', type: 'time', required: false },
+      { field: 'cantCombustible', label: 'Combustible (Galones)', type: 'integer', required: false, min: 0, max: MAX_SQL_INT },
+      { field: 'observaciones', label: 'Observaciones', type: 'string', required: false, maxLength: 3500 },
+      { field: 'supervisor', label: 'Supervisor LAATS', type: 'string', required: true, maxLength: 150 },
+      { field: 'agenteSeguridad', label: 'Agente de Seguridad LAATS', type: 'string', required: true, maxLength: 150 }
+    ];
+
+    const rowRules = [
+      { field: 'Personal', label: 'Personal', type: 'string', required: true, maxLength: 150 },
+      { field: 'EmpleadoId', label: 'ID# Empleado', type: 'integer', required: true, min: 1, max: MAX_SQL_INT },
+      { field: 'Empresa', label: 'Empresa', type: 'string', required: true, maxLength: 100 },
+      { field: 'Entrada', label: 'Hora 1° Entrada', type: 'time', required: true },
+      { field: 'Salida', label: 'Hora 1° Salida (obligatoria para guardar)', type: 'time', required: true },
+      { field: 'SegundaEntrada', label: 'Hora 2° Entrada', type: 'time', required: false },
+      { field: 'SegundaSalida', label: 'Hora 2° Salida', type: 'time', required: false }
+    ];
+
+    const esq = FormatoValidationService.validarEsquemaFormato({
+      headerData: {
+        fecha,
+        llegada,
+        arribo,
+        operarioEmpleadoId: operarioEmpleadoIdRaw,
+        operarioNombre,
+        operarioEmpresa,
+        acopla,
+        puertaAbierta,
+        escaleraAcoplada,
+        aperturaAeronave,
+        inicioDescargue,
+        iniciaCargue,
+        terminaDescargue,
+        terminaCargue,
+        cierreAeronave,
+        desacopla,
+        puertaCerrada,
+        escaleraDesacoplada,
+        pushBack,
+        salida,
+        cantCombustible: cantCombustibleRaw,
+        observaciones,
+        supervisor,
+        agenteSeguridad
+      },
+      rows: normalizedRows,
+      headerRules,
+      rowRules,
+      minRows: 1,
+      emptyRowsMessage: 'Debe registrar al menos una (1) persona en la cuadrícula de Personal en Aeronave (LAATS) antes de guardar.'
+    });
+
+    if (!esq.valido) return esq;
+
+    const pairErrors = [];
+    normalizedRows.forEach((r, idx) => {
+      const rowNum = idx + 1;
+      if (r.SegundaEntrada && !r.SegundaSalida) {
+        pairErrors.push({
+          scope: 'row',
+          row: rowNum,
+          field: 'SegundaSalida',
+          label: 'Hora 2° Salida',
+          message: `Fila #${rowNum}: Si registró 2° Entrada, debe completar la Hora 2° Salida.`
+        });
+      }
+      if (!r.SegundaEntrada && r.SegundaSalida) {
+        pairErrors.push({
+          scope: 'row',
+          row: rowNum,
+          field: 'SegundaEntrada',
+          label: 'Hora 2° Entrada',
+          message: `Fila #${rowNum}: Si registró 2° Salida, debe completar la Hora 2° Entrada.`
+        });
+      }
+    });
+
+    if (pairErrors.length > 0) {
+      return {
+        valido: false,
+        statusCode: 400,
+        message: pairErrors[0].message,
+        errors: pairErrors
+      };
+    }
+
+    return {
+      valido: true,
+      statusCode: 200,
+      message: 'Validación exitosa.',
+      errors: [],
+      normalized: {
+        encabezadoId: ctx.encabezadoId,
+        itinerarioId: ctx.itinerarioId,
+        fecha,
+        llegada,
+        arribo,
+        operarioEmpleadoId: parseInt(operarioEmpleadoIdRaw, 10),
+        operarioNombre,
+        operarioEmpresa,
+        acopla,
+        puertaAbierta,
+        escaleraAcoplada,
+        aperturaAeronave,
+        inicioDescargue,
+        iniciaCargue,
+        terminaDescargue,
+        terminaCargue,
+        cierreAeronave,
+        desacopla,
+        puertaCerrada,
+        escaleraDesacoplada,
+        pushBack,
+        salida,
+        cantCombustible: cantCombustibleRaw !== '' ? parseInt(cantCombustibleRaw, 10) : null,
+        observaciones,
+        supervisor,
+        agenteSeguridad,
+        personal: normalizedRows.map((r) => ({
+          DetalleIngresoCCDAId: r.DetalleIngresoCCDAId,
+          Personal: r.Personal,
+          EmpleadoId: parseInt(r.EmpleadoId, 10),
+          Empresa: r.Empresa,
+          Entrada: r.Entrada,
+          Salida: r.Salida,
+          SegundaEntrada: r.SegundaEntrada,
+          SegundaSalida: r.SegundaSalida
+        }))
+      }
+    };
+  }
+
+  /**
+   * 17. Valida "Lista de Inspección de Seguridad de la Aeronave" (ControlListaInspeccionSeguridadAJT / ajt-lisa - AMERIJET)
+   */
+  static validarControlLISA(payload = {}, user = {}, vueloSesion = null) {
+    const ctx = FormatoValidationService._validarContextoOperacion(payload, user, vueloSesion);
+    if (!ctx.valido) return ctx;
+
+    const l = payload.datos?.lisaPayload || payload.datos || {};
+    const toBool = (v) => v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'true';
+
+    const fecha = String(l.fecha || '').trim().substring(0, 10);
+    const estacion = (l.estacion !== undefined && l.estacion !== null)
+      ? String(l.estacion).trim().toUpperCase()
+      : 'GUA';
+    const tipoAvion = String(l.tipoAvion || '').trim().toUpperCase();
+    const horaInicio = FormatoValidationService.normalizarHora(l.horaInicio);
+    const horaFin = FormatoValidationService.normalizarHora(l.horaFin);
+    const horaSalida = FormatoValidationService.normalizarHora(l.horaSalida);
+
+    const coordSeguridadTierra = toBool(l.coordSeguridadTierra ?? l.CoordSeguridadTierra);
+    const representanteAutorizado = toBool(l.representanteAutorizado ?? l.RepresentanteAutorizado);
+
+    const nombreInspector = String(user?.usuario || l.nombreInspector || l.NombreEjecutoInspeccion || '').trim();
+    const firmaInspector = String(l.firmaInspector || l.FirmaInspector || '').trim();
+    const observaciones = String(l.observaciones ?? l.Observaciones ?? '').trim();
+
+    const headerRules = [
+      { field: 'fecha', label: 'Fecha de Inspección', type: 'date', required: true },
+      { field: 'estacion', label: 'Estación / Station', type: 'string', required: true, minLength: 2, maxLength: 20 },
+      { field: 'tipoAvion', label: 'Tipo de Avión / Aircraft Type', type: 'string', required: true, minLength: 2, maxLength: 30 },
+      { field: 'horaInicio', label: 'Hora Inicio Inspección', type: 'time', required: true },
+      { field: 'horaFin', label: 'Hora Fin Inspección', type: 'time', required: true },
+      { field: 'horaSalida', label: 'Hora de Salida', type: 'time', required: true },
+      { field: 'nombreInspector', label: 'Nombre de quien ejecutó la inspección', type: 'string', required: true, maxLength: 150 },
+      { field: 'firmaInspector', label: 'Firma de quien ejecutó la inspección', type: 'signature', required: true },
+      { field: 'observaciones', label: 'Observaciones / Remarks', type: 'string', required: false, maxLength: 2500 }
+    ];
+
+    const esq = FormatoValidationService.validarEsquemaFormato({
+      headerData: {
+        fecha,
+        estacion,
+        tipoAvion,
+        horaInicio,
+        horaFin,
+        horaSalida,
+        nombreInspector,
+        firmaInspector,
+        observaciones
+      },
+      rows: [],
+      headerRules,
+      rowRules: [],
+      minRows: 0
+    });
+
+    const combinedErrors = [...(esq.errors || [])];
+    if (!coordSeguridadTierra && !representanteAutorizado) {
+      combinedErrors.push({
+        scope: 'header',
+        field: 'coordSeguridadTierra',
+        label: 'Rol de quien realiza la inspección',
+        message: 'Debe seleccionar Coord. de Seguridad en Tierra y/o Representante Autorizado.'
+      });
+    }
+
+    if (combinedErrors.length > 0) {
+      return {
+        valido: false,
+        statusCode: 400,
+        message: combinedErrors[0].message || esq.message,
+        errors: combinedErrors
+      };
+    }
+
+    const checkKeys = [
+      'AsientosTripChalecos',
+      'CompEquipoEmergencia',
+      'LavatorioParedesInodoro',
+      'AreaEquipajeCoatTrip',
+      'GalleyParedesGabinetes',
+      'CabinaCargaTechoParedPiso',
+      'PuertaIntCabinaCarga',
+      'PuertaExtCabinaMando',
+      'PuertaExtCabinaCarga',
+      'CompCargaDelanteroDer',
+      'CompInfCargaTraseroDer',
+      'CompInfCargaTraseroIzq',
+      'CompTrenAterrizajePrin',
+      'CompTrenAterrizajeDel',
+      'CompMotoresHidraulicoAvionica'
+    ];
+    const rawChecks = (l.checks && typeof l.checks === 'object') ? l.checks : l;
+    const checks = {};
+    checkKeys.forEach((k) => {
+      checks[k] = toBool(rawChecks[k]);
+    });
+
+    const initialsFromName = nombreInspector
+      .split(/\s+/)
+      .filter(Boolean)
+      .map(w => `${w.charAt(0).toUpperCase()}.`)
+      .join('') || 'L.A.';
+
+    const rawSellos = (l.sellos && typeof l.sellos === 'object') ? l.sellos : {};
+    const sellos = {};
+    const sealErrors = [];
+    let noSello = false;
+
+    for (let i = 1; i <= 15; i += 1) {
+      const sObj = rawSellos[i] || rawSellos[String(i)] || {};
+      const activo = toBool(sObj.activo ?? sObj.aplica ?? l[`SelloActivo${i}`]);
+      const numero = String(sObj.numero ?? sObj.sello ?? l[`Sello${i}`] ?? '').trim();
+      const ini = String(sObj.iniciales ?? sObj.ini ?? l[`Ini${i}`] ?? '').trim();
+
+      if (activo && !numero) {
+        sealErrors.push({
+          scope: 'row',
+          row: i,
+          field: `Sello${i}`,
+          label: `# de Sello (Punto ${i})`,
+          message: `Punto #${i}: Activó el candado de sello; ingrese el # de Sello o cierre el candado si no aplica.`
+        });
+      }
+      if (numero.length > 40) {
+        sealErrors.push({
+          scope: 'row',
+          row: i,
+          field: `Sello${i}`,
+          label: `# de Sello (Punto ${i})`,
+          message: `Punto #${i}: El # de Sello excede 40 caracteres.`
+        });
+      }
+
+      if (numero) {
+        noSello = true;
+        sellos[i] = {
+          numero,
+          iniciales: ini || initialsFromName
+        };
+      } else {
+        sellos[i] = {
+          numero: '',
+          iniciales: ''
+        };
+      }
+    }
+
+    if (sealErrors.length > 0) {
+      return {
+        valido: false,
+        statusCode: 400,
+        message: sealErrors[0].message,
+        errors: sealErrors
+      };
+    }
+
+    return {
+      valido: true,
+      statusCode: 200,
+      message: 'Validación exitosa.',
+      errors: [],
+      normalized: {
+        encabezadoId: ctx.encabezadoId,
+        itinerarioId: ctx.itinerarioId,
+        fecha,
+        estacion,
+        tipoAvion,
+        coordSeguridadTierra,
+        representanteAutorizado,
+        noSello,
+        horaInicio,
+        horaFin,
+        horaSalida,
+        observaciones,
+        nombreInspector,
+        inicialesInspector: initialsFromName,
+        firmaInspector,
+        checks,
+        sellos
       }
     };
   }

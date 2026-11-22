@@ -204,10 +204,10 @@
     const maxItemsToShow = 6;
     const listHtml = errors.slice(0, maxItemsToShow).map((err) => {
       const locationBadge = err.row
-        ? `<span style="display:inline-block; background:#FEE2E2; color:#DC2626; font-weight:800; padding:2px 7px; border-radius:4px; margin-right:6px; font-size:11px;">FILA #${escapeHtml(err.row)}</span>`
-        : `<span style="display:inline-block; background:#FEF3C7; color:#B45309; font-weight:800; padding:2px 7px; border-radius:4px; margin-right:6px; font-size:11px;">ENCABEZADO</span>`;
+        ? `<span style="display:inline-block; background:var(--danger-light); color:var(--danger); border:1px solid var(--danger-border); font-weight:800; padding:2px 7px; border-radius:4px; margin-right:6px; font-size:11px;">FILA #${escapeHtml(err.row)}</span>`
+        : `<span style="display:inline-block; background:var(--gold-light); color:var(--gold-text); border:1px solid var(--gold); font-weight:800; padding:2px 7px; border-radius:4px; margin-right:6px; font-size:11px;">ENCABEZADO</span>`;
 
-      return `<li style="margin-bottom:8px; text-align:left; font-size:13px; line-height:1.4; color:#1E293B;">
+      return `<li style="margin-bottom:8px; text-align:left; font-size:13px; line-height:1.4; color:var(--text);">
         ${locationBadge}
         <strong>${escapeHtml(err.label || err.field)}:</strong> ${escapeHtml(err.reason || err.message)}
       </li>`;
@@ -215,7 +215,7 @@
 
     const extraCount = errors.length - maxItemsToShow;
     const extraNotice = extraCount > 0
-      ? `<div style="margin-top:8px; font-size:12px; color:#DC2626; font-weight:700;">+ ${extraCount} campo(s) adicional(es) resaltado(s) en rojo.</div>`
+      ? `<div style="margin-top:8px; font-size:12px; color:var(--danger); font-weight:700;">+ ${extraCount} campo(s) adicional(es) resaltado(s) en rojo.</div>`
       : '';
 
     window.Swal.fire({
@@ -223,10 +223,10 @@
       title: escapeHtml(title),
       html: `
         <div style="text-align:left; margin-top:6px;">
-          <p style="font-size:13px; color:#475569; margin-bottom:12px;">
-            Por favor complete o corrija los siguientes campos obligatorios resaltados en <strong style="color:#DC2626;">rojo</strong> antes de guardar:
+          <p style="font-size:13px; color:var(--text-2); margin-bottom:12px;">
+            Por favor complete o corrija los siguientes campos obligatorios resaltados en <strong style="color:var(--danger);">rojo</strong> antes de guardar:
           </p>
-          <ul style="list-style:none; padding:10px 12px; margin:0; background:#FFF5F5; border:1px solid #FECACA; border-left:4px solid #DC2626; border-radius:6px;">
+          <ul style="list-style:none; padding:10px 12px; margin:0; background:var(--danger-light); border:1px solid var(--danger-border); border-left:4px solid var(--danger); border-radius:6px;">
             ${listHtml}
           </ul>
           ${extraNotice}

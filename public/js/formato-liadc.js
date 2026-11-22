@@ -310,14 +310,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (badgeEl) badgeEl.textContent = `REGISTRO CARGADO #${encabezadoId}`;
       }
 
-      Swal.fire({
+      await Swal.fire({
         icon: 'success',
         title: '¡Guardado Exitoso!',
         text: json.mensaje || 'Lista de Inspección de Aeronave de Carga guardada correctamente.',
-        confirmButtonColor: '#275B88'
-      }).then(() => {
-        window.location.href = '/formatos';
+        timer: 1100,
+        showConfirmButton: false
       });
+      if (json.previewUrl) {
+        window.location.href = json.previewUrl;
+      } else {
+        window.location.href = '/formatos';
+      }
     } catch (err) {
       if (previewWin && !previewWin.closed) previewWin.close();
       if (typeof ocultarPantallaCarga === 'function') ocultarPantallaCarga();

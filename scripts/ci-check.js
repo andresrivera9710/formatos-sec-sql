@@ -163,7 +163,7 @@ function runUnitChecks() {
     process.env = prevEnv;
   }
 
-  // 2. Validar catálogo dinámico para las 5 aerolíneas implementadas
+  // 2. Validar catálogo dinámico para las 7 aerolíneas implementadas
   const OperacionesService = require(path.join(ROOT_DIR, 'services', 'OperacionesService'));
   const expectedCatalog = {
     AEROMEXICO: ['amx-cp', 'amx-ciec', 'amx-er', 'amx-eb', 'amx-cec', 'amx-mecd', 'amx-po'],
@@ -171,7 +171,10 @@ function runUnitChecks() {
     'DELTA AIR LINES': ['dl-cp', 'dl-cll', 'dl-dal', 'dl-sp', 'dl-sel', 'dl-er', 'dl-cec', 'dl-ciec', 'dl-rx'],
     'AIR CANADA': ['ac-cp', 'ac-er', 'ac-eb', 'ac-cec', 'ac-ass', 'ac-anexoa', 'ac-anexob'],
     'LAN CARGO': ['latam-liadc', 'latam-ciec', 'latam-cp'],
-    LATAM: ['latam-liadc', 'latam-ciec', 'latam-cp']
+    LATAM: ['latam-liadc', 'latam-ciec', 'latam-cp'],
+    FEDEX: ['fdx-ccda'],
+    AMERIJET: ['ajt-lisa', 'ajt-cec', 'ajt-ciec'],
+    'AMERIJET INTERNATIONAL': ['ajt-lisa', 'ajt-cec', 'ajt-ciec']
   };
 
   for (const [airline, expectedIds] of Object.entries(expectedCatalog)) {
@@ -267,18 +270,170 @@ function runUnitChecks() {
   );
   assert.strictEqual(invalidCiec.valido, false);
   assert.strictEqual(invalidCiec.statusCode, 400);
-  console.log('  ✔ Validaciones backend Anti-IDOR y reglas estrictas (LIADC / CIEC) verificadas.');
 
-  // 4. Validar presencia de todas las 32 plantillas HTML y renderizado sin tokens @{...} ni XSS
+  const vueloFedex = { itinerarioId: 56114, novuelo: '5504', operador: 'FEDEX', Matricula: 'N123FE', Destino: 'SAP' };
+  const idorCcda = FormatoValidationService.validarControlCCDA(
+    { formatoId: 'fdx-ccda', itinerarioId: 99999, guardar: true, datos: {} },
+    userMock,
+    vueloFedex
+  );
+  assert.strictEqual(idorCcda.valido, false);
+  assert.strictEqual(idorCcda.statusCode, 403);
+
+  const invalidCcda = FormatoValidationService.validarControlCCDA(
+    {
+      formatoId: 'fdx-ccda',
+      itinerarioId: 56114,
+      guardar: true,
+      datos: {
+        ccdaPayload: {
+          fecha: '2026-11-16',
+          operarioEmpleadoId: '',
+          operarioNombre: '',
+          acopla: '',
+          supervisor: '',
+          personal: [{ Personal: 'TEST', EmpleadoId: 213, Empresa: 'LAATS', Entrada: '08:00', Salida: '' }]
+        }
+      }
+    },
+    userMock,
+    vueloFedex
+  );
+  assert.strictEqual(invalidCcda.valido, false);
+  assert.strictEqual(invalidCcda.statusCode, 400);
+  assert(invalidCcda.errors.length >= 4, 'CCDA incompleto debe reportar errores de cabecera y Salida de fila.');
+
+  const validCcda = FormatoValidationService.validarControlCCDA(
+    {
+      formatoId: 'fdx-ccda',
+      itinerarioId: 56114,
+      guardar: true,
+      datos: {
+        ccdaPayload: {
+          fecha: '2026-11-16',
+          operarioEmpleadoId: 213,
+          operarioNombre: 'AARON RODRIGUEZ',
+          operarioEmpresa: 'LAATS',
+          acopla: '08:15',
+          cantCombustible: '120',
+          supervisor: 'JAIME RAMIREZ',
+          personal: [{ Personal: 'AARON RODRIGUEZ', EmpleadoId: 213, Empresa: 'LAATS', Entrada: '08:20', Salida: '09:10' }]
+        }
+      }
+    },
+    userMock,
+    vueloFedex
+  );
+  assert.strictEqual(validCcda.valido, true, `CCDA válido falló: ${validCcda.message}`);
+  assert.strictEqual(validCcda.normalized.cantCombustible, 120);
+  assert.strictEqual(validCcda.normalized.personal.length, 1);
+
+  const vueloAjt = { itinerarioId: 56133, novuelo: '812 / 813', operador: 'AMERIJET', Matricula: 'N375CM' };
+  const idorLisa = FormatoValidationService.validarControlLISA(
+    { formatoId: 'ajt-lisa', itinerarioId: 99999, guardar: true, datos: {} },
+    userMock,
+    vueloAjt
+  );
+  assert.strictEqual(idorLisa.valido, false);
+  assert.strictEqual(idorLisa.statusCode, 403);
+
+  const invalidLisa = FormatoValidationService.validarControlLISA(
+    {
+      formatoId: 'ajt-lisa',
+      itinerarioId: 56133,
+      guardar: true,
+      datos: {
+        lisaPayload: {
+          fecha: '2026-11-16',
+          estacion: '',
+          tipoAvion: '',
+          horaInicio: '',
+          horaFin: '',
+          horaSalida: '',
+          coordSeguridadTierra: false,
+          representanteAutorizado: false,
+          firmaInspector: ''
+        }
+      }
+    },
+    userMock,
+    vueloAjt
+  );
+  assert.strictEqual(invalidLisa.valido, false);
+  assert.strictEqual(invalidLisa.statusCode, 400);
+  assert(invalidLisa.errors.length >= 6, 'LISA incompleto debe reportar errores de cabecera y firma.');
+
+  const invalidLisaSeal = FormatoValidationService.validarControlLISA(
+    {
+      formatoId: 'ajt-lisa',
+      itinerarioId: 56133,
+      guardar: true,
+      datos: {
+        lisaPayload: {
+          fecha: '2026-11-16',
+          estacion: 'GUA',
+          tipoAvion: 'B767',
+          horaInicio: '08:00',
+          horaFin: '08:25',
+          horaSalida: '09:30',
+          coordSeguridadTierra: true,
+          representanteAutorizado: false,
+          firmaInspector: dummySig,
+          sellos: { 7: { activo: true, numero: '' } }
+        }
+      }
+    },
+    userMock,
+    vueloAjt
+  );
+  assert.strictEqual(invalidLisaSeal.valido, false);
+  assert.strictEqual(invalidLisaSeal.statusCode, 400);
+
+  const validLisa = FormatoValidationService.validarControlLISA(
+    {
+      formatoId: 'ajt-lisa',
+      itinerarioId: 56133,
+      guardar: true,
+      datos: {
+        lisaPayload: {
+          fecha: '2026-11-16',
+          estacion: 'gua',
+          tipoAvion: 'b767',
+          horaInicio: '08:00',
+          horaFin: '08:25',
+          horaSalida: '09:30',
+          coordSeguridadTierra: true,
+          representanteAutorizado: false,
+          firmaInspector: dummySig,
+          checks: { AsientosTripChalecos: true, PuertaIntCabinaCarga: true },
+          sellos: { 7: { activo: true, numero: 'SL-9901' } }
+        }
+      }
+    },
+    userMock,
+    vueloAjt
+  );
+  assert.strictEqual(validLisa.valido, true, `LISA válido falló: ${validLisa.message}`);
+  assert.strictEqual(validLisa.normalized.estacion, 'GUA');
+  assert.strictEqual(validLisa.normalized.tipoAvion, 'B767');
+  assert.strictEqual(validLisa.normalized.noSello, true);
+  assert.strictEqual(validLisa.normalized.sellos[7].numero, 'SL-9901');
+  assert.strictEqual(Object.keys(validLisa.normalized.checks).length, 15);
+
+  console.log('  ✔ Validaciones backend Anti-IDOR y reglas estrictas (LIADC / CIEC / CCDA / LISA) verificadas.');
+
+  // 4. Validar presencia de todas las 36 plantillas HTML y renderizado sin tokens @{...} ni XSS
   const HtmlPreviewService = require(path.join(ROOT_DIR, 'services', 'HtmlPreviewService'));
   const allFormatIds = [
     ...expectedCatalog.AEROMEXICO,
     ...expectedCatalog.ARAJET,
     ...expectedCatalog['DELTA AIR LINES'],
     ...expectedCatalog['AIR CANADA'],
-    ...expectedCatalog['LAN CARGO']
+    ...expectedCatalog['LAN CARGO'],
+    ...expectedCatalog.FEDEX,
+    ...expectedCatalog.AMERIJET
   ];
-  assert.strictEqual(allFormatIds.length, 32);
+  assert.strictEqual(allFormatIds.length, 36);
 
   for (const id of allFormatIds) {
     assert.strictEqual(
@@ -381,6 +536,86 @@ function runUnitChecks() {
         vuelo: vueloSesion,
         user: userMock
       })
+    },
+    {
+      formatoId: 'fdx-ccda',
+      varsFn: () => HtmlPreviewService.buildAeromexicoOtherData({
+        formatoId: 'fdx-ccda',
+        formDatos: {
+          ccdaPayload: {
+            fecha: '2026-11-16',
+            operarioNombre: xssProbe,
+            operarioEmpleadoId: 213,
+            operarioEmpresa: 'LAATS',
+            acopla: '08:15',
+            supervisor: 'JAIME RAMIREZ',
+            observaciones: xssProbe,
+            personal: [{ Personal: xssProbe, EmpleadoId: 213, Empresa: 'LAATS', Entrada: '08:20', Salida: '09:10' }]
+          }
+        },
+        vuelo: { novuelo: '5504', Matricula: 'N123FE', Destino: 'SAP' },
+        user: userMock
+      })
+    },
+    {
+      formatoId: 'ajt-lisa',
+      varsFn: () => HtmlPreviewService.buildAeromexicoOtherData({
+        formatoId: 'ajt-lisa',
+        formDatos: {
+          lisaPayload: {
+            fecha: '2026-11-16',
+            estacion: 'GUA',
+            tipoAvion: 'B767',
+            horaInicio: '08:00',
+            horaFin: '08:25',
+            horaSalida: '09:30',
+            coordSeguridadTierra: true,
+            representanteAutorizado: false,
+            observaciones: xssProbe,
+            firmaInspector: dummySig,
+            checks: { AsientosTripChalecos: true, PuertaIntCabinaCarga: true },
+            sellos: { 7: { activo: true, numero: xssProbe, iniciales: 'J.R.' } }
+          }
+        },
+        vuelo: vueloAjt,
+        user: userMock
+      })
+    },
+    {
+      formatoId: 'ajt-cec',
+      varsFn: () => HtmlPreviewService.buildAeromexicoOtherData({
+        formatoId: 'ajt-cec',
+        formDatos: {
+          cecPayload: {
+            fecha: '2026-11-16',
+            horaInicio: '08:00',
+            supervisor: 'JAIME RAMIREZ',
+            agente: 'TEST',
+            compartimientoNo: '1',
+            observaciones: xssProbe,
+            secuencias: [{ Orden: 1, Secuencia: 101, Valor: '101' }]
+          }
+        },
+        vuelo: vueloAjt,
+        user: userMock
+      })
+    },
+    {
+      formatoId: 'ajt-ciec',
+      varsFn: () => HtmlPreviewService.buildAeromexicoOtherData({
+        formatoId: 'ajt-ciec',
+        formDatos: {
+          ciecPayload: {
+            fecha: '2026-11-16',
+            horaInicio: '08:00',
+            observaciones: xssProbe,
+            alerosNombres: [xssProbe],
+            registros: [{ Nombre: xssProbe, NoTIA: '777', Empresa: 'AMERIJET', HoraIngreso: '08:05', Motivo: 'Carga', HoraSalida: '08:20' }]
+          }
+        },
+        vuelo: vueloAjt,
+        user: userMock
+      })
     }
   ];
 
@@ -394,7 +629,7 @@ function runUnitChecks() {
     assert(!/@\{[^}]+\}/.test(rendered), `Tokens @{...} sin resolver en ${target.formatoId}: ${rendered.match(/@\{[^}]+\}/g)}`);
     assert(!rendered.includes(xssProbe), `Posible XSS sin escapar en ${target.formatoId}`);
   }
-  console.log(`  ✔ Verificadas 32 plantillas HTML y renderizado anti-XSS sin tokens residuales en ${previewTargets.length} formatos representativos.`);
+  console.log(`  ✔ Verificadas ${allFormatIds.length} plantillas HTML y renderizado anti-XSS sin tokens residuales en ${previewTargets.length} formatos representativos.`);
 }
 
 function main() {

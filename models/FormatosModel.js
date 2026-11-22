@@ -137,7 +137,10 @@ class FormatosModel {
       'EncabezadoASS', 'DetalleASS', 'ObservacionesASS',
       'EncabezadoAnexoA', 'DetalleAnexoA', 'ObservacionesAnexoA',
       'EncabezadoAnexoB', 'DetalleAnexoB',
-      'EncabezadoLIADC', 'ItinerariosLIADC', 'DetalleLIADC', 'ObservacionesLIADC'
+      'EncabezadoLIADC', 'ItinerariosLIADC', 'DetalleLIADC', 'ObservacionesLIADC',
+      'EncabezadoCCDA', 'ItinerariosCCDA', 'OperarioLoaderCCDA', 'TiemposCCDA',
+      'DetalleIngresoCCDA', 'ObservacionesCCDA', 'SeguridadSupervisorCCDA',
+      'EncabezadoLISA', 'ItinerariosLISA', 'ListadoPreguntasLISA', 'TiemposLISA', 'ObservacionesLISA'
     ];
     if (!allowedTables.includes(tableName)) {
       throw new Error('Tabla no autorizada para operación Soft Delete.');
@@ -145,7 +148,10 @@ class FormatosModel {
 
     const tablesWithoutModificado = new Set([
       'EncabezadoASS', 'DetalleASS', 'ObservacionesASS',
-      'EncabezadoLIADC', 'ItinerariosLIADC', 'DetalleLIADC', 'ObservacionesLIADC'
+      'EncabezadoLIADC', 'ItinerariosLIADC', 'DetalleLIADC', 'ObservacionesLIADC',
+      'EncabezadoCCDA', 'ItinerariosCCDA', 'OperarioLoaderCCDA', 'TiemposCCDA',
+      'DetalleIngresoCCDA', 'ObservacionesCCDA', 'SeguridadSupervisorCCDA',
+      'EncabezadoLISA', 'ItinerariosLISA', 'ListadoPreguntasLISA', 'TiemposLISA', 'ObservacionesLISA'
     ]);
     const setClause = tablesWithoutModificado.has(tableName)
       ? 'SET EstaEliminado = 1'
@@ -597,7 +603,9 @@ class FormatosModel {
       ass: { encTable: 'dbo.EncabezadoASS', itiTable: 'dbo.ItinerariosASS', pk: 'EncabezadoASSId', fk: 'EncabezadoASSId' },
       anexoa: { encTable: 'dbo.EncabezadoAnexoA', itiTable: 'dbo.ItinerariosAnexoA', pk: 'EncabezadoAnexoAId', fk: 'EncabezadoAnexoAId' },
       anexob: { encTable: 'dbo.EncabezadoAnexoB', itiTable: 'dbo.ItinerariosAnexoB', pk: 'EncabezadoAnexoBId', fk: 'EncabezadoAnexoBId' },
-      liadc: { encTable: 'dbo.EncabezadoLIADC', itiTable: 'dbo.ItinerariosLIADC', pk: 'EncabezadoLIADCId', fk: 'EncabezadoLIADCId' }
+      liadc: { encTable: 'dbo.EncabezadoLIADC', itiTable: 'dbo.ItinerariosLIADC', pk: 'EncabezadoLIADCId', fk: 'EncabezadoLIADCId' },
+      ccda: { encTable: 'dbo.EncabezadoCCDA', itiTable: 'dbo.ItinerariosCCDA', pk: 'EncabezadoCCDAId', fk: 'EncabezadoCCDAId' },
+      lisa: { encTable: 'dbo.EncabezadoLISA', itiTable: 'dbo.ItinerariosLISA', pk: 'EncabezadoLISAId', fk: 'EncabezadoLISAId' }
     };
     const cfg = map[family];
     if (!cfg) return null;
@@ -4040,6 +4048,883 @@ class FormatosModel {
           )
           VALUES (
             @EncabezadoLIADCId, @Observaciones, @CreadoPor, GETDATE(), 0
+          )
+        `);
+      }
+
+      await transaction.commit();
+      return { encabezadoId: targetId };
+    } catch (err) {
+      try { await transaction.rollback(); } catch (_) {}
+      throw err;
+    }
+  }
+
+  /**
+   * Auxiliares para separar y serializar observaciones/tiempos complementarios de CCDA (FEDEX)
+   */
+  static _parseCcdaObservaciones(rawText) {
+    const { cleanText, meta } = FormatosModel._splitMetaTag(rawText, 'CCDA_META');
+    const normHHMM = (val) => {
+      const m = String(val || '').trim().match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+      return m ? m[0] : '';
+    };
+
+    let arribo = '';
+    let puertaAbierta = '';
+    let puertaCerrada = '';
+    let escaleraAcoplada = '';
+    let escaleraDesacoplada = '';
+    const freeParts = [];
+
+    if (cleanText) {
+      const segments = cleanText.split('|').map(s => s.trim()).filter(Boolean);
+      for (const seg of segments) {
+        const mArribo = seg.match(/^Arribo\s*=\s*(.+)$/i);
+        if (mArribo) {
+          arribo = normHHMM(mArribo[1]) || arribo;
+          continue;
+        }
+        const mPuerta = seg.match(/^Puerta\s+Abierta\s*\/\s*Cierre\s*=\s*([^\/]+)\/\s*(.+)$/i);
+        if (mPuerta) {
+          puertaAbierta = normHHMM(mPuerta[1]) || puertaAbierta;
+          puertaCerrada = normHHMM(mPuerta[2]) || puertaCerrada;
+          continue;
+        }
+        const mEsc = seg.match(/^Escalera\s+Acople\s*\/\s*Desacople\s*=\s*([^\/]+)\/\s*(.+)$/i);
+        if (mEsc) {
+          escaleraAcoplada = normHHMM(mEsc[1]) || escaleraAcoplada;
+          escaleraDesacoplada = normHHMM(mEsc[2]) || escaleraDesacoplada;
+          continue;
+        }
+        if (seg.toUpperCase() !== 'N/A') {
+          freeParts.push(seg);
+        }
+      }
+    }
+
+    return {
+      arribo: normHHMM(meta.arribo) || arribo,
+      puertaAbierta: normHHMM(meta.puertaAbierta) || puertaAbierta,
+      puertaCerrada: normHHMM(meta.puertaCerrada) || puertaCerrada,
+      escaleraAcoplada: normHHMM(meta.escaleraAcoplada) || escaleraAcoplada,
+      escaleraDesacoplada: normHHMM(meta.escaleraDesacoplada) || escaleraDesacoplada,
+      cleanObservaciones: freeParts.join(' | '),
+      meta: meta && typeof meta === 'object' ? meta : {}
+    };
+  }
+
+  static _serializeCcdaObservaciones({
+    arribo = '',
+    puertaAbierta = '',
+    puertaCerrada = '',
+    escaleraAcoplada = '',
+    escaleraDesacoplada = '',
+    observaciones = '',
+    meta = null
+  }) {
+    const parts = [];
+    if (arribo) parts.push(`Arribo = ${arribo}`);
+    if (puertaAbierta || puertaCerrada) {
+      parts.push(`Puerta Abierta / Cierre = ${puertaAbierta || '--:--'} / ${puertaCerrada || '--:--'}`);
+    }
+    if (escaleraAcoplada || escaleraDesacoplada) {
+      parts.push(`Escalera Acople / Desacople = ${escaleraAcoplada || '--:--'} / ${escaleraDesacoplada || '--:--'}`);
+    }
+    const cleanFree = String(observaciones || '').trim();
+    if (cleanFree) parts.push(cleanFree);
+
+    const humanText = parts.join(' | ');
+    return FormatosModel._joinMetaTag(humanText, meta, 'CCDA_META');
+  }
+
+  /**
+   * 16. Consulta y guarda/actualiza atómicamente "Control de Cargue y Descargue de Aeronave" (fdx-ccda - FEDEX)
+   */
+  static async consultarDetalleCCDA(encabezadoId, itinerarioId) {
+    const encId = parseInt(encabezadoId, 10) || 0;
+    const itiId = parseInt(itinerarioId, 10) || 0;
+    if (!encId && !itiId) return null;
+
+    const spRes = await executeStoredProcedure('dbo.BuscarCCDA', [
+      { name: 'ItinerarioId', type: sql.Int, value: itiId || null },
+      { name: 'EncabezadoCCDAId', type: sql.Int, value: encId || null }
+    ]);
+
+    const statusMsg = String(spRes.recordsets?.[0]?.[0]?.Mensaje || '').toLowerCase();
+    const row = spRes.recordsets?.[1]?.[0] || null;
+    if (!row || !row.EncabezadoCCDAId || statusMsg.includes('no se encontro')) {
+      return null;
+    }
+
+    const parsedObs = FormatosModel._parseCcdaObservaciones(row.Observaciones);
+    const meta = parsedObs.meta || {};
+    const personalMeta = Array.isArray(meta.personalMeta) ? meta.personalMeta : [];
+    const rawDetalles = spRes.recordsets?.[2] || [];
+
+    const detalles = rawDetalles.map((d, idx) => {
+      const mItem = personalMeta[idx] || personalMeta.find(p => Number(p?.EmpleadoId) === Number(d.EmpleadoId)) || {};
+      return {
+        DetalleIngresoCCDAId: parseInt(d.DetalleIngresoCCDAId, 10) || 0,
+        EncabezadoCCDAId: parseInt(d.EncabezadoCCDAId, 10) || row.EncabezadoCCDAId,
+        EmpleadoId: parseInt(d.EmpleadoId, 10) || 0,
+        Personal: String(mItem.Personal || d.NombreEmpleado || (d.EmpleadoId ? `ID #${d.EmpleadoId}` : '')).trim(),
+        Empresa: String(mItem.Empresa || 'LAATS').trim() || 'LAATS',
+        Entrada: d.Entrada,
+        Salida: d.Salida,
+        SegundaEntrada: d.SegundaEntrada,
+        SegundaSalida: d.SegundaSalida
+      };
+    });
+
+    return {
+      encabezado: {
+        ...row,
+        OperarioNombre: String(meta.operarioNombre || row.OperarioNombre || '').trim(),
+        OperarioEmpresa: String(meta.operarioEmpresa || 'LAATS').trim() || 'LAATS',
+        LlegadaMeta: String(meta.llegada || '').trim(),
+        Arribo: parsedObs.arribo,
+        PuertaAbierta: parsedObs.puertaAbierta,
+        PuertaCerrada: parsedObs.puertaCerrada,
+        EscaleraAcoplada: parsedObs.escaleraAcoplada,
+        EscaleraDesacoplada: parsedObs.escaleraDesacoplada,
+        Observaciones: parsedObs.cleanObservaciones,
+        Meta: meta
+      },
+      detalles
+    };
+  }
+
+  static async guardarControlCCDATransaccional({
+    encabezadoId = 0,
+    itinerarioId,
+    loginId,
+    fechaIso,
+    pushBack = '',
+    salida = '',
+    cantCombustible = null,
+    operarioEmpleadoId,
+    acopla,
+    desacopla = '',
+    aperturaAeronave = '',
+    cierreAeronave = '',
+    inicioDescargue = '',
+    terminaDescargue = '',
+    iniciaCargue = '',
+    terminaCargue = '',
+    arribo = '',
+    puertaAbierta = '',
+    puertaCerrada = '',
+    escaleraAcoplada = '',
+    escaleraDesacoplada = '',
+    observaciones = '',
+    agenteSeguridad = '',
+    supervisor = '',
+    personal = [],
+    meta = null,
+    usuarioAuditoria
+  }) {
+    const pool = await getConnection();
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    const toTimeSql = (hhmm) => {
+      const s = String(hhmm || '').trim();
+      return s ? `${s.substring(0, 5)}:00` : null;
+    };
+
+    try {
+      let targetId = parseInt(encabezadoId, 10) || 0;
+      const itiIdNum = parseInt(itinerarioId, 10);
+      const loginIdNum = parseInt(loginId, 10) || 1;
+      const operarioIdNum = parseInt(operarioEmpleadoId, 10);
+      const fechaDate = new Date(`${fechaIso}T00:00:00.000Z`);
+      const combustibleVal = (cantCombustible !== null && cantCombustible !== undefined && cantCombustible !== '')
+        ? parseInt(cantCombustible, 10)
+        : null;
+
+      const obsSerialized = FormatosModel._serializeCcdaObservaciones({
+        arribo,
+        puertaAbierta,
+        puertaCerrada,
+        escaleraAcoplada,
+        escaleraDesacoplada,
+        observaciones,
+        meta
+      });
+
+      if (targetId > 0) {
+        // Validación Anti-IDOR dentro de la transacción
+        const reqCheck = new sql.Request(transaction);
+        reqCheck.input('EncabezadoCCDAId', sql.Int, targetId);
+        reqCheck.input('ItinerarioId', sql.Int, itiIdNum);
+        const checkRes = await reqCheck.query(`
+          SELECT TOP 1 E.EncabezadoCCDAId
+          FROM dbo.EncabezadoCCDA E
+          INNER JOIN dbo.ItinerariosCCDA I ON E.EncabezadoCCDAId = I.EncabezadoCCDAId
+          WHERE E.EncabezadoCCDAId = @EncabezadoCCDAId
+            AND I.ItinerarioId = @ItinerarioId
+            AND ISNULL(E.EstaEliminado, 0) = 0
+            AND ISNULL(I.EstaEliminado, 0) = 0
+        `);
+        if (!checkRes.recordset || checkRes.recordset.length === 0) {
+          const idorErr = new Error(`Acceso denegado (Anti-IDOR): El EncabezadoCCDAId #${targetId} no pertenece a la operación activa.`);
+          idorErr.statusCode = 403;
+          throw idorErr;
+        }
+
+        const reqUpd = new sql.Request(transaction);
+        reqUpd.input('EncabezadoCCDAId', sql.Int, targetId);
+        reqUpd.input('LoginId', sql.Int, loginIdNum);
+        reqUpd.input('Fecha', sql.Date, fechaDate);
+        reqUpd.input('PushBack', sql.VarChar(8), toTimeSql(pushBack));
+        reqUpd.input('Salida', sql.VarChar(8), toTimeSql(salida));
+        reqUpd.input('CantCombustible', sql.Int, Number.isInteger(combustibleVal) ? combustibleVal : null);
+        await reqUpd.query(`
+          UPDATE dbo.EncabezadoCCDA
+          SET LoginId = @LoginId,
+              Fecha = @Fecha,
+              PushBack = TRY_CAST(@PushBack AS TIME(0)),
+              Salida = TRY_CAST(@Salida AS TIME(0)),
+              CantCombustible = @CantCombustible
+          WHERE EncabezadoCCDAId = @EncabezadoCCDAId
+            AND ISNULL(EstaEliminado, 0) = 0
+        `);
+      } else {
+        const reqIns = new sql.Request(transaction);
+        reqIns.input('LoginId', sql.Int, loginIdNum);
+        reqIns.input('Fecha', sql.Date, fechaDate);
+        reqIns.input('PushBack', sql.VarChar(8), toTimeSql(pushBack));
+        reqIns.input('Salida', sql.VarChar(8), toTimeSql(salida));
+        reqIns.input('CantCombustible', sql.Int, Number.isInteger(combustibleVal) ? combustibleVal : null);
+        reqIns.input('CreadoPor', sql.NVarChar(sql.MAX), usuarioAuditoria);
+        const insRes = await reqIns.query(`
+          INSERT INTO dbo.EncabezadoCCDA (
+            LoginId, Fecha, PushBack, Salida, CantCombustible,
+            CreadoPor, Creado, EstaEliminado
+          )
+          OUTPUT INSERTED.EncabezadoCCDAId
+          VALUES (
+            @LoginId, @Fecha,
+            TRY_CAST(@PushBack AS TIME(0)),
+            TRY_CAST(@Salida AS TIME(0)),
+            @CantCombustible,
+            @CreadoPor, GETDATE(), 0
+          )
+        `);
+        targetId = parseInt(insRes.recordset?.[0]?.EncabezadoCCDAId, 10) || 0;
+        if (!targetId) throw new Error('No se pudo generar EncabezadoCCDAId en SIO.');
+
+        const reqIti = new sql.Request(transaction);
+        reqIti.input('ItinerarioId', sql.Int, itiIdNum);
+        reqIti.input('EncabezadoCCDAId', sql.Int, targetId);
+        await reqIti.query(`
+          INSERT INTO dbo.ItinerariosCCDA (ItinerarioId, EncabezadoCCDAId, EstaEliminado)
+          VALUES (@ItinerarioId, @EncabezadoCCDAId, 0)
+        `);
+      }
+
+      // 2. OperarioLoaderCCDA
+      const reqOpCheck = new sql.Request(transaction);
+      reqOpCheck.input('EncabezadoCCDAId', sql.Int, targetId);
+      const opExists = await reqOpCheck.query(`
+        SELECT TOP 1 OperarioLoaderCCDAId
+        FROM dbo.OperarioLoaderCCDA
+        WHERE EncabezadoCCDAId = @EncabezadoCCDAId
+          AND ISNULL(EstaEliminado, 0) = 0
+      `);
+
+      const reqOp = new sql.Request(transaction);
+      reqOp.input('EncabezadoCCDAId', sql.Int, targetId);
+      reqOp.input('EmpleadoId', sql.Int, operarioIdNum);
+      reqOp.input('Acopla', sql.VarChar(8), toTimeSql(acopla));
+      reqOp.input('Desacopla', sql.VarChar(8), toTimeSql(desacopla));
+      reqOp.input('CreadoPor', sql.NVarChar(sql.MAX), usuarioAuditoria);
+
+      if (opExists.recordset && opExists.recordset.length > 0) {
+        await reqOp.query(`
+          UPDATE dbo.OperarioLoaderCCDA
+          SET EmpleadoId = @EmpleadoId,
+              Acopla = TRY_CAST(@Acopla AS TIME(0)),
+              Desacopla = TRY_CAST(@Desacopla AS TIME(0))
+          WHERE EncabezadoCCDAId = @EncabezadoCCDAId
+            AND ISNULL(EstaEliminado, 0) = 0
+        `);
+      } else {
+        await reqOp.query(`
+          INSERT INTO dbo.OperarioLoaderCCDA (
+            EncabezadoCCDAId, EmpleadoId, Acopla, Desacopla,
+            CreadoPor, Creado, EstaEliminado
+          )
+          VALUES (
+            @EncabezadoCCDAId, @EmpleadoId,
+            TRY_CAST(@Acopla AS TIME(0)),
+            TRY_CAST(@Desacopla AS TIME(0)),
+            @CreadoPor, GETDATE(), 0
+          )
+        `);
+      }
+
+      // 3. TiemposCCDA
+      const reqTCheck = new sql.Request(transaction);
+      reqTCheck.input('EncabezadoCCDAId', sql.Int, targetId);
+      const tExists = await reqTCheck.query(`
+        SELECT TOP 1 TiemposCCDAId
+        FROM dbo.TiemposCCDA
+        WHERE EncabezadoCCDAId = @EncabezadoCCDAId
+          AND ISNULL(EstaEliminado, 0) = 0
+      `);
+
+      const reqT = new sql.Request(transaction);
+      reqT.input('EncabezadoCCDAId', sql.Int, targetId);
+      reqT.input('AperturaAeronave', sql.VarChar(8), toTimeSql(aperturaAeronave));
+      reqT.input('CierreAeronave', sql.VarChar(8), toTimeSql(cierreAeronave));
+      reqT.input('InicioDescargue', sql.VarChar(8), toTimeSql(inicioDescargue));
+      reqT.input('TerminaDescargue', sql.VarChar(8), toTimeSql(terminaDescargue));
+      reqT.input('IniciaCargue', sql.VarChar(8), toTimeSql(iniciaCargue));
+      reqT.input('TerminaCargue', sql.VarChar(8), toTimeSql(terminaCargue));
+      reqT.input('CreadoPor', sql.NVarChar(sql.MAX), usuarioAuditoria);
+
+      if (tExists.recordset && tExists.recordset.length > 0) {
+        await reqT.query(`
+          UPDATE dbo.TiemposCCDA
+          SET AperturaAeronave = TRY_CAST(@AperturaAeronave AS TIME(0)),
+              CierreAeronave = TRY_CAST(@CierreAeronave AS TIME(0)),
+              InicioDescargue = TRY_CAST(@InicioDescargue AS TIME(0)),
+              TerminaDescargue = TRY_CAST(@TerminaDescargue AS TIME(0)),
+              IniciaCargue = TRY_CAST(@IniciaCargue AS TIME(0)),
+              TerminaCargue = TRY_CAST(@TerminaCargue AS TIME(0))
+          WHERE EncabezadoCCDAId = @EncabezadoCCDAId
+            AND ISNULL(EstaEliminado, 0) = 0
+        `);
+      } else {
+        await reqT.query(`
+          INSERT INTO dbo.TiemposCCDA (
+            EncabezadoCCDAId, AperturaAeronave, CierreAeronave,
+            InicioDescargue, TerminaDescargue, IniciaCargue, TerminaCargue,
+            CreadoPor, Creado, EstaEliminado
+          )
+          VALUES (
+            @EncabezadoCCDAId,
+            TRY_CAST(@AperturaAeronave AS TIME(0)),
+            TRY_CAST(@CierreAeronave AS TIME(0)),
+            TRY_CAST(@InicioDescargue AS TIME(0)),
+            TRY_CAST(@TerminaDescargue AS TIME(0)),
+            TRY_CAST(@IniciaCargue AS TIME(0)),
+            TRY_CAST(@TerminaCargue AS TIME(0)),
+            @CreadoPor, GETDATE(), 0
+          )
+        `);
+      }
+
+      // 4. DetalleIngresoCCDA (Soft Delete de filas eliminadas + Update/Insert de filas activas)
+      const reqDetExist = new sql.Request(transaction);
+      reqDetExist.input('EncabezadoCCDAId', sql.Int, targetId);
+      const detExistRes = await reqDetExist.query(`
+        SELECT DetalleIngresoCCDAId
+        FROM dbo.DetalleIngresoCCDA
+        WHERE EncabezadoCCDAId = @EncabezadoCCDAId
+          AND ISNULL(EstaEliminado, 0) = 0
+      `);
+      const incomingIds = new Set(
+        personal.map(r => parseInt(r.DetalleIngresoCCDAId, 10)).filter(id => id > 0)
+      );
+
+      for (const dbRow of detExistRes.recordset || []) {
+        const dbId = parseInt(dbRow.DetalleIngresoCCDAId, 10);
+        if (!incomingIds.has(dbId)) {
+          const reqSoftDel = new sql.Request(transaction);
+          reqSoftDel.input('DetalleIngresoCCDAId', sql.Int, dbId);
+          reqSoftDel.input('EncabezadoCCDAId', sql.Int, targetId);
+          await reqSoftDel.query(`
+            UPDATE dbo.DetalleIngresoCCDA
+            SET EstaEliminado = 1
+            WHERE DetalleIngresoCCDAId = @DetalleIngresoCCDAId
+              AND EncabezadoCCDAId = @EncabezadoCCDAId
+          `);
+        }
+      }
+
+      for (const p of personal) {
+        const detId = parseInt(p.DetalleIngresoCCDAId, 10) || 0;
+        const reqRow = new sql.Request(transaction);
+        reqRow.input('EncabezadoCCDAId', sql.Int, targetId);
+        reqRow.input('EmpleadoId', sql.Int, parseInt(p.EmpleadoId, 10));
+        reqRow.input('Entrada', sql.VarChar(8), toTimeSql(p.Entrada));
+        reqRow.input('Salida', sql.VarChar(8), toTimeSql(p.Salida));
+        reqRow.input('SegundaEntrada', sql.VarChar(8), toTimeSql(p.SegundaEntrada));
+        reqRow.input('SegundaSalida', sql.VarChar(8), toTimeSql(p.SegundaSalida));
+        reqRow.input('CreadoPor', sql.NVarChar(sql.MAX), usuarioAuditoria);
+
+        if (detId > 0) {
+          reqRow.input('DetalleIngresoCCDAId', sql.Int, detId);
+          await reqRow.query(`
+            UPDATE dbo.DetalleIngresoCCDA
+            SET EmpleadoId = @EmpleadoId,
+                Entrada = TRY_CAST(@Entrada AS TIME(0)),
+                Salida = TRY_CAST(@Salida AS TIME(0)),
+                SegundaEntrada = TRY_CAST(@SegundaEntrada AS TIME(0)),
+                SegundaSalida = TRY_CAST(@SegundaSalida AS TIME(0))
+            WHERE DetalleIngresoCCDAId = @DetalleIngresoCCDAId
+              AND EncabezadoCCDAId = @EncabezadoCCDAId
+              AND ISNULL(EstaEliminado, 0) = 0
+          `);
+        } else {
+          await reqRow.query(`
+            INSERT INTO dbo.DetalleIngresoCCDA (
+              EncabezadoCCDAId, EmpleadoId, Entrada, Salida,
+              SegundaEntrada, SegundaSalida, CreadoPor, Creado, EstaEliminado
+            )
+            VALUES (
+              @EncabezadoCCDAId, @EmpleadoId,
+              TRY_CAST(@Entrada AS TIME(0)),
+              TRY_CAST(@Salida AS TIME(0)),
+              TRY_CAST(@SegundaEntrada AS TIME(0)),
+              TRY_CAST(@SegundaSalida AS TIME(0)),
+              @CreadoPor, GETDATE(), 0
+            )
+          `);
+        }
+      }
+
+      // 5. ObservacionesCCDA
+      const reqObsCheck = new sql.Request(transaction);
+      reqObsCheck.input('EncabezadoCCDAId', sql.Int, targetId);
+      const obsExists = await reqObsCheck.query(`
+        SELECT TOP 1 ObservacionesCCDAId
+        FROM dbo.ObservacionesCCDA
+        WHERE EncabezadoCCDAId = @EncabezadoCCDAId
+          AND ISNULL(EstaEliminado, 0) = 0
+      `);
+
+      if (obsExists.recordset && obsExists.recordset.length > 0) {
+        if (obsSerialized) {
+          const reqObsUpd = new sql.Request(transaction);
+          reqObsUpd.input('EncabezadoCCDAId', sql.Int, targetId);
+          reqObsUpd.input('Observaciones', sql.NVarChar(sql.MAX), obsSerialized);
+          await reqObsUpd.query(`
+            UPDATE dbo.ObservacionesCCDA
+            SET Observaciones = @Observaciones
+            WHERE EncabezadoCCDAId = @EncabezadoCCDAId
+              AND ISNULL(EstaEliminado, 0) = 0
+          `);
+        } else {
+          const reqObsSoftDel = new sql.Request(transaction);
+          reqObsSoftDel.input('EncabezadoCCDAId', sql.Int, targetId);
+          await reqObsSoftDel.query(`
+            UPDATE dbo.ObservacionesCCDA
+            SET EstaEliminado = 1
+            WHERE EncabezadoCCDAId = @EncabezadoCCDAId
+              AND ISNULL(EstaEliminado, 0) = 0
+          `);
+        }
+      } else if (obsSerialized) {
+        const reqObsIns = new sql.Request(transaction);
+        reqObsIns.input('EncabezadoCCDAId', sql.Int, targetId);
+        reqObsIns.input('Observaciones', sql.NVarChar(sql.MAX), obsSerialized);
+        reqObsIns.input('CreadoPor', sql.NVarChar(sql.MAX), usuarioAuditoria);
+        await reqObsIns.query(`
+          INSERT INTO dbo.ObservacionesCCDA (
+            EncabezadoCCDAId, Observaciones, CreadoPor, Creado, EstaEliminado
+          )
+          VALUES (
+            @EncabezadoCCDAId, @Observaciones, @CreadoPor, GETDATE(), 0
+          )
+        `);
+      }
+
+      // 6. SeguridadSupervisorCCDA
+      const agenteStr = String(agenteSeguridad || usuarioAuditoria || '').trim() || null;
+      const supervisorStr = String(supervisor || '').trim() || null;
+      const reqSsCheck = new sql.Request(transaction);
+      reqSsCheck.input('EncabezadoCCDAId', sql.Int, targetId);
+      const ssExists = await reqSsCheck.query(`
+        SELECT TOP 1 SeguridadSupervisorCCDAId
+        FROM dbo.SeguridadSupervisorCCDA
+        WHERE EncabezadoCCDAId = @EncabezadoCCDAId
+          AND ISNULL(EstaEliminado, 0) = 0
+      `);
+
+      if (ssExists.recordset && ssExists.recordset.length > 0) {
+        const reqSsUpd = new sql.Request(transaction);
+        reqSsUpd.input('EncabezadoCCDAId', sql.Int, targetId);
+        reqSsUpd.input('AgenteSeguridad', sql.NVarChar(sql.MAX), agenteStr);
+        reqSsUpd.input('Supervisor', sql.NVarChar(sql.MAX), supervisorStr);
+        await reqSsUpd.query(`
+          UPDATE dbo.SeguridadSupervisorCCDA
+          SET AgenteSeguridad = @AgenteSeguridad,
+              Supervisor = @Supervisor
+          WHERE EncabezadoCCDAId = @EncabezadoCCDAId
+            AND ISNULL(EstaEliminado, 0) = 0
+        `);
+      } else if (agenteStr || supervisorStr) {
+        const reqSsIns = new sql.Request(transaction);
+        reqSsIns.input('EncabezadoCCDAId', sql.Int, targetId);
+        reqSsIns.input('AgenteSeguridad', sql.NVarChar(sql.MAX), agenteStr);
+        reqSsIns.input('Supervisor', sql.NVarChar(sql.MAX), supervisorStr);
+        reqSsIns.input('CreadoPor', sql.NVarChar(sql.MAX), usuarioAuditoria);
+        await reqSsIns.query(`
+          INSERT INTO dbo.SeguridadSupervisorCCDA (
+            EncabezadoCCDAId, AgenteSeguridad, Supervisor, CreadoPor, Creado, EstaEliminado
+          )
+          VALUES (
+            @EncabezadoCCDAId, @AgenteSeguridad, @Supervisor, @CreadoPor, GETDATE(), 0
+          )
+        `);
+      }
+
+      await transaction.commit();
+      return { encabezadoId: targetId };
+    } catch (err) {
+      try { await transaction.rollback(); } catch (_) {}
+      throw err;
+    }
+  }
+
+  static _parseLisaObservaciones(rawObs) {
+    const { cleanText, meta } = FormatosModel._splitMetaTag(rawObs, 'LISA_META');
+    const parsedSellos = {};
+    let cleanObservaciones = cleanText;
+
+    const m = cleanText.match(/^Sellos:\s*([\s\S]*?)(?:\s*\|\s*([\s\S]*))?$/i);
+    if (m) {
+      const sealsPart = m[1] || '';
+      cleanObservaciones = String(m[2] || '').trim();
+      for (const sm of sealsPart.matchAll(/P(\d+)\s*:\s*#([^()\s,]+)\s*(?:\(([^)]*)\))?/gi)) {
+        const idx = parseInt(sm[1], 10);
+        if (idx >= 1 && idx <= 15) {
+          parsedSellos[idx] = {
+            numero: String(sm[2] || '').trim(),
+            iniciales: String(sm[3] || '').trim()
+          };
+        }
+      }
+    }
+
+    return {
+      estacion: String(meta.estacion || '').trim(),
+      tipoAvion: String(meta.tipoAvion || '').trim(),
+      sellos: parsedSellos,
+      cleanObservaciones,
+      meta
+    };
+  }
+
+  static _serializeLisaObservaciones({ estacion, tipoAvion, observaciones, sellos }) {
+    const tokens = [];
+    if (sellos && typeof sellos === 'object') {
+      for (let i = 1; i <= 15; i += 1) {
+        const item = sellos[i] || sellos[String(i)];
+        if (item && String(item.numero || '').trim()) {
+          const num = String(item.numero).trim();
+          const ini = String(item.iniciales || '').trim();
+          tokens.push(ini ? `P${i}: #${num} (${ini})` : `P${i}: #${num}`);
+        }
+      }
+    }
+
+    const obsClean = String(observaciones || '').trim();
+    const humanText = tokens.length > 0
+      ? (obsClean ? `Sellos: ${tokens.join(', ')} | ${obsClean}` : `Sellos: ${tokens.join(', ')}`)
+      : obsClean;
+
+    const meta = {};
+    if (estacion && String(estacion).trim() && String(estacion).trim().toUpperCase() !== 'GUA') {
+      meta.estacion = String(estacion).trim().toUpperCase();
+    }
+    if (tipoAvion && String(tipoAvion).trim()) {
+      meta.tipoAvion = String(tipoAvion).trim().toUpperCase();
+    }
+
+    return FormatosModel._joinMetaTag(humanText, meta, 'LISA_META');
+  }
+
+  /**
+   * 17. Consulta y guarda/actualiza atómicamente "Lista de Inspección de Seguridad de la Aeronave" (ajt-lisa - AMERIJET)
+   */
+  static async consultarDetalleLISA(encabezadoId, itinerarioId) {
+    const encId = parseInt(encabezadoId, 10) || 0;
+    const itiId = parseInt(itinerarioId, 10) || 0;
+    if (!encId && !itiId) return null;
+
+    const spRes = await executeStoredProcedure('dbo.BuscarLISA', [
+      { name: 'ItinerarioId', type: sql.Int, value: itiId || null },
+      { name: 'EncabezadoLISAId', type: sql.Int, value: encId || null }
+    ]);
+
+    const statusMsg = String(spRes.recordsets?.[0]?.[0]?.Mensaje || '').toLowerCase();
+    const row = spRes.recordsets?.[1]?.[0] || null;
+    if (!row || !row.EncabezadoLISAId || statusMsg.includes('no se encontro')) {
+      return null;
+    }
+
+    const parsedObs = FormatosModel._parseLisaObservaciones(row.Observaciones);
+    const tipoAeronaveDb = row.TipoAeronave && String(row.TipoAeronave).trim().toUpperCase() !== 'NA'
+      ? String(row.TipoAeronave).trim()
+      : '';
+
+    return {
+      ...row,
+      Estacion: parsedObs.estacion || 'GUA',
+      TipoAvion: parsedObs.tipoAvion || tipoAeronaveDb || 'B767',
+      SellosParsed: parsedObs.sellos,
+      Observaciones: parsedObs.cleanObservaciones,
+      Meta: parsedObs.meta
+    };
+  }
+
+  static async guardarControlLISATransaccional({
+    encabezadoId = 0,
+    itinerarioId,
+    loginId,
+    fechaIso,
+    estacion = 'GUA',
+    tipoAvion = 'B767',
+    coordSeguridadTierra = false,
+    representanteAutorizado = false,
+    noSello = false,
+    nombreEjecutoInspeccion,
+    horaInicio,
+    horaFin,
+    horaSalida,
+    observaciones = '',
+    sellos = {},
+    checks = {},
+    usuarioAuditoria
+  }) {
+    const pool = await getConnection();
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    const toTimeSql = (hhmm) => {
+      const s = String(hhmm || '').trim();
+      return s ? `${s.substring(0, 5)}:00` : null;
+    };
+
+    try {
+      let targetId = parseInt(encabezadoId, 10) || 0;
+      const itiIdNum = parseInt(itinerarioId, 10);
+      const loginIdNum = parseInt(loginId, 10) || 1;
+      const fechaDate = new Date(`${fechaIso}T00:00:00.000Z`);
+      const obsSerialized = FormatosModel._serializeLisaObservaciones({
+        estacion,
+        tipoAvion,
+        observaciones,
+        sellos
+      });
+
+      if (targetId > 0) {
+        // Validación Anti-IDOR dentro de la transacción
+        const reqCheck = new sql.Request(transaction);
+        reqCheck.input('EncabezadoLISAId', sql.Int, targetId);
+        reqCheck.input('ItinerarioId', sql.Int, itiIdNum);
+        const checkRes = await reqCheck.query(`
+          SELECT TOP 1 E.EncabezadoLISAId
+          FROM dbo.EncabezadoLISA E
+          INNER JOIN dbo.ItinerariosLISA I ON E.EncabezadoLISAId = I.EncabezadoLISAId
+          WHERE E.EncabezadoLISAId = @EncabezadoLISAId
+            AND I.ItinerarioId = @ItinerarioId
+            AND ISNULL(E.EstaEliminado, 0) = 0
+            AND ISNULL(I.EstaEliminado, 0) = 0
+        `);
+        if (!checkRes.recordset || checkRes.recordset.length === 0) {
+          const idorErr = new Error(`Acceso denegado (Anti-IDOR): El EncabezadoLISAId #${targetId} no pertenece a la operación activa.`);
+          idorErr.statusCode = 403;
+          throw idorErr;
+        }
+
+        const reqUpd = new sql.Request(transaction);
+        reqUpd.input('EncabezadoLISAId', sql.Int, targetId);
+        reqUpd.input('LoginId', sql.Int, loginIdNum);
+        reqUpd.input('CoordSeguridadTierra', sql.Bit, coordSeguridadTierra ? 1 : 0);
+        reqUpd.input('RepresentanteAutorizado', sql.Bit, representanteAutorizado ? 1 : 0);
+        reqUpd.input('NoSello', sql.Bit, noSello ? 1 : 0);
+        reqUpd.input('Fecha', sql.DateTime, fechaDate);
+        reqUpd.input('NombreEjecutoInspeccion', sql.NVarChar(sql.MAX), nombreEjecutoInspeccion);
+        await reqUpd.query(`
+          UPDATE dbo.EncabezadoLISA
+          SET LoginId = @LoginId,
+              CoordSeguridadTierra = @CoordSeguridadTierra,
+              RepresentanteAutorizado = @RepresentanteAutorizado,
+              NoSello = @NoSello,
+              Fecha = @Fecha,
+              NombreEjecutoInspeccion = @NombreEjecutoInspeccion
+          WHERE EncabezadoLISAId = @EncabezadoLISAId
+            AND ISNULL(EstaEliminado, 0) = 0
+        `);
+      } else {
+        const reqIns = new sql.Request(transaction);
+        reqIns.input('LoginId', sql.Int, loginIdNum);
+        reqIns.input('CoordSeguridadTierra', sql.Bit, coordSeguridadTierra ? 1 : 0);
+        reqIns.input('RepresentanteAutorizado', sql.Bit, representanteAutorizado ? 1 : 0);
+        reqIns.input('NoSello', sql.Bit, noSello ? 1 : 0);
+        reqIns.input('Fecha', sql.DateTime, fechaDate);
+        reqIns.input('NombreEjecutoInspeccion', sql.NVarChar(sql.MAX), nombreEjecutoInspeccion);
+        reqIns.input('CreadoPor', sql.NVarChar(sql.MAX), usuarioAuditoria);
+        const insRes = await reqIns.query(`
+          INSERT INTO dbo.EncabezadoLISA (
+            LoginId, CoordSeguridadTierra, RepresentanteAutorizado, NoSello,
+            Fecha, NombreEjecutoInspeccion, CreadoPor, Creado, EstaEliminado
+          )
+          OUTPUT INSERTED.EncabezadoLISAId AS EncabezadoLISAId
+          VALUES (
+            @LoginId, @CoordSeguridadTierra, @RepresentanteAutorizado, @NoSello,
+            @Fecha, @NombreEjecutoInspeccion, @CreadoPor, GETDATE(), 0
+          )
+        `);
+        targetId = parseInt(insRes.recordset?.[0]?.EncabezadoLISAId, 10) || 0;
+        if (!targetId) {
+          throw new Error('No fue posible obtener EncabezadoLISAId generado.');
+        }
+
+        const reqLink = new sql.Request(transaction);
+        reqLink.input('ItinerarioId', sql.Int, itiIdNum);
+        reqLink.input('EncabezadoLISAId', sql.Int, targetId);
+        await reqLink.query(`
+          INSERT INTO dbo.ItinerariosLISA (ItinerarioId, EncabezadoLISAId, EstaEliminado)
+          VALUES (@ItinerarioId, @EncabezadoLISAId, 0)
+        `);
+      }
+
+      // 2. ListadoPreguntasLISA (15 preguntas BIT)
+      const bitFields = [
+        'AsientosTripChalecos',
+        'CompEquipoEmergencia',
+        'LavatorioParedesInodoro',
+        'AreaEquipajeCoatTrip',
+        'GalleyParedesGabinetes',
+        'CabinaCargaTechoParedPiso',
+        'PuertaIntCabinaCarga',
+        'PuertaExtCabinaMando',
+        'PuertaExtCabinaCarga',
+        'CompCargaDelanteroDer',
+        'CompInfCargaTraseroDer',
+        'CompInfCargaTraseroIzq',
+        'CompTrenAterrizajePrin',
+        'CompTrenAterrizajeDel',
+        'CompMotoresHidraulicoAvionica'
+      ];
+
+      const reqPregCheck = new sql.Request(transaction);
+      reqPregCheck.input('EncabezadoLISAId', sql.Int, targetId);
+      const pregExists = await reqPregCheck.query(`
+        SELECT TOP 1 ListadoPreguntasLISAId
+        FROM dbo.ListadoPreguntasLISA
+        WHERE EncabezadoLISAId = @EncabezadoLISAId
+          AND ISNULL(EstaEliminado, 0) = 0
+      `);
+
+      const reqPreg = new sql.Request(transaction);
+      reqPreg.input('EncabezadoLISAId', sql.Int, targetId);
+      bitFields.forEach((f) => {
+        reqPreg.input(f, sql.Bit, checks[f] ? 1 : 0);
+      });
+      reqPreg.input('CreadoPor', sql.NVarChar(sql.MAX), usuarioAuditoria);
+
+      if (pregExists.recordset && pregExists.recordset.length > 0) {
+        const setSql = bitFields.map(f => `${f} = @${f}`).join(', ');
+        await reqPreg.query(`
+          UPDATE dbo.ListadoPreguntasLISA
+          SET ${setSql}
+          WHERE EncabezadoLISAId = @EncabezadoLISAId
+            AND ISNULL(EstaEliminado, 0) = 0
+        `);
+      } else {
+        const colList = bitFields.join(', ');
+        const valList = bitFields.map(f => `@${f}`).join(', ');
+        await reqPreg.query(`
+          INSERT INTO dbo.ListadoPreguntasLISA (
+            EncabezadoLISAId, ${colList}, CreadoPor, Creado, EstaEliminado
+          )
+          VALUES (
+            @EncabezadoLISAId, ${valList}, @CreadoPor, GETDATE(), 0
+          )
+        `);
+      }
+
+      // 3. TiemposLISA
+      const reqTimeCheck = new sql.Request(transaction);
+      reqTimeCheck.input('EncabezadoLISAId', sql.Int, targetId);
+      const timeExists = await reqTimeCheck.query(`
+        SELECT TOP 1 TiemposLISAId
+        FROM dbo.TiemposLISA
+        WHERE EncabezadoLISAId = @EncabezadoLISAId
+          AND ISNULL(EstaEliminado, 0) = 0
+      `);
+
+      const reqTime = new sql.Request(transaction);
+      reqTime.input('EncabezadoLISAId', sql.Int, targetId);
+      reqTime.input('HoraInicio', sql.VarChar(8), toTimeSql(horaInicio));
+      reqTime.input('HoraFin', sql.VarChar(8), toTimeSql(horaFin));
+      reqTime.input('HoraSalida', sql.VarChar(8), toTimeSql(horaSalida));
+      reqTime.input('CreadoPor', sql.NVarChar(sql.MAX), usuarioAuditoria);
+
+      if (timeExists.recordset && timeExists.recordset.length > 0) {
+        await reqTime.query(`
+          UPDATE dbo.TiemposLISA
+          SET HoraInicio = TRY_CAST(@HoraInicio AS TIME(0)),
+              HoraFin = TRY_CAST(@HoraFin AS TIME(0)),
+              HoraSalida = TRY_CAST(@HoraSalida AS TIME(0))
+          WHERE EncabezadoLISAId = @EncabezadoLISAId
+            AND ISNULL(EstaEliminado, 0) = 0
+        `);
+      } else {
+        await reqTime.query(`
+          INSERT INTO dbo.TiemposLISA (
+            EncabezadoLISAId, HoraInicio, HoraFin, HoraSalida, CreadoPor, Creado, EstaEliminado
+          )
+          VALUES (
+            @EncabezadoLISAId,
+            TRY_CAST(@HoraInicio AS TIME(0)),
+            TRY_CAST(@HoraFin AS TIME(0)),
+            TRY_CAST(@HoraSalida AS TIME(0)),
+            @CreadoPor, GETDATE(), 0
+          )
+        `);
+      }
+
+      // 4. ObservacionesLISA (Soft Delete si se vacía al editar)
+      const reqObsCheck = new sql.Request(transaction);
+      reqObsCheck.input('EncabezadoLISAId', sql.Int, targetId);
+      const obsExists = await reqObsCheck.query(`
+        SELECT TOP 1 ObservacionesLISAId
+        FROM dbo.ObservacionesLISA
+        WHERE EncabezadoLISAId = @EncabezadoLISAId
+          AND ISNULL(EstaEliminado, 0) = 0
+      `);
+
+      if (obsExists.recordset && obsExists.recordset.length > 0) {
+        if (obsSerialized) {
+          const reqObsUpd = new sql.Request(transaction);
+          reqObsUpd.input('EncabezadoLISAId', sql.Int, targetId);
+          reqObsUpd.input('Observaciones', sql.NVarChar(sql.MAX), obsSerialized);
+          await reqObsUpd.query(`
+            UPDATE dbo.ObservacionesLISA
+            SET Observaciones = @Observaciones
+            WHERE EncabezadoLISAId = @EncabezadoLISAId
+              AND ISNULL(EstaEliminado, 0) = 0
+          `);
+        } else {
+          const reqObsSoftDel = new sql.Request(transaction);
+          reqObsSoftDel.input('EncabezadoLISAId', sql.Int, targetId);
+          await reqObsSoftDel.query(`
+            UPDATE dbo.ObservacionesLISA
+            SET EstaEliminado = 1
+            WHERE EncabezadoLISAId = @EncabezadoLISAId
+              AND ISNULL(EstaEliminado, 0) = 0
+          `);
+        }
+      } else if (obsSerialized) {
+        const reqObsIns = new sql.Request(transaction);
+        reqObsIns.input('EncabezadoLISAId', sql.Int, targetId);
+        reqObsIns.input('Observaciones', sql.NVarChar(sql.MAX), obsSerialized);
+        reqObsIns.input('CreadoPor', sql.NVarChar(sql.MAX), usuarioAuditoria);
+        await reqObsIns.query(`
+          INSERT INTO dbo.ObservacionesLISA (
+            EncabezadoLISAId, Observaciones, CreadoPor, Creado, EstaEliminado
+          )
+          VALUES (
+            @EncabezadoLISAId, @Observaciones, @CreadoPor, GETDATE(), 0
           )
         `);
       }

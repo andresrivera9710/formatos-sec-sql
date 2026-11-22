@@ -1,0 +1,441 @@
+<%
+  const det = (lisaState && lisaState.detalle) ? lisaState.detalle : {};
+  const esEdicion = Boolean(!esNuevo && encabezadoId);
+
+  const extractHHMM = (val) => {
+    if (!val) return '';
+    if (val instanceof Date) return val.toISOString().substring(11, 16);
+    const s = String(val).trim();
+    if (s.includes('T') && s.length >= 16) return s.substring(11, 16);
+    const m = s.match(/(\d{2}:\d{2})/);
+    return m ? m[1] : '';
+  };
+
+  let fechaInicial = '';
+  if (det.Fecha) {
+    fechaInicial = String(det.Fecha instanceof Date ? det.Fecha.toISOString() : det.Fecha).substring(0, 10);
+  } else if (vuelo && vuelo.FechaItinerado) {
+    fechaInicial = String(vuelo.FechaItinerado instanceof Date ? vuelo.FechaItinerado.toISOString() : vuelo.FechaItinerado).substring(0, 10);
+  } else {
+    fechaInicial = new Date().toISOString().substring(0, 10);
+  }
+
+  const estacionDefault = String(det.Estacion || 'GUA').trim() || 'GUA';
+  const tipoAeronaveVuelo = (vuelo && vuelo.TipoAeronave && String(vuelo.TipoAeronave).trim().toUpperCase() !== 'NA')
+    ? String(vuelo.TipoAeronave).trim()
+    : '';
+  const tipoAvionDefault = String(det.TipoAvion || tipoAeronaveVuelo || 'B767').trim() || 'B767';
+
+  const horaInicioDefault = extractHHMM(det.HoraInicio) || '';
+  const horaFinDefault = extractHHMM(det.HoraFin) || '';
+  const horaSalidaDefault = extractHHMM(det.HoraSalida) || extractHHMM(vuelo && (vuelo.atd || vuelo.etd)) || '';
+
+  const toBool = (v) => v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'true';
+
+  const coordDefault = esEdicion ? toBool(det.CoordSeguridadTierra) : true;
+  const repDefault = esEdicion ? toBool(det.RepresentanteAutorizado) : false;
+
+  const userDisplay = String(det.NombreEjecutoInspeccion || (user && (user.usuario || user.nombreCompleto)) || '').trim();
+  const inicialesAuto = userDisplay
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(w => `${w.charAt(0).toUpperCase()}.`)
+    .join('') || 'L.A.';
+
+  const sellosParsed = (det.SellosParsed && typeof det.SellosParsed === 'object') ? det.SellosParsed : {};
+  const observacionesDefault = det.Observaciones ? String(det.Observaciones).trim() : '';
+
+  const puntosInterior = [
+    {
+      num: 1,
+      key: 'AsientosTripChalecos',
+      es: '1. ASIENTOS DE LOS MIEMBROS AUXILIARES DE LA TRIPULACIÓN Y RESPALDOS, INCLUYENDO ALMACENAJE DE CHALECOS SALVAVIDAS',
+      en: 'AUX CREW JUMP SEATS AND BACK SEATS INCLUDING LIFE VEST'
+    },
+    {
+      num: 2,
+      key: 'CompEquipoEmergencia',
+      es: '2. COMPARTIMIENTOS DE ALMACENAJE DEL EQUIPO DE EMERGENCIA',
+      en: 'EMERGENCY EQUIPMENT STORAGE COMPARTMENT'
+    },
+    {
+      num: 3,
+      key: 'LavatorioParedesInodoro',
+      es: '3. LAVATORIO: TECHO Y LADO DE LAS PAREDES, CONTENEDORES DEL DISPENSADOR, INCLUYENDO ASIENTO Y TAPA DEL INODORO',
+      en: 'LAVATORY: CEILING AND SIDE WALLS, DISPENSERS, CONTAINERS, INCLUDING TOILETS SEATS AND LID'
+    },
+    {
+      num: 4,
+      key: 'AreaEquipajeCoatTrip',
+      es: '4. ÁREA DE EQUIPAJE Y "COAT" DE LA TRIPULACIÓN',
+      en: 'CREW COAT AND LUGGAGE STORAGE AREA'
+    },
+    {
+      num: 5,
+      key: 'GalleyParedesGabinetes',
+      es: '5. GALLEY (ÁREA DE COMIDAS) - SUPERFICIE DE LAS PAREDES, GABINETES Y EQUIPOS DE COCINA (SI APLICA)',
+      en: 'GALLEY (MEAL AREA) - WALL SURFACE, CABINETS AND KITCHEN EQUIPMENT (IF APPLY)'
+    },
+    {
+      num: 6,
+      key: 'CabinaCargaTechoParedPiso',
+      es: '6. CABINA PRINCIPAL DE CARGA: SUPERFICIE DEL TECHO Y LADO DE LAS PAREDES INCLUYENDO EL PISO ENTERO (ÁREAS VACÍAS)',
+      en: 'MAIN DECK: EXTERNAL SURFACE OF CEILING AND SIDEWALL INCLUDING ENTIRE FLOOR (EMPTY AREAS)'
+    },
+    {
+      num: 7,
+      key: 'PuertaIntCabinaCarga',
+      es: '7. PUERTA INTERNA DE ACCESO DE LA TRIPULACIÓN A LA CABINA DE CARGA (SELLO DE SEGURIDAD, SI APLICA)',
+      en: 'CREW ACCESS INTERNAL DOOR TO MAIN CARGO CABIN (SECURITY SEAL, IF APPLY)'
+    }
+  ];
+
+  const puntosExterior = [
+    {
+      num: 8,
+      key: 'PuertaExtCabinaMando',
+      es: '8. PUERTA EXTERNA DE ACCESO DE LA TRIPULACIÓN A LA CABINA DE MANDO (SELLO DE SEGURIDAD, SI APLICA)',
+      en: 'CREW EXTERNAL ACCESS DOOR TO FLIGHT DECK (SECURITY SEAL, IF APPLY)'
+    },
+    {
+      num: 9,
+      key: 'PuertaExtCabinaCarga',
+      es: '9. PUERTA EXTERNA DE ACCESO A CABINA PRINCIPAL DE CARGA (SELLO DE SEGURIDAD, SI APLICA)',
+      en: 'EXTERNAL ACCESS DOOR TO MAIN CARGO CABIN (SECURITY SEAL, IF APPLY)'
+    },
+    {
+      num: 10,
+      key: 'CompCargaDelanteroDer',
+      es: '10. COMPARTIMIENTO DE CARGA DELANTERO DERECHO',
+      en: 'FORWARD RIGHT LOWER DECK CARGO COMPARTMENT'
+    },
+    {
+      num: 11,
+      key: 'CompInfCargaTraseroDer',
+      es: '11. COMPARTIMIENTO INFERIOR DE CARGA TRASERO DERECHO',
+      en: 'REAR RIGHT LOWER DECK CARGO COMPARTMENT'
+    },
+    {
+      num: 12,
+      key: 'CompInfCargaTraseroIzq',
+      es: '12. COMPARTIMIENTO INFERIOR DE CARGA TRASERO IZQUIERDO',
+      en: 'REAR LEFT CARGO COMPARTMENT (BULK CARGO)'
+    },
+    {
+      num: 13,
+      key: 'CompTrenAterrizajePrin',
+      es: '13. COMPARTIMIENTOS DE TRENES DE ATERRIZAJE (PRINCIPAL)',
+      en: 'LANDING GEARS COMPARTMENTS (MAIN)'
+    },
+    {
+      num: 14,
+      key: 'CompTrenAterrizajeDel',
+      es: '14. COMPARTIMIENTO DE TREN DE ATERRIZAJE (DELANTERO)',
+      en: 'LANDING GEARS COMPARTMENT (FORWARD)'
+    },
+    {
+      num: 15,
+      key: 'CompMotoresHidraulicoAvionica',
+      es: '15. COMPARTIMIENTOS DE FÁCIL ACCESO EN MOTORES (TURBINAS), SISTEMAS HIDRÁULICOS, AVIÓNICA, ETC. (SELLO DE SEGURIDAD, SI APLICA)',
+      en: 'ENGINES/TURBINES - ACCESS COMPARTMENT, HYDRAULIC SYSTEMS, AVIONICS, ETC. (SECURITY SEAL, IF APPLY)'
+    }
+  ];
+
+  const allPoints = [...puntosInterior, ...puntosExterior];
+  const initialChecks = {};
+  const initialSellos = {};
+  allPoints.forEach((p) => {
+    initialChecks[p.key] = toBool(det[p.key]);
+    const s = sellosParsed[p.num] || sellosParsed[String(p.num)] || {};
+    initialSellos[p.num] = {
+      activo: Boolean(s.numero),
+      numero: String(s.numero || '').trim(),
+      iniciales: String(s.iniciales || '').trim()
+    };
+  });
+
+  const initialLisaPayload = {
+    formatoId: formato.id,
+    formatoNombre: formato.nombre,
+    itinerarioId: vuelo.itinerarioId,
+    encabezadoId: encabezadoId || null,
+    esNuevo: Boolean(esNuevo),
+    fecha: fechaInicial,
+    estacion: estacionDefault,
+    tipoAvion: tipoAvionDefault,
+    coordSeguridadTierra: coordDefault,
+    representanteAutorizado: repDefault,
+    horaInicio: horaInicioDefault,
+    horaFin: horaFinDefault,
+    horaSalida: horaSalidaDefault,
+    observaciones: observacionesDefault,
+    nombreInspector: userDisplay,
+    inicialesAuto,
+    checks: initialChecks,
+    sellos: initialSellos
+  };
+%>
+
+<form id="formCapturaLISA" novalidate>
+  <input type="hidden" id="lisaFormatoId" value="<%= formato.id %>">
+  <input type="hidden" id="lisaItinerarioId" value="<%= vuelo.itinerarioId %>">
+  <input type="hidden" id="lisaEncabezadoId" value="<%= encabezadoId || '' %>">
+
+  <!-- 1. ENCABEZADO Y APERTURA (ControlListaInspeccionSeguridadAJT) -->
+  <div class="card">
+    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+      <div>
+        <h3 class="cp-section-title" style="margin: 0;">
+          <i class="fas fa-clipboard-check"></i> Lista de Inspección de Seguridad de la Aeronave — AMERIJET
+        </h3>
+        <small style="color: var(--text-3); font-size: 11px;">
+          Estación de origen del vuelo realizada por personal capacitado por la aerolínea / Aircraft Security Search Checklist (10.3.1 FACAOISSP)
+        </small>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <% if (esEdicion) { %>
+          <a href="/formatos/<%= encodeURIComponent(formato.id) %>?nuevo=1" class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;">
+            <i class="fas fa-plus-circle"></i> Crear Nuevo Registro
+          </a>
+        <% } %>
+        <span id="lisaBadgeEstadoEncabezado" class="badge badge-brand">
+          <%= esEdicion ? `REGISTRO CARGADO #${encabezadoId}` : 'NUEVA CAPTURA' %>
+        </span>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(195px, 1fr)); gap: 16px;">
+      <div class="form-group">
+        <label for="lisaFecha"><i class="far fa-calendar-alt"></i> Fecha / Date <span style="color: var(--danger);">*</span></label>
+        <input type="date" id="lisaFecha" class="form-control" value="<%= fechaInicial %>" required>
+      </div>
+
+      <div class="form-group">
+        <label for="lisaEstacion"><i class="fas fa-map-marker-alt"></i> Estación / Station <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="lisaEstacion" class="form-control" value="<%= estacionDefault %>" maxlength="20" placeholder="GUA" required>
+      </div>
+
+      <div class="form-group">
+        <label for="lisaTipoAvion"><i class="fas fa-plane"></i> Tipo de Avión / Aircraft Type <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="lisaTipoAvion" class="form-control" value="<%= tipoAvionDefault %>" maxlength="30" placeholder="Ej. B767" required>
+      </div>
+
+      <div class="form-group">
+        <label for="lisaHoraInicio"><i class="far fa-clock"></i> Hora Inicio Inspección <span style="color: var(--danger);">*</span></label>
+        <div class="cp-time-row">
+          <input type="time" id="lisaHoraInicio" class="form-control" value="<%= horaInicioDefault %>" required>
+          <button type="button" class="cp-clock-btn" data-clock-target="lisaHoraInicio">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label><i class="fas fa-plane-departure"></i> No. Vuelo / Flight No.</label>
+        <input type="text" class="form-control" value="<%= vuelo.novuelo || '---' %>" readonly style="background: var(--bg-subtle); font-weight: 700;">
+      </div>
+
+      <div class="form-group">
+        <label><i class="fas fa-tag"></i> Matrícula / Registration</label>
+        <input type="text" class="form-control" value="<%= vuelo.Matricula || 'Por asignar' %>" readonly style="background: var(--bg-subtle); font-weight: 700;">
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-top: 16px;">
+      <label><i class="fas fa-user-check"></i> Rol de quien realiza la inspección <span style="color: var(--danger);">*</span></label>
+      <div id="lisaRolesGroup" style="display: flex; flex-wrap: wrap; gap: 16px; padding: 12px 14px; border: 1.5px solid var(--border-color); border-radius: 8px; background: var(--bg-subtle);">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 700; margin: 0;">
+          <input type="checkbox" id="lisaChkCoordSeguridad" <%= coordDefault ? 'checked' : '' %> style="width: 18px; height: 18px; accent-color: var(--brand);">
+          <span>COORD. DE SEGURIDAD EN TIERRA / GROUND SECURITY COORDINATOR</span>
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 700; margin: 0;">
+          <input type="checkbox" id="lisaChkRepAutorizado" <%= repDefault ? 'checked' : '' %> style="width: 18px; height: 18px; accent-color: var(--brand);">
+          <span>REPRESENTANTE AUTORIZADO / AUTHORIZED REPRESENTATIVE</span>
+        </label>
+      </div>
+      <small style="display: block; color: var(--text-3); margin-top: 6px; font-size: 11px;">
+        <i class="fas fa-lock"></i> Nota: Presione el botón de candado en cualquier punto del checklist si aplica registrar <strong># de Sello</strong>. Las iniciales se completan automáticamente.
+      </small>
+    </div>
+  </div>
+
+  <!-- 2. CHECKLIST INTERIOR DE LA AERONAVE (PUNTOS 1 AL 7) -->
+  <div class="card" style="border-top: 3px solid var(--brand);">
+    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px;">
+      <h3 class="cp-section-title" style="margin: 0;">
+        <i class="fas fa-tasks"></i> Interior de la Aeronave / Aircraft Inner Areas (Puntos 1 al 7)
+      </h3>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span id="lisaContadorChecks" class="badge badge-info">0 / 15 inspeccionados</span>
+        <button type="button" id="btnMarcarTodosLISA" class="btn btn-secondary" style="padding: 5px 10px; font-size: 11px;">
+          <i class="fas fa-check-double"></i> Marcar Todos
+        </button>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="data-table" id="lisaTablaInterior">
+        <thead>
+          <tr>
+            <th style="width: 48px;">No.</th>
+            <th>Área de Inspección / Search Area</th>
+            <th style="width: 110px;">Check</th>
+            <th style="width: 90px;">Sello</th>
+            <th style="width: 240px;"># de Sello e Iniciales</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% puntosInterior.forEach((p) => {
+               const sInfo = initialSellos[p.num] || { activo: false, numero: '', iniciales: '' };
+          %>
+            <tr data-row-index="<%= p.num %>" data-point-num="<%= p.num %>">
+              <td style="text-align: center; font-weight: 800;"><%= p.num %>.</td>
+              <td>
+                <div style="font-weight: 700; font-size: 12px; color: var(--text-1);"><%= p.es %></div>
+                <div style="font-size: 11px; color: var(--text-3);"><%= p.en %></div>
+              </td>
+              <td style="text-align: center;">
+                <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; margin: 0;">
+                  <input type="checkbox" class="lisa-check-item" id="lisaChk_<%= p.num %>" data-num="<%= p.num %>" data-key="<%= p.key %>" <%= initialChecks[p.key] ? 'checked' : '' %> style="width: 20px; height: 20px; accent-color: var(--brand);">
+                  <span id="lisaStatus_<%= p.num %>" style="font-size: 11px; font-weight: 700;"><%= initialChecks[p.key] ? 'OK' : '---' %></span>
+                </label>
+              </td>
+              <td style="text-align: center;">
+                <button type="button" class="btn <%= sInfo.activo ? 'btn-primary' : 'btn-secondary' %> lisa-seal-toggle" data-num="<%= p.num %>" title="Activar o desactivar # de sello" style="padding: 5px 10px; font-size: 12px;">
+                  <i class="fas <%= sInfo.activo ? 'fa-lock-open' : 'fa-lock' %>"></i>
+                </button>
+              </td>
+              <td>
+                <div id="lisaSealRow_<%= p.num %>" style="display: <%= sInfo.activo ? 'flex' : 'none' %>; gap: 6px; align-items: center;">
+                  <input type="text" id="lisaSello_<%= p.num %>" class="form-control lisa-seal-input" data-num="<%= p.num %>" data-field="Sello<%= p.num %>" value="<%= sInfo.numero %>" maxlength="40" placeholder="# Sello" style="padding: 5px 8px; font-size: 12px;">
+                  <input type="text" id="lisaIni_<%= p.num %>" class="form-control lisa-ini-input" data-num="<%= p.num %>" value="<%= sInfo.activo ? (sInfo.iniciales || inicialesAuto) : '' %>" readonly style="width: 68px; text-align: center; font-weight: 700; padding: 5px 4px; font-size: 12px; background: var(--bg-subtle);" title="Iniciales">
+                </div>
+                <span id="lisaSealEmpty_<%= p.num %>" style="display: <%= sInfo.activo ? 'none' : 'inline' %>; font-size: 11px; color: var(--text-3);">No aplica</span>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 3. CHECKLIST EXTERIOR DE LA AERONAVE (PUNTOS 8 AL 15) -->
+  <div class="card" style="border-top: 3px solid var(--brand-deep);">
+    <div class="card-header">
+      <h3 class="cp-section-title" style="margin: 0;">
+        <i class="fas fa-shield-alt"></i> Exterior de la Aeronave / Aircraft Outer Areas (Puntos 8 al 15)
+      </h3>
+    </div>
+
+    <div class="table-responsive">
+      <table class="data-table" id="lisaTablaExterior">
+        <thead>
+          <tr>
+            <th style="width: 48px;">No.</th>
+            <th>Área de Inspección / Search Area</th>
+            <th style="width: 110px;">Check</th>
+            <th style="width: 90px;">Sello</th>
+            <th style="width: 240px;"># de Sello e Iniciales</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% puntosExterior.forEach((p) => {
+               const sInfo = initialSellos[p.num] || { activo: false, numero: '', iniciales: '' };
+          %>
+            <tr data-row-index="<%= p.num %>" data-point-num="<%= p.num %>">
+              <td style="text-align: center; font-weight: 800;"><%= p.num %>.</td>
+              <td>
+                <div style="font-weight: 700; font-size: 12px; color: var(--text-1);"><%= p.es %></div>
+                <div style="font-size: 11px; color: var(--text-3);"><%= p.en %></div>
+              </td>
+              <td style="text-align: center;">
+                <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; margin: 0;">
+                  <input type="checkbox" class="lisa-check-item" id="lisaChk_<%= p.num %>" data-num="<%= p.num %>" data-key="<%= p.key %>" <%= initialChecks[p.key] ? 'checked' : '' %> style="width: 20px; height: 20px; accent-color: var(--brand);">
+                  <span id="lisaStatus_<%= p.num %>" style="font-size: 11px; font-weight: 700;"><%= initialChecks[p.key] ? 'OK' : '---' %></span>
+                </label>
+              </td>
+              <td style="text-align: center;">
+                <button type="button" class="btn <%= sInfo.activo ? 'btn-primary' : 'btn-secondary' %> lisa-seal-toggle" data-num="<%= p.num %>" title="Activar o desactivar # de sello" style="padding: 5px 10px; font-size: 12px;">
+                  <i class="fas <%= sInfo.activo ? 'fa-lock-open' : 'fa-lock' %>"></i>
+                </button>
+              </td>
+              <td>
+                <div id="lisaSealRow_<%= p.num %>" style="display: <%= sInfo.activo ? 'flex' : 'none' %>; gap: 6px; align-items: center;">
+                  <input type="text" id="lisaSello_<%= p.num %>" class="form-control lisa-seal-input" data-num="<%= p.num %>" data-field="Sello<%= p.num %>" value="<%= sInfo.numero %>" maxlength="40" placeholder="# Sello" style="padding: 5px 8px; font-size: 12px;">
+                  <input type="text" id="lisaIni_<%= p.num %>" class="form-control lisa-ini-input" data-num="<%= p.num %>" value="<%= sInfo.activo ? (sInfo.iniciales || inicialesAuto) : '' %>" readonly style="width: 68px; text-align: center; font-weight: 700; padding: 5px 4px; font-size: 12px; background: var(--bg-subtle);" title="Iniciales">
+                </div>
+                <span id="lisaSealEmpty_<%= p.num %>" style="display: <%= sInfo.activo ? 'none' : 'inline' %>; font-size: 11px; color: var(--text-3);">No aplica</span>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 4. CIERRE, TIEMPOS, OBSERVACIONES Y FIRMA -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="cp-section-title" style="margin: 0;">
+        <i class="fas fa-file-signature"></i> Cierre, Finalización y Firma de Inspección
+      </h3>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 16px;">
+      <div class="form-group">
+        <label for="lisaHoraFin"><i class="far fa-clock"></i> Hora Fin Inspección <span style="color: var(--danger);">*</span></label>
+        <div class="cp-time-row">
+          <input type="time" id="lisaHoraFin" class="form-control" value="<%= horaFinDefault %>" required>
+          <button type="button" class="cp-clock-btn" data-clock-target="lisaHoraFin">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="lisaHoraSalida"><i class="fas fa-plane-departure"></i> Hora de Salida <span style="color: var(--danger);">*</span></label>
+        <div class="cp-time-row">
+          <input type="time" id="lisaHoraSalida" class="form-control" value="<%= horaSalidaDefault %>" required>
+          <button type="button" class="cp-clock-btn" data-clock-target="lisaHoraSalida">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="lisaNombreInspector"><i class="fas fa-user-shield"></i> Nombre quien ejecutó la inspección</label>
+        <input type="text" id="lisaNombreInspector" class="form-control" value="<%= userDisplay %>" readonly style="background: var(--bg-subtle); font-weight: 700;">
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 18px;">
+      <label for="lisaObservaciones"><i class="fas fa-comment-alt"></i> Observaciones / Remarks</label>
+      <textarea id="lisaObservaciones" class="form-control" rows="3" maxlength="2500" placeholder="Escriba aquí las observaciones o novedades encontradas..."><%= observacionesDefault %></textarea>
+    </div>
+
+    <div class="form-group">
+      <label><i class="fas fa-signature"></i> Firma de quien ejecutó la inspección / Signature <span style="color: var(--danger);">*</span></label>
+      <div class="signature-box" id="lisaSignatureBox">
+        <canvas id="lisaCanvasFirma" width="520" height="150"></canvas>
+      </div>
+      <div class="signature-tools" style="margin-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+        <small style="color: var(--text-3); font-size: 11px;">Firme dentro del recuadro antes de guardar el formato.</small>
+        <button type="button" id="btnLimpiarFirmaLISA" class="btn btn-secondary" style="padding: 5px 12px; font-size: 12px;">
+          <i class="fas fa-eraser"></i> Limpiar Firma
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. BOTONES DE ACCIÓN -->
+  <div style="display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 14px; margin-bottom: 40px;">
+    <button type="button" id="btnVistaPreliminarLISA" class="btn btn-secondary" style="padding: 12px 24px;">
+      <i class="fas fa-eye"></i> Vista Preliminar (Formato Oficial AMERIJET)
+    </button>
+    <button type="button" id="btnGuardarDefinitivoLISA" class="btn btn-primary" style="padding: 12px 28px;">
+      <i class="fas fa-save"></i> <%= esEdicion ? 'Actualizar Formato Definitivo' : 'Guardar Formato Definitivo' %>
+    </button>
+  </div>
+</form>
+
+<script type="application/json" id="lisaInitialStateJson"><%- JSON.stringify(initialLisaPayload).replace(/</g, '\\u003c') %></script>

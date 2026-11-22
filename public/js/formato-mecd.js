@@ -386,6 +386,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const payload = recopilarPayload(guardarDefinitivo);
 
+    let previewWin = null;
+    if (!guardarDefinitivo) {
+      previewWin = window.open('', '_blank');
+      if (previewWin) {
+        try { previewWin.document.title = 'Generando Vista Preliminar...'; } catch (_) {}
+      }
+    }
+
     try {
       Swal.fire({
         title: guardarDefinitivo ? 'Guardando Formato...' : 'Generando Vista Preliminar...',
@@ -402,6 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const json = await res.json();
 
       if (!res.ok || !json.success) {
+        if (previewWin && !previewWin.closed) previewWin.close();
         Swal.close();
         if (Validator && Array.isArray(json.errors) && json.errors.length > 0) {
           Validator.applyBackendErrors(json.errors, {
@@ -424,9 +433,18 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      if (!guardarDefinitivo && json.previewUrl) {
+      if (!guardarDefinitivo) {
         Swal.close();
-        window.open(json.previewUrl, '_blank');
+        if (json.previewUrl) {
+          if (previewWin && !previewWin.closed) {
+            previewWin.location.href = json.previewUrl;
+            previewWin.focus();
+          } else {
+            window.location.href = json.previewUrl;
+          }
+        } else if (previewWin && !previewWin.closed) {
+          previewWin.close();
+        }
         return;
       }
 
@@ -437,14 +455,18 @@ document.addEventListener('DOMContentLoaded', () => {
       await Swal.fire({
         icon: 'success',
         title: '¡Formato Guardado!',
-        text: json.message || 'Formato de Equipajes en Mal Estado guardado correctamente.',
-        confirmButtonColor: '#0F2744'
+        text: json.mensaje || json.message || 'Formato de Equipajes en Mal Estado guardado correctamente.',
+        timer: 1100,
+        showConfirmButton: false
       });
 
-      if (json.encabezadoId) {
+      if (json.previewUrl) {
+        window.location.href = json.previewUrl;
+      } else if (json.encabezadoId) {
         window.location.href = `/formatos/${encodeURIComponent(payload.formatoId)}?encabezadoId=${json.encabezadoId}`;
       }
     } catch (err) {
+      if (previewWin && !previewWin.closed) previewWin.close();
       console.error('[MECD SAVE ERROR]', err);
       Swal.fire({
         icon: 'error',

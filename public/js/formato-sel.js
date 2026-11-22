@@ -73,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
       horaPuertasCerradasCab: val('selHoraPuertasCerradasCab'),
       horaInicioRodajeNave: val('selHoraInicioRodajeNave'),
       observaciones: val('selObservaciones'),
-      firmaSupervisor: (padSup && !padSup.isBlank()) ? padSup.toDataURL() : ''
+      firmaSupervisor: (padSup && !padSup.isEmpty()) ? padSup.toDataURL() : ''
     };
   }
 
@@ -196,14 +196,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (encInput) encInput.value = String(encabezadoId);
       }
 
-      Swal.fire({
+      await Swal.fire({
         icon: 'success',
         title: '¡Guardado Exitoso!',
         text: json.mensaje || 'Sequence of Events Log guardado correctamente.',
-        confirmButtonColor: '#275B88'
-      }).then(() => {
-        window.location.href = '/formatos';
+        timer: 1100,
+        showConfirmButton: false
       });
+      if (json.previewUrl) {
+        window.location.href = json.previewUrl;
+      } else {
+        window.location.href = '/formatos';
+      }
     } catch (err) {
       if (previewWin && !previewWin.closed) previewWin.close();
       if (typeof ocultarPantallaCarga === 'function') ocultarPantallaCarga();

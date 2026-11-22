@@ -1,7 +1,11 @@
 <%
+  const enc = (ciecState && ciecState.encabezado) ? ciecState.encabezado : {};
   const comp = (ciecState && ciecState.complemento) ? ciecState.complemento : {};
   const initialRegistros = (ciecState && Array.isArray(ciecState.detalles)) ? ciecState.detalles : [];
   const initialEquipajePuerta = (ciecState && Array.isArray(ciecState.equipajePuerta)) ? ciecState.equipajePuerta : [];
+  const observacionCiecVal = (ciecState && ciecState.observacionesLimpia !== undefined)
+    ? ciecState.observacionesLimpia
+    : String(comp.Observaciones || comp.Observacion || '').trim();
   const empresasCIEC = [
     'LAATS', 'GODARD(Cocinas)', 'ODA (Combustible)', 'OIRSA',
     'DGAC (Operaciones)', 'AEROEXPRESS',
@@ -9,7 +13,9 @@
       ? 'DELTA'
       : ((formato && formato.id === 'ara-ciec')
         ? 'ARAJET'
-        : ((formato && formato.id === 'latam-ciec') ? 'LAN CARGO' : 'AEROMEXICO')),
+        : ((formato && formato.id === 'latam-ciec')
+          ? 'LAN CARGO'
+          : ((formato && formato.id === 'ajt-ciec') ? 'AMERIJET' : 'AEROMEXICO'))),
     'OTROS...'
   ];
 
@@ -22,19 +28,24 @@
   };
 
   let fechaValue = new Date().toISOString().substring(0, 10);
-  if (comp && comp.Fecha) {
-    const d = new Date(comp.Fecha);
-    if (!Number.isNaN(d.getTime())) fechaValue = d.toISOString().substring(0, 10);
-  } else if (vuelo && vuelo.FechaItinerado) {
+  if (vuelo && vuelo.FechaItinerado) {
     fechaValue = String(vuelo.FechaItinerado instanceof Date ? vuelo.FechaItinerado.toISOString() : vuelo.FechaItinerado).substring(0, 10);
+  } else {
+    const fechaSrc = enc.Fecha || comp.Fecha;
+    if (fechaSrc) {
+      const d = new Date(fechaSrc);
+      if (!Number.isNaN(d.getTime())) fechaValue = d.toISOString().substring(0, 10);
+    }
   }
 
-  const horaInicioVal = extractHHMM(comp.HoraInicio) || '';
-  const supSelectedId = comp && comp.EncabezadoEmpleadoId ? String(comp.EncabezadoEmpleadoId) : '';
+  const horaInicioVal = extractHHMM(enc.HoraInicio || comp.HoraInicio) || '';
+  const supSelectedId = (enc.EmpleadoId || comp.EncabezadoEmpleadoId)
+    ? String(enc.EmpleadoId || comp.EncabezadoEmpleadoId)
+    : '';
   const trSelectedId = comp && comp.MaquinariaEmpleadoId ? String(comp.MaquinariaEmpleadoId) : '';
   const unitSelectedId = comp && comp.MaquinariaEquipoId ? String(comp.MaquinariaEquipoId) : '';
 
-  const arriboVal = extractHHMM(comp.ArriboDelVuelo) || extractHHMM(vuelo && vuelo.ata) || '';
+  const arriboVal = extractHHMM(comp.ArriboVuelo || comp.ArriboDelVuelo) || extractHHMM(vuelo && vuelo.ata) || '';
   const aseguradaVal = extractHHMM(comp.AeronaveAsegurada) || '';
   const pasarelaVal = extractHHMM(comp.PasarelaAcoplada) || '';
   const puertaAbiertaVal = extractHHMM(comp.PuertaAbierta) || '';
@@ -78,10 +89,10 @@
   <input type="hidden" id="ciecEncabezadoId" value="<%= encabezadoId || '' %>">
   <input type="hidden" id="ciecAgentesEmpleadoIds" value="<%= comp && comp.AgentesEmpleadoIds ? comp.AgentesEmpleadoIds : (user.empleadoId || '') %>">
 
-  <!-- Bloque 1: Cabecera de Inspección -->
+  <!-- Bloque 1: Tiempos de Llegada y Desembarque (Orden Exacto Power Apps Y:196..781) -->
   <div class="card">
     <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
-      <h3 class="cp-section-title"><i class="fas fa-clipboard-list"></i> Datos Generales — Control de Ingreso y Egreso Cabina</h3>
+      <h3 class="cp-section-title"><i class="fas fa-plane-arrival"></i> Tiempos Operativos de Llegada y Desembarque</h3>
       <div style="display: flex; align-items: center; gap: 10px;">
         <% if (!esNuevo && encabezadoId) { %>
           <a href="/formatos/<%= encodeURIComponent(formato.id) %>?nuevo=1" class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;">
@@ -94,56 +105,10 @@
       </div>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px;">
       <div class="form-group">
-        <label for="ciecFecha"><i class="far fa-calendar-alt"></i> Fecha <span style="color: var(--danger);">*</span></label>
-        <input type="date" id="ciecFecha" class="form-control" value="<%= fechaValue %>" required>
-      </div>
-
-      <div class="form-group">
-        <label for="ciecHoraInicio"><i class="far fa-clock"></i> Hora de Inicio / Revisión <span style="color: var(--danger);">*</span></label>
-        <div class="cp-time-row">
-          <input type="time" id="ciecHoraInicio" class="form-control" value="<%= horaInicioVal %>" required>
-          <button type="button" class="cp-clock-btn" data-clock-target="ciecHoraInicio">
-            <i class="far fa-clock"></i> Ahora
-          </button>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="ciecSupervisor"><i class="fas fa-user-tie"></i> Supervisor de Turno (LoginSEC) <span style="color: var(--danger);">*</span></label>
-        <select id="ciecSupervisor" class="form-control" required>
-          <option value="">-- Seleccione el Supervisor --</option>
-          <% (supervisores || []).forEach(sup => { %>
-            <option
-              value="<%= sup.EmpleadoId %>"
-              data-usuario="<%= sup.Usuario %>"
-              <%= String(sup.EmpleadoId) === supSelectedId ? 'selected' : '' %>
-            ><%= sup.Usuario %></option>
-          <% }) %>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="ciecAgente"><i class="fas fa-user-shield"></i> Agente Responsable</label>
-        <input type="text" id="ciecAgente" class="form-control" value="<%= user.usuario || user.nombreCompleto %>" readonly>
-      </div>
-    </div>
-  </div>
-
-  <!-- Bloque 2: Tiempos Operativos de Aeronave y Pasajeros -->
-  <div class="card">
-    <div class="card-header">
-      <h3 class="cp-section-title"><i class="fas fa-plane-arrival"></i> Tiempos Operativos de Aeronave y Pasajeros</h3>
-    </div>
-
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px;">
-      <div class="form-group">
-        <label for="ciecArriboVuelo">Arribo del Vuelo</label>
-        <div class="cp-time-row">
-          <input type="time" id="ciecArriboVuelo" class="form-control" value="<%= arriboVal %>">
-          <button type="button" class="cp-clock-btn" data-clock-target="ciecArriboVuelo"><i class="far fa-clock"></i> Ahora</button>
-        </div>
+        <label for="ciecArriboVuelo"><i class="far fa-clock"></i> Arribo del Vuelo <i class="fas fa-lock input-lock-icon" title="Hora ATA vinculada al itinerario (Solo lectura)"></i></label>
+        <input type="text" id="ciecArriboVuelo" class="form-control input-locked" value="<%= arriboVal || '--:--' %>" readonly tabindex="-1">
       </div>
 
       <div class="form-group">
@@ -179,69 +144,66 @@
       </div>
 
       <div class="form-group">
-        <label for="ciecIngresoTripulacion">Ingreso Tripulación</label>
+        <label for="ciecPaxEntrando">PAX entrando a GUA</label>
+        <input type="number" id="ciecPaxEntrando" class="form-control" min="0" step="1" value="<%= paxEntrandoVal %>" placeholder="Ingrese Total de PAX">
+      </div>
+    </div>
+  </div>
+
+  <!-- Bloque 2: Ingrese los Datos (Cabecera de Inspección — Orden Exacto Power Apps Y:907..1622) -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="cp-section-title"><i class="fas fa-clipboard-list"></i> Ingrese los Datos</h3>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+      <div class="form-group">
+        <label for="ciecFecha"><i class="far fa-calendar-alt"></i> Fecha <i class="fas fa-lock input-lock-icon" title="Fecha vinculada al itinerario (Solo lectura)"></i></label>
+        <input type="date" id="ciecFecha" class="form-control input-locked" value="<%= fechaValue %>" readonly tabindex="-1" required>
+      </div>
+
+      <div class="form-group">
+        <label for="ciecHoraInicio"><i class="far fa-clock"></i> Hora de Revisión <span style="color: var(--danger);">*</span></label>
         <div class="cp-time-row">
-          <input type="time" id="ciecIngresoTripulacion" class="form-control" value="<%= ingresoTripVal %>">
-          <button type="button" class="cp-clock-btn" data-clock-target="ciecIngresoTripulacion"><i class="far fa-clock"></i> Ahora</button>
+          <input type="time" id="ciecHoraInicio" class="form-control" value="<%= horaInicioVal %>" required>
+          <button type="button" class="cp-clock-btn" data-clock-target="ciecHoraInicio">
+            <i class="far fa-clock"></i> Ahora
+          </button>
         </div>
       </div>
 
       <div class="form-group">
-        <label for="ciecPaxEntrando">PAX Entrando (Desembarque)</label>
-        <input type="number" id="ciecPaxEntrando" class="form-control" min="0" step="1" value="<%= paxEntrandoVal %>" placeholder="0">
+        <label for="ciecPuerta"><i class="fas fa-door-open"></i> Puerta <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <input type="text" id="ciecPuerta" class="form-control input-locked" value="<%= vuelo.puertaposicion || '--' %>" readonly tabindex="-1">
       </div>
 
       <div class="form-group">
-        <label for="ciecPrimerPax">Primer PAX Abordando</label>
-        <div class="cp-time-row">
-          <input type="time" id="ciecPrimerPax" class="form-control" value="<%= primerPaxVal %>">
-          <button type="button" class="cp-clock-btn" data-clock-target="ciecPrimerPax"><i class="far fa-clock"></i> Ahora</button>
-        </div>
+        <label for="ciecNoVuelo"><i class="fas fa-plane"></i> No. Vuelo <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <input type="text" id="ciecNoVuelo" class="form-control input-locked" value="<%= vuelo.novuelo || '--' %>" readonly tabindex="-1">
       </div>
 
       <div class="form-group">
-        <label for="ciecUltimoPax">Último PAX Abordando</label>
-        <div class="cp-time-row">
-          <input type="time" id="ciecUltimoPax" class="form-control" value="<%= ultimoPaxVal %>">
-          <button type="button" class="cp-clock-btn" data-clock-target="ciecUltimoPax"><i class="far fa-clock"></i> Ahora</button>
-        </div>
+        <label for="ciecMatricula"><i class="fas fa-barcode"></i> Matrícula <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <input type="text" id="ciecMatricula" class="form-control input-locked" value="<%= vuelo.Matricula || 'Pendiente' %>" readonly tabindex="-1">
       </div>
 
       <div class="form-group">
-        <label for="ciecPaxAbordos">Total PAX a Bordo</label>
-        <input type="number" id="ciecPaxAbordos" class="form-control" min="0" step="1" value="<%= paxAbordosVal %>" placeholder="0">
+        <label for="ciecSupervisor"><i class="fas fa-user-tie"></i> Supervisor <span style="color: var(--danger);">*</span></label>
+        <select id="ciecSupervisor" class="form-control" required>
+          <option value="">-- Seleccione el Supervisor --</option>
+          <% (supervisores || []).forEach(sup => { %>
+            <option
+              value="<%= sup.EmpleadoId %>"
+              data-usuario="<%= sup.Usuario %>"
+              <%= String(sup.EmpleadoId) === supSelectedId ? 'selected' : '' %>
+            ><%= sup.Usuario %></option>
+          <% }) %>
+        </select>
       </div>
 
       <div class="form-group">
-        <label for="ciecPuertaCerrada">Puerta Cerrada</label>
-        <div class="cp-time-row">
-          <input type="time" id="ciecPuertaCerrada" class="form-control" value="<%= puertaCerradaVal %>">
-          <button type="button" class="cp-clock-btn" data-clock-target="ciecPuertaCerrada"><i class="far fa-clock"></i> Ahora</button>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="ciecDesacoplePasarela">Desacople Pasarela</label>
-        <div class="cp-time-row">
-          <input type="time" id="ciecDesacoplePasarela" class="form-control" value="<%= desacopleVal %>">
-          <button type="button" class="cp-clock-btn" data-clock-target="ciecDesacoplePasarela"><i class="far fa-clock"></i> Ahora</button>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="ciecPushBack">PushBack</label>
-        <div class="cp-time-row">
-          <input type="time" id="ciecPushBack" class="form-control" value="<%= pushbackVal %>">
-          <button type="button" class="cp-clock-btn" data-clock-target="ciecPushBack"><i class="far fa-clock"></i> Ahora</button>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="ciecDespegue">Despegue</label>
-        <div class="cp-time-row">
-          <input type="time" id="ciecDespegue" class="form-control" value="<%= despegueVal %>">
-          <button type="button" class="cp-clock-btn" data-clock-target="ciecDespegue"><i class="far fa-clock"></i> Ahora</button>
-        </div>
+        <label for="ciecAgente"><i class="fas fa-user-shield"></i> Agente <i class="fas fa-lock input-lock-icon" title="Agente autenticado en sesión (Solo lectura)"></i></label>
+        <input type="text" id="ciecAgente" class="form-control input-locked" value="<%= user.usuario || user.nombreCompleto %>" readonly tabindex="-1">
       </div>
     </div>
   </div>
@@ -385,10 +347,73 @@
     </div>
   </div>
 
-  <!-- Bloque 6: Tractorista, No. Unidad, Aleros y Observaciones -->
+  <!-- Bloque 6: Tiempos Operativos de Embarque y Salida, Maquinaria PushBack, Aleros y Observaciones (Orden Exacto Power Apps Y:4307..6415) -->
   <div class="card">
     <div class="card-header">
-      <h3 class="cp-section-title"><i class="fas fa-truck-pickup"></i> Maquinaria PushBack, Aleros y Observaciones</h3>
+      <h3 class="cp-section-title"><i class="fas fa-plane-departure"></i> Tiempos Operativos de Embarque y Salida, Maquinaria PushBack y Aleros</h3>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-bottom: 20px; padding-bottom: 18px; border-bottom: 1px solid var(--border-2);">
+      <div class="form-group">
+        <label for="ciecIngresoTripulacion">Ingreso Tripulación</label>
+        <div class="cp-time-row">
+          <input type="time" id="ciecIngresoTripulacion" class="form-control" value="<%= ingresoTripVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="ciecIngresoTripulacion"><i class="far fa-clock"></i> Ahora</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="ciecPrimerPax">1er. PAX Abordo</label>
+        <div class="cp-time-row">
+          <input type="time" id="ciecPrimerPax" class="form-control" value="<%= primerPaxVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="ciecPrimerPax"><i class="far fa-clock"></i> Ahora</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="ciecUltimoPax">Ult. PAX Abordo</label>
+        <div class="cp-time-row">
+          <input type="time" id="ciecUltimoPax" class="form-control" value="<%= ultimoPaxVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="ciecUltimoPax"><i class="far fa-clock"></i> Ahora</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="ciecPaxAbordos">PAX Abordos</label>
+        <input type="number" id="ciecPaxAbordos" class="form-control" min="0" step="1" value="<%= paxAbordosVal %>" placeholder="Ingrese Total de PAX Abordos">
+      </div>
+
+      <div class="form-group">
+        <label for="ciecPuertaCerrada">Puerta Cerrada</label>
+        <div class="cp-time-row">
+          <input type="time" id="ciecPuertaCerrada" class="form-control" value="<%= puertaCerradaVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="ciecPuertaCerrada"><i class="far fa-clock"></i> Ahora</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="ciecDesacoplePasarela">Desacople Pasarela</label>
+        <div class="cp-time-row">
+          <input type="time" id="ciecDesacoplePasarela" class="form-control" value="<%= desacopleVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="ciecDesacoplePasarela"><i class="far fa-clock"></i> Ahora</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="ciecPushBack">PushBack</label>
+        <div class="cp-time-row">
+          <input type="time" id="ciecPushBack" class="form-control" value="<%= pushbackVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="ciecPushBack"><i class="far fa-clock"></i> Ahora</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="ciecDespegue">Despegue</label>
+        <div class="cp-time-row">
+          <input type="time" id="ciecDespegue" class="form-control" value="<%= despegueVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="ciecDespegue"><i class="far fa-clock"></i> Ahora</button>
+        </div>
+      </div>
     </div>
 
     <% if (formato && formato.id === 'dl-ciec') { %>
@@ -483,7 +508,7 @@
         rows="3"
         class="form-control"
         placeholder="Ingrese Observaciones (Opcional)..."
-      ><%= comp && comp.Observacion ? comp.Observacion : '' %></textarea>
+      ><%= observacionCiecVal %></textarea>
     </div>
   </div>
 

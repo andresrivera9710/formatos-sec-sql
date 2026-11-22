@@ -2,18 +2,17 @@
 <html lang="es">
 <%- include('partials/head', { title: title }) %>
 <body>
-  <div class="app-container">
-    <%- include('partials/sidebar', { activeTab: 'formatos', currentUser: user }) %>
-
-    <div class="workspace">
-      <%- include('partials/header', { pageTitle: formato.nombre, vueloActivo: vuelo }) %>
-
-      <main class="content-body">
-        <!-- Navegación y Retorno -->
-        <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
-          <a href="/formatos" class="btn btn-secondary">
-            <i class="fas fa-arrow-left"></i> Volver a Formatos
-          </a>
+  <div class="app-container app-container-full">
+    <div class="workspace workspace-full">
+      <main class="content-body content-body-operaciones">
+        <!-- Navegación Superior y Título del Formato -->
+        <div class="fmt-top-nav">
+          <div class="fmt-top-nav-left">
+            <a href="/formatos" class="btn btn-secondary">
+              <i class="fas fa-arrow-left"></i> Volver a Formatos
+            </a>
+            <h1 class="fmt-page-title"><%= formato.nombre %></h1>
+          </div>
 
           <div>
             <span class="badge <%= esNuevo ? 'badge-success' : 'badge-gold' %>">
@@ -23,27 +22,27 @@
         </div>
 
         <!-- Encabezado de Vuelo de Referencia -->
-        <div class="card" style="border-left: 4px solid var(--brand);">
-          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; font-size: 12px;">
+        <div class="card fmt-flight-ref-card">
+          <div class="fmt-ref-grid">
             <div>
-              <span style="color: var(--text-3); display: block; font-size: 11px; text-transform: uppercase;">Aerolínea / Operador</span>
-              <strong style="font-size: 16px; color: var(--brand-deep);"><%= vuelo.operador %></strong>
+              <span class="fmt-ref-label">Aerolínea / Operador</span>
+              <strong class="fmt-ref-operador"><%= vuelo.operador %></strong>
             </div>
             <div>
-              <span style="color: var(--text-3); display: block; font-size: 11px; text-transform: uppercase;">No. Vuelo</span>
-              <strong style="font-size: 16px; color: var(--brand);"><%= vuelo.novuelo %></strong>
+              <span class="fmt-ref-label">No. Vuelo</span>
+              <strong class="fmt-ref-vuelo"><%= vuelo.novuelo %></strong>
             </div>
             <div>
-              <span style="color: var(--text-3); display: block; font-size: 11px; text-transform: uppercase;">Correlativo</span>
-              <strong style="font-size: 16px; color: var(--danger);">#<%= vuelo.nocorrelativo %></strong>
+              <span class="fmt-ref-label">Correlativo</span>
+              <strong class="fmt-ref-correlativo">#<%= vuelo.nocorrelativo %></strong>
             </div>
             <div>
-              <span style="color: var(--text-3); display: block; font-size: 11px; text-transform: uppercase;">Ruta</span>
-              <strong style="font-size: 15px;"><%= vuelo.Procedencia %> ➔ <%= vuelo.Destino %></strong>
+              <span class="fmt-ref-label">Ruta</span>
+              <strong class="fmt-ref-val"><%= vuelo.Procedencia %> ➔ <%= vuelo.Destino %></strong>
             </div>
             <div>
-              <span style="color: var(--text-3); display: block; font-size: 11px; text-transform: uppercase;">Matrícula</span>
-              <strong style="font-size: 15px;"><%= vuelo.Matricula || 'Pendiente' %></strong>
+              <span class="fmt-ref-label">Matrícula</span>
+              <strong class="fmt-ref-val"><%= vuelo.Matricula || 'Pendiente' %></strong>
             </div>
           </div>
         </div>
@@ -82,6 +81,10 @@
           <%- include('partials/formato_anexob') %>
         <% } else if (formato && formato.id && formato.id.endsWith('-liadc')) { %>
           <%- include('partials/formato_liadc') %>
+        <% } else if (formato && formato.id && formato.id.endsWith('-ccda')) { %>
+          <%- include('partials/formato_ccda') %>
+        <% } else if (formato && formato.id && formato.id.endsWith('-lisa')) { %>
+          <%- include('partials/formato_lisa') %>
         <% } else { %>
         <!-- Formulario de Inspección de Seguridad -->
         <form id="formCapturaFormato">
@@ -91,10 +94,10 @@
 
           <div class="card">
             <div class="card-header">
-              <h3 style="font-size: 15px;"><i class="fas fa-clipboard-check"></i> Datos Generales de la Inspección</h3>
+              <h3 class="cp-section-title"><i class="fas fa-clipboard-check"></i> Datos Generales de la Inspección</h3>
             </div>
 
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
+            <div class="fmt-form-grid">
               <div class="form-group">
                 <label for="campoFecha"><i class="far fa-calendar-alt"></i> Fecha de Inspección</label>
                 <input type="date" id="campoFecha" name="fecha" class="form-control" value="<%= new Date().toISOString().split('T')[0] %>" required>
@@ -102,7 +105,7 @@
 
               <div class="form-group">
                 <label for="campoAgente"><i class="fas fa-user-shield"></i> Agente Responsable</label>
-                <input type="text" id="campoAgente" name="agente" class="form-control" value="<%= user.nombreCompleto %>" readonly>
+                <input type="text" id="campoAgente" name="agente" class="form-control" value="<%= user.usuario || user.nombreCompleto %>" readonly>
               </div>
 
               <div class="form-group">
@@ -130,10 +133,10 @@
           <!-- Sección de Parámetros Específicos -->
           <div class="card">
             <div class="card-header">
-              <h3 style="font-size: 15px;"><i class="fas fa-tasks"></i> Parámetros Operativos del Formato</h3>
+              <h3 class="cp-section-title"><i class="fas fa-tasks"></i> Parámetros Operativos del Formato</h3>
             </div>
 
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+            <div class="fmt-form-grid">
               <div class="form-group">
                 <label for="campoUbicacion"><i class="fas fa-map-marker-alt"></i> Posición / Puerta</label>
                 <input type="text" id="campoUbicacion" name="posicion" class="form-control" value="<%= vuelo.puertaposicion || 'Posición Rampa' %>">
@@ -154,7 +157,7 @@
               </div>
             </div>
 
-            <div class="form-group" style="margin-top: 16px;">
+            <div class="form-group fmt-obs-group">
               <label for="campoObservaciones"><i class="fas fa-comment-alt"></i> Observaciones Detalladas y Novedades</label>
               <textarea id="campoObservaciones" name="observaciones" rows="3" class="form-control" placeholder="Ingrese las novedades encontradas durante la inspección o verificación..."></textarea>
             </div>
@@ -163,8 +166,8 @@
           <!-- Firma Digital de Auditoría -->
           <div class="card">
             <div class="card-header">
-              <h3 style="font-size: 15px;"><i class="fas fa-pen-nib"></i> Firma Digital del Agente / Supervisor</h3>
-              <button type="button" id="btnLimpiarFirma" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;">
+              <h3 class="cp-section-title"><i class="fas fa-pen-nib"></i> Firma Digital del Agente / Supervisor</h3>
+              <button type="button" id="btnLimpiarFirma" class="btn btn-secondary fmt-clear-sig-btn">
                 <i class="fas fa-eraser"></i> Limpiar Firma
               </button>
             </div>
@@ -172,15 +175,15 @@
             <div class="signature-box">
               <canvas id="canvasFirma"></canvas>
             </div>
-            <p style="font-size: 11px; color: var(--text-3); text-align: center;">Dibuje su firma en el recuadro superior para avalar la inspección digital.</p>
+            <p class="fmt-sig-caption">Dibuje su firma en el recuadro superior para avalar la inspección digital.</p>
           </div>
 
           <!-- Botones de Acción -->
-          <div style="display: flex; justify-content: flex-end; gap: 14px; margin-bottom: 40px;">
-            <button type="button" id="btnVistaPreliminar" class="btn btn-secondary" style="padding: 12px 24px;">
+          <div class="fmt-bottom-actions">
+            <button type="button" id="btnVistaPreliminar" class="btn btn-secondary fmt-action-btn">
               <i class="fas fa-eye"></i> Vista Preliminar (Auditoría)
             </button>
-            <button type="button" id="btnGuardarDefinitivo" class="btn btn-primary" style="padding: 12px 28px;">
+            <button type="button" id="btnGuardarDefinitivo" class="btn btn-primary fmt-action-btn">
               <i class="fas fa-save"></i> Guardar Definitivo
             </button>
           </div>
@@ -188,6 +191,7 @@
         <% } %>
       </main>
 
+      <%- include('partials/tab-bar', { activeTab: 'formatos', user: user, vueloActivo: vuelo }) %>
       <%- include('partials/footer') %>
     </div>
   </div>
@@ -227,9 +231,12 @@
     <script src="/js/formato-anexob.js"></script>
   <% } else if (formato && formato.id && formato.id.endsWith('-liadc')) { %>
     <script src="/js/formato-liadc.js"></script>
+  <% } else if (formato && formato.id && formato.id.endsWith('-ccda')) { %>
+    <script src="/js/formato-ccda.js"></script>
+  <% } else if (formato && formato.id && formato.id.endsWith('-lisa')) { %>
+    <script src="/js/formato-lisa.js"></script>
   <% } else { %>
     <script src="/js/formato-detalle.js"></script>
   <% } %>
 </body>
 </html>
-

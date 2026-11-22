@@ -614,14 +614,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           }
         } else {
-          Swal.fire({
+          if (res.encabezadoId) {
+            const encInput = document.getElementById('cpEncabezadoId');
+            if (encInput) encInput.value = String(res.encabezadoId);
+          }
+          await Swal.fire({
             icon: 'success',
             title: '¡Guardado Exitoso!',
             text: res.mensaje || 'Control de Perimétrica registrado en la base de datos.',
-            confirmButtonColor: '#275B88'
-          }).then(() => {
-            window.location.href = '/formatos';
+            timer: 1100,
+            showConfirmButton: false
           });
+          if (res.previewUrl) {
+            window.location.href = res.previewUrl;
+          } else {
+            window.location.href = '/formatos';
+          }
         }
       } else {
         if (previewWin && !previewWin.closed) previewWin.close();

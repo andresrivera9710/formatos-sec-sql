@@ -16,10 +16,10 @@
   ];
 
   let fechaInicial = new Date().toISOString().substring(0, 10);
-  if (comp.Fecha) {
-    fechaInicial = String(comp.Fecha instanceof Date ? comp.Fecha.toISOString() : comp.Fecha).substring(0, 10);
-  } else if (vuelo && vuelo.FechaItinerado) {
+  if (vuelo && vuelo.FechaItinerado) {
     fechaInicial = String(vuelo.FechaItinerado instanceof Date ? vuelo.FechaItinerado.toISOString() : vuelo.FechaItinerado).substring(0, 10);
+  } else if (comp.Fecha) {
+    fechaInicial = String(comp.Fecha instanceof Date ? comp.Fecha.toISOString() : comp.Fecha).substring(0, 10);
   }
 
   const supLoginSecIdVal = comp.SupervisorLoginSECId ? String(comp.SupervisorLoginSECId) : '';
@@ -63,13 +63,18 @@
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
       <div class="form-group">
-        <label for="poFecha"><i class="far fa-calendar-alt"></i> Fecha <span style="color: var(--danger);">*</span></label>
-        <input type="date" id="poFecha" class="form-control" value="<%= fechaInicial %>" required>
+        <label for="poFecha"><i class="far fa-calendar-alt"></i> Fecha <i class="fas fa-lock input-lock-icon" title="Fecha vinculada al itinerario (Solo lectura)"></i></label>
+        <input type="date" id="poFecha" class="form-control input-locked" value="<%= fechaInicial %>" readonly tabindex="-1" required>
       </div>
 
       <div class="form-group">
-        <label for="poLeadAgent"><i class="fas fa-user-shield"></i> Lead Agent / Responsable</label>
-        <input type="text" id="poLeadAgent" class="form-control" value="<%= leadAgentVal %>" readonly>
+        <label for="poNoVuelo"><i class="fas fa-plane"></i> No. Vuelo <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <input type="text" id="poNoVuelo" class="form-control input-locked" value="<%= vuelo.novuelo || '--' %>" readonly tabindex="-1">
+      </div>
+
+      <div class="form-group">
+        <label for="poLeadAgent"><i class="fas fa-user-shield"></i> Lead Agent / Responsable <i class="fas fa-lock input-lock-icon" title="Agente autenticado en sesión (Solo lectura)"></i></label>
+        <input type="text" id="poLeadAgent" class="form-control input-locked" value="<%= leadAgentVal %>" readonly tabindex="-1">
       </div>
 
       <div class="form-group">

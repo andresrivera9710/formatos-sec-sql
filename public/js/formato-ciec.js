@@ -188,7 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tieneSalida = Boolean(r.HoraSalida);
         const barColor = tieneSalida ? '#16A34A' : '#DC2626';
         return `
-          <div class="cp-registro-card" data-reg-idx="${r._idx}" style="border-left: 5px solid ${barColor}; background: #fff; border-radius: 8px; padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border-top: 1px solid var(--border-2); border-right: 1px solid var(--border-2); border-bottom: 1px solid var(--border-2);">
+          <div class="cp-registro-card" data-reg-idx="${r._idx}" style="border-left: 5px solid ${barColor}; background: var(--surface); border-radius: 8px; padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border-top: 1px solid var(--border-2); border-right: 1px solid var(--border-2); border-bottom: 1px solid var(--border-2);">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:8px;">
               <div>
                 <strong style="font-size:14px; color:var(--brand-deep); display:block;">#${r._idx + 1} — ${esc(r.Nombre)}</strong>
@@ -357,7 +357,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const cellIdx = (f - 1) * 10 + c;
         const item = equipajePuerta[cellIdx];
         if (item && item.Secuencia > 0) {
-          tds += `<td style="background:#EFF6FF; font-weight:700; color:var(--brand-deep);">${esc(item.Secuencia)}</td>`;
+          tds += `<td style="background:var(--surface-elevated); font-weight:700; color:var(--brand-deep);">${esc(item.Secuencia)}</td>`;
         } else {
           tds += `<td style="color:var(--text-3); font-size:11px;">—</td>`;
         }
@@ -575,6 +575,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const payload = recopilarPayload(guardarDefinitivo);
 
+    let previewWin = null;
+    if (!guardarDefinitivo) {
+      previewWin = window.open('', '_blank');
+      if (previewWin) {
+        try { previewWin.document.title = 'Generando Vista Preliminar...'; } catch (_) {}
+      }
+    }
+
     try {
       Swal.fire({
         title: guardarDefinitivo ? 'Guardando Formato...' : 'Generando Vista Preliminar...',
@@ -591,6 +599,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const json = await res.json();
 
       if (!res.ok || !json.success) {
+        if (previewWin && !previewWin.closed) previewWin.close();
         Swal.close();
         if (Validator && Array.isArray(json.errors) && json.errors.length > 0) {
           Validator.applyBackendErrors(json.errors, {
@@ -612,9 +621,18 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      if (!guardarDefinitivo && json.previewUrl) {
+      if (!guardarDefinitivo) {
         Swal.close();
-        window.open(json.previewUrl, '_blank');
+        if (json.previewUrl) {
+          if (previewWin && !previewWin.closed) {
+            previewWin.location.href = json.previewUrl;
+            previewWin.focus();
+          } else {
+            window.location.href = json.previewUrl;
+          }
+        } else if (previewWin && !previewWin.closed) {
+          previewWin.close();
+        }
         return;
       }
 
@@ -625,14 +643,18 @@ document.addEventListener('DOMContentLoaded', () => {
       await Swal.fire({
         icon: 'success',
         title: '¡Formato Guardado!',
-        text: json.message || 'Control de Ingreso y Egreso Cabina guardado correctamente.',
-        confirmButtonColor: '#0F2744'
+        text: json.mensaje || json.message || 'Control de Ingreso y Egreso Cabina guardado correctamente.',
+        timer: 1100,
+        showConfirmButton: false
       });
 
-      if (json.encabezadoId) {
+      if (json.previewUrl) {
+        window.location.href = json.previewUrl;
+      } else if (json.encabezadoId) {
         window.location.href = `/formatos/${encodeURIComponent(payload.formatoId)}?encabezadoId=${json.encabezadoId}`;
       }
     } catch (err) {
+      if (previewWin && !previewWin.closed) previewWin.close();
       console.error('[CIEC SAVE ERROR]', err);
       Swal.fire({
         icon: 'error',

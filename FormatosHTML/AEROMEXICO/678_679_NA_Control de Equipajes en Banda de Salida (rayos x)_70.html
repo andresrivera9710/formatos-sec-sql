@@ -1,0 +1,2094 @@
+<!DOCTYPE html>
+<html lang='es'>
+
+<head>
+    <meta charset='UTF-8'>
+    <title>CONTROL DE EQUIPAJES EN BANDA DE SALIDA (RAYOS X)</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            color: #000;
+        }
+
+        .page {
+            background-color: white;
+            width: 210mm;
+            height: 297mm;
+            padding: 5mm;
+            margin: 10mm auto;
+            overflow: hidden;
+        }
+
+        .inner-frame {
+            border: 2px solid black;
+            padding: 4mm 10mm 10mm 10mm;
+            height: 287mm;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            height: 30mm; /* AUMENTADO PARA QUE EL LOGO QUEPA BIEN */
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 5mm;
+            margin-top: -20mm;
+
+        }
+
+        .logo {
+            height: 50mm; /* LOGO MÁS GRANDE */
+            width: auto;
+        }
+
+        .title-container {
+            height: 12mm;
+            background-color: #d1d1d1;
+            border: 1.5px solid black;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 5mm;
+        }
+
+        .title-text {
+            margin: 0;
+            font-size: 14pt;
+            font-style: italic;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .info-section {
+            height: 25mm;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2mm 15mm;
+            margin-bottom: 5mm;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: flex-end;
+            font-size: 10.5pt;
+        }
+
+        .info-label {
+            margin-right: 2mm;
+            white-space: nowrap;
+        }
+
+        .info-line {
+            flex-grow: 1;
+            border-bottom: 1px solid black;
+            height: 5mm;
+            padding-left: 5px;
+        }
+
+        .stats-section {
+            height: 35mm;
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            margin-bottom: 5mm;
+        }
+
+        .stats-col {
+            width: 48%;
+            display: flex;
+            flex-direction: column;
+            gap: 4mm;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .stat-label {
+            font-size: 10pt;
+            white-space: nowrap;
+        }
+
+        .stat-box {
+            width: 35mm;
+            height: 7.5mm;
+            border: 1.5px solid black;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .obs-item {
+            display: flex;
+            align-items: flex-end;
+            margin-bottom: 2mm;
+        }
+
+        .obs-label {
+            font-size: 10.5pt;
+            margin-right: 2mm;
+            white-space: nowrap;
+        }
+
+        .obs-line-full {
+            border-bottom: 1px solid black;
+            flex-grow: 1;
+            height: 5mm;
+            padding-left: 5px;
+        }
+
+        .obs-line-standalone {
+            border-bottom: 1px solid black;
+            height: 7mm;
+            width: 100%;
+        }
+
+        @media print {
+            body { background: none; }
+            .page { margin: 0; box-shadow: none; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class='page'>
+        <div class='inner-frame'>
+            
+            <div class='header'>
+                <img src='data:image/png;base64, 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' alt='Logo' class='logo'>
+            </div>
+
+            <div class='title-container'>
+                <h1 class='title-text'>CONTROL DE EQUIPAJES EN BANDA DE SALIDA (RAYOS X)</h1>
+            </div>
+
+            <div class='info-section'>
+                <div class='info-item'><span class='info-label'>FECHA:</span>
+                    <!-- FORMATO DE FECHA APLICADO AQUÍ -->
+                    <div class='info-line'>19/11/2026</div>
+                </div>
+                <div class='info-item'><span class='info-label'>SUPERVISOR:</span>
+                    <div class='info-line'>HENRY ALONZO</div>
+                </div>
+                <div class='info-item'><span class='info-label'>VUELO:</span>
+                    <div class='info-line'>678/679</div>
+                </div>
+                <div class='info-item'><span class='info-label'>OPERADOR:</span>
+                    <div class='info-line'>LESLY JACOBO</div>
+                </div>
+                <div class='info-item'><span class='info-label'>HORA:</span>
+                    <div class='info-line'>14:08</div>
+                </div>
+            </div>
+            
+            <!-- AQUÍ SE INYECTA LA TABLA MATRIZ -->
+            <div style='width: 100%; display: flex; justify-content: center; margin-bottom: 10px;'>
+                <table style='width: 100%; border-collapse: collapse; font-family: Segoe UI, sans-serif;'>
+        <thead>
+            <tr>
+                <th style='width: 35px;'></th>
+                <th style='color: #000000; font-size: 12px; font-weight: bold; padding-bottom: 5px;'>1</th><th style='color: #000000; font-size: 12px; font-weight: bold; padding-bottom: 5px;'>2</th><th style='color: #000000; font-size: 12px; font-weight: bold; padding-bottom: 5px;'>3</th><th style='color: #000000; font-size: 12px; font-weight: bold; padding-bottom: 5px;'>4</th><th style='color: #000000; font-size: 12px; font-weight: bold; padding-bottom: 5px;'>5</th><th style='color: #000000; font-size: 12px; font-weight: bold; padding-bottom: 5px;'>6</th><th style='color: #000000; font-size: 12px; font-weight: bold; padding-bottom: 5px;'>7</th><th style='color: #000000; font-size: 12px; font-weight: bold; padding-bottom: 5px;'>8</th><th style='color: #000000; font-size: 12px; font-weight: bold; padding-bottom: 5px;'>9</th><th style='color: #000000; font-size: 12px; font-weight: bold; padding-bottom: 5px;'>10</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                        <td style='color: #000000; font-size: 12px; font-weight: bold; text-align: center; width: 35px; padding-right: 5px;'>1</td>
+                        <td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    122
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    121
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    26
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    115
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    6
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    27
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    123
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    120
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    78
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    123
+                                    
+                                </td>
+                    </tr><tr>
+                        <td style='color: #000000; font-size: 12px; font-weight: bold; text-align: center; width: 35px; padding-right: 5px;'>2</td>
+                        <td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    5
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    124
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    123
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    130
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    134
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    127
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    131
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    92
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    137
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    136
+                                    
+                                </td>
+                    </tr><tr>
+                        <td style='color: #000000; font-size: 12px; font-weight: bold; text-align: center; width: 35px; padding-right: 5px;'>3</td>
+                        <td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    118
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    111
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    132
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    138
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    135
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    141
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    40
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    147
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    142
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    145
+                                    
+                                </td>
+                    </tr><tr>
+                        <td style='color: #000000; font-size: 12px; font-weight: bold; text-align: center; width: 35px; padding-right: 5px;'>4</td>
+                        <td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    116
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    148
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    144
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    112
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    18
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    14
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    53
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    11
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    126
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    153
+                                    
+                                </td>
+                    </tr><tr>
+                        <td style='color: #000000; font-size: 12px; font-weight: bold; text-align: center; width: 35px; padding-right: 5px;'>5</td>
+                        <td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    150
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    79
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    563
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    19
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    52
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    15
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    14
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    73
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    53
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    126
+                                    
+                                </td>
+                    </tr><tr>
+                        <td style='color: #000000; font-size: 12px; font-weight: bold; text-align: center; width: 35px; padding-right: 5px;'>6</td>
+                        <td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    151
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    152
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    98
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    52
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td>
+                    </tr><tr>
+                        <td style='color: #000000; font-size: 12px; font-weight: bold; text-align: center; width: 35px; padding-right: 5px;'>7</td>
+                        <td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td>
+                    </tr><tr>
+                        <td style='color: #000000; font-size: 12px; font-weight: bold; text-align: center; width: 35px; padding-right: 5px;'>8</td>
+                        <td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td>
+                    </tr><tr>
+                        <td style='color: #000000; font-size: 12px; font-weight: bold; text-align: center; width: 35px; padding-right: 5px;'>9</td>
+                        <td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td>
+                    </tr><tr>
+                        <td style='color: #000000; font-size: 12px; font-weight: bold; text-align: center; width: 35px; padding-right: 5px;'>10</td>
+                        <td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td>
+                    </tr><tr>
+                        <td style='color: #000000; font-size: 12px; font-weight: bold; text-align: center; width: 35px; padding-right: 5px;'>11</td>
+                        <td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td>
+                    </tr><tr>
+                        <td style='color: #000000; font-size: 12px; font-weight: bold; text-align: center; width: 35px; padding-right: 5px;'>12</td>
+                        <td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td>
+                    </tr><tr>
+                        <td style='color: #000000; font-size: 12px; font-weight: bold; text-align: center; width: 35px; padding-right: 5px;'>13</td>
+                        <td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td>
+                    </tr><tr>
+                        <td style='color: #000000; font-size: 12px; font-weight: bold; text-align: center; width: 35px; padding-right: 5px;'>14</td>
+                        <td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td>
+                    </tr><tr>
+                        <td style='color: #000000; font-size: 12px; font-weight: bold; text-align: center; width: 35px; padding-right: 5px;'>15</td>
+                        <td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td><td style='
+                                    border: 1px solid black; 
+                                    text-align: center; 
+                                    height: 30px; 
+                                    width: 45px;
+                                    color: #000000;
+                                    font-size: 16px; 
+                                    font-weight: bold;
+                                    position: relative;
+                                '> 
+                                    
+                                    
+                                </td>
+                    </tr>
+        </tbody>
+    </table>
+            </div>
+
+            <div class='stats-section'>
+                <div class='stats-col'>
+                    <div class='stat-item'><span class='stat-label'>CORREOS:</span>
+                        <div class='stat-box'>0</div>
+                    </div>
+                    <div class='stat-item'><span class='stat-label'>EQ. TRANSITO:</span>
+                        <div class='stat-box'>0</div>
+                    </div>
+                    <div class='stat-item'><span class='stat-label'>HORA DE CIERRE:</span>
+                        <div class='stat-box'>16:25</div>
+                    </div>
+                </div>
+                <div class='stats-col'>
+                    <div class='stat-item'><span class='stat-label'>COMAT:</span>
+                        <div class='stat-box'>0</div>
+                    </div>
+                    <div class='stat-item'><span class='stat-label'>TOTAL EQUIPAJES:</span>
+                        <div class='stat-box'>54</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class='obs-item'>
+                <span class='obs-label'>OBSERVACIONES:</span>
+                <div class='obs-line-full'></div>
+            </div>
+            <div class='obs-line-standalone'></div>
+            <div class='obs-line-standalone'></div>
+            <div class='obs-line-standalone'></div>
+            <div class='obs-line-standalone'></div>
+            <div class='obs-line-standalone'></div>
+            
+        </div>
+    </div>
+</body>
+
+</html>

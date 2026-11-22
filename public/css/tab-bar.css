@@ -1,0 +1,606 @@
+/**
+ * Componente Tab Bar con Efecto Sliding Pill — SIO LAATS
+ * Paleta Institucional: #0F2744, #275B88, #D4AF37, #F4F7FB | Tipografía: Montserrat
+ * Posicionado en la parte inferior (Bottom Floating Pill Bar en Web y Móvil)
+ * Cumplimiento estricto Helmet CSP (Cero estilos o scripts inline)
+ */
+
+/* ============================================================================
+   1. LAYOUT SIMÉTRICO 100% ANCHO PARA /operaciones (Sin Sidebar Lateral)
+   ============================================================================ */
+.app-container-full {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  width: 100%;
+  background-color: var(--bg);
+}
+
+.workspace-full {
+  margin-left: 0;
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.content-body-operaciones {
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 24px 32px 110px;
+  flex: 1;
+}
+
+/* ============================================================================
+   2. ZONA INFERIOR Y CONTENEDOR GLASSMORPHISM DEL TAB BAR (WEB Y MÓVIL)
+   ============================================================================ */
+.sio-bottom-nav-zone {
+  position: fixed;
+  bottom: 18px;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 24px;
+  pointer-events: none;
+}
+
+.sio-tab-bar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 999px;
+  background: var(--tabbar-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--tabbar-border);
+  box-shadow: var(--tabbar-shadow);
+  pointer-events: auto;
+  user-select: none;
+  max-width: 100%;
+  transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+/* ============================================================================
+   3. PÍLDORA DESLIZANTE ANIMADA (SLIDING PILL INDICATOR)
+   ============================================================================ */
+.nav-pill-indicator {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 0;
+  width: 0;
+  border-radius: 999px;
+  background: var(--pill-bg);
+  border: 1px solid var(--pill-border);
+  box-shadow: var(--pill-shadow);
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  transform: translateX(0);
+  transition:
+    transform 0.3s cubic-bezier(0.25, 1, 0.5, 1),
+    width 0.3s cubic-bezier(0.25, 1, 0.5, 1),
+    background 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    opacity 0.2s ease;
+}
+
+.nav-pill-indicator.is-ready {
+  opacity: 1;
+}
+
+.nav-pill-indicator.is-danger-pill {
+  background: var(--pill-danger-bg);
+  border-color: var(--pill-danger-border);
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.22);
+}
+
+/* ============================================================================
+   4. ÍTEMS DEL TAB BAR (4 ELEMENTOS ORDENADOS)
+   ============================================================================ */
+.tab-bar-item {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 20px;
+  min-height: 46px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--tab-item-text);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  outline: none;
+  transition: color 0.22s ease, transform 0.15s ease;
+}
+
+.tab-bar-item:focus-visible {
+  box-shadow: 0 0 0 2px var(--gold);
+}
+
+/* Cuando Operaciones es el tab activo pero la píldora se deslizó hacia otro ícono,
+   mantiene su título visible en color oscuro (#0F2744 en modo claro / #F4F7FB en modo noche) */
+.tab-bar-item.is-active {
+  font-weight: 700;
+  color: var(--heading-color);
+}
+
+.tab-bar-item.is-active:not(.is-pill-target) .tab-bar-icon {
+  color: var(--brand);
+}
+
+[data-theme="dark"] .tab-bar-item.is-active:not(.is-pill-target) .tab-bar-icon,
+body.dark-mode .tab-bar-item.is-active:not(.is-pill-target) .tab-bar-icon {
+  color: var(--gold);
+}
+
+/* Únicamente el ítem sobre el que está posicionada la píldora lleva texto blanco */
+.tab-bar-item.is-pill-target {
+  color: var(--tab-item-active-text);
+}
+
+/* Íconos SVG dentro del Tab Bar */
+.tab-bar-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  transition: transform 0.25s cubic-bezier(0.25, 1, 0.5, 1), color 0.22s ease;
+}
+
+.tab-svg-icon {
+  width: 19px;
+  height: 19px;
+  display: block;
+}
+
+.tab-bar-item:hover .tab-bar-icon {
+  transform: translateY(-1px);
+}
+
+.tab-bar-item.is-pill-target .tab-bar-icon {
+  color: var(--gold);
+}
+
+/* 2. Modo Noche (Alternancia Luna / Sol) */
+.tab-theme-icon-wrap {
+  position: relative;
+}
+
+.tab-theme-icon-wrap .icon-sun {
+  display: none;
+}
+
+.tab-theme-icon-wrap .icon-moon {
+  display: block;
+}
+
+[data-theme="dark"] .tab-theme-icon-wrap .icon-moon,
+body.dark-mode .tab-theme-icon-wrap .icon-moon {
+  display: none;
+}
+
+[data-theme="dark"] .tab-theme-icon-wrap .icon-sun,
+body.dark-mode .tab-theme-icon-wrap .icon-sun {
+  display: block;
+  color: var(--gold);
+}
+
+/* 3. Perfil de Usuario (Avatar + Nombre Login + Puesto Compacto) */
+.tab-bar-item-profile {
+  padding: 6px 18px 6px 10px;
+  text-align: left;
+}
+
+.tab-profile-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--brand-deep) 0%, var(--brand) 100%);
+  border: 2px solid var(--gold);
+  color: #FFFFFF;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(15, 39, 68, 0.25);
+}
+
+.tab-profile-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.2;
+  min-width: 0;
+}
+
+.tab-profile-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: inherit;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-profile-role {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--tab-role-text);
+  margin-top: 2px;
+}
+
+.tab-bar-item-profile.is-pill-target .tab-profile-role {
+  color: var(--gold);
+}
+
+/* Tooltip / Popover de Resumen de Sesión (Abre hacia arriba desde el Tab Bar inferior) */
+.tab-profile-tooltip {
+  position: absolute;
+  bottom: calc(100% + 14px);
+  top: auto;
+  right: 0;
+  width: 280px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--gold);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 16px;
+  z-index: 1100;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+  cursor: default;
+}
+
+.tab-bar-item-profile:hover .tab-profile-tooltip,
+.tab-bar-item-profile.is-open .tab-profile-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.tab-tooltip-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border-2);
+}
+
+.tab-tooltip-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--brand-deep) 0%, var(--brand) 100%);
+  border: 2px solid var(--gold);
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tab-tooltip-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.tab-tooltip-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--heading-color);
+  white-space: normal;
+  line-height: 1.25;
+}
+
+.tab-tooltip-badge {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background-color: var(--gold-light);
+  border: 1px solid var(--gold);
+  color: var(--gold-text);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.tab-tooltip-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tab-tooltip-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+}
+
+.tab-tooltip-key {
+  color: var(--text-3);
+  font-weight: 600;
+}
+
+.tab-tooltip-val {
+  color: var(--text);
+  font-weight: 700;
+  text-align: right;
+  max-width: 155px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-tooltip-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--success);
+  font-weight: 700;
+}
+
+.tab-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--success);
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2);
+}
+
+/* 4. Cerrar Sesión (Acento --danger #DC2626 al pasar el cursor) */
+.tab-bar-item-logout {
+  color: var(--tab-logout-text);
+}
+
+.tab-bar-item-logout:hover,
+.tab-bar-item-logout:focus-visible,
+.tab-bar-item-logout.is-pill-target {
+  color: #FFFFFF;
+}
+
+.tab-bar-item-logout:hover .tab-bar-icon,
+.tab-bar-item-logout:focus-visible .tab-bar-icon,
+.tab-bar-item-logout.is-pill-target .tab-bar-icon {
+  color: #FFFFFF;
+}
+
+/* ============================================================================
+   5. ENCABEZADO CORPORATIVO SIMÉTRICO DE /operaciones
+   ============================================================================ */
+.op-hero-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 5px solid var(--gold);
+  border-radius: var(--radius-md);
+  padding: 18px 24px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+.op-hero-brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.op-hero-emblem {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--brand-deep) 0%, var(--brand) 100%);
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  font-size: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
+}
+
+.op-hero-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--brand);
+}
+
+[data-theme="dark"] .op-hero-eyebrow,
+body.dark-mode .op-hero-eyebrow {
+  color: var(--gold);
+}
+
+.op-hero-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--heading-color);
+  margin: 2px 0 0;
+}
+
+.op-hero-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.op-active-flight-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--gold-light);
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--gold-text);
+  text-decoration: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.op-active-flight-pill:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-gold);
+}
+
+/* ============================================================================
+   6. ADAPTACIÓN DISPOSITIVO MÓVIL (@media max-width: 768px) — BOTTOM DOCK
+   ============================================================================ */
+@media (max-width: 768px) {
+  .sio-bottom-nav-zone {
+    padding: 0;
+    bottom: 0;
+  }
+
+  .sio-tab-bar {
+    position: fixed;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    z-index: 1000;
+    width: auto;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 2px;
+    padding: 6px;
+    border-radius: 22px;
+  }
+
+  .nav-pill-indicator {
+    top: 6px;
+    bottom: 6px;
+    border-radius: 16px;
+  }
+
+  .tab-bar-item {
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    padding: 7px 4px;
+    min-height: 54px;
+    border-radius: 16px;
+    font-size: 10px;
+    text-align: center;
+    min-width: 0;
+  }
+
+  .tab-bar-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .tab-svg-icon {
+    width: 17px;
+    height: 17px;
+  }
+
+  .tab-bar-label {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 10px;
+    line-height: 1.15;
+  }
+
+  .tab-bar-item-profile {
+    padding: 5px 4px;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .tab-profile-avatar {
+    width: 22px;
+    height: 22px;
+    font-size: 9.5px;
+    border-width: 1.5px;
+  }
+
+  .tab-profile-info {
+    align-items: center;
+    max-width: 100%;
+  }
+
+  .tab-profile-name {
+    max-width: 76px;
+    font-size: 9.5px;
+    line-height: 1.1;
+  }
+
+  .tab-profile-role {
+    font-size: 8px;
+    margin-top: 1px;
+    max-width: 76px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tab-profile-tooltip {
+    top: auto;
+    bottom: calc(100% + 14px);
+    right: -12px;
+    width: 260px;
+    transform: translateY(6px);
+  }
+
+  .content-body-operaciones {
+    padding: 16px 14px 104px;
+  }
+
+  .op-hero-header {
+    padding: 14px 16px;
+    margin-bottom: 16px;
+  }
+
+  .op-hero-title {
+    font-size: 16px;
+  }
+}

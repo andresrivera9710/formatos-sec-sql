@@ -11,10 +11,10 @@
   };
 
   let fechaInicial = new Date().toISOString().substring(0, 10);
-  if (comp.Fecha) {
-    fechaInicial = String(comp.Fecha instanceof Date ? comp.Fecha.toISOString() : comp.Fecha).substring(0, 10);
-  } else if (vuelo && vuelo.FechaItinerado) {
+  if (vuelo && vuelo.FechaItinerado) {
     fechaInicial = String(vuelo.FechaItinerado instanceof Date ? vuelo.FechaItinerado.toISOString() : vuelo.FechaItinerado).substring(0, 10);
+  } else if (comp.Fecha) {
+    fechaInicial = String(comp.Fecha instanceof Date ? comp.Fecha.toISOString() : comp.Fecha).substring(0, 10);
   }
 
   const horaInicioVal = extractHHMM(comp.Hora) || '';
@@ -70,8 +70,13 @@
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
       <div class="form-group">
-        <label for="ebFecha"><i class="far fa-calendar-alt"></i> Fecha <span style="color: var(--danger);">*</span></label>
-        <input type="date" id="ebFecha" class="form-control" value="<%= fechaInicial %>" required>
+        <label for="ebFecha"><i class="far fa-calendar-alt"></i> Fecha <i class="fas fa-lock input-lock-icon" title="Fecha vinculada al itinerario (Solo lectura)"></i></label>
+        <input type="date" id="ebFecha" class="form-control input-locked" value="<%= fechaInicial %>" readonly tabindex="-1" required>
+      </div>
+
+      <div class="form-group">
+        <label for="ebNoVuelo"><i class="fas fa-plane"></i> No. Vuelo <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <input type="text" id="ebNoVuelo" class="form-control input-locked" value="<%= vuelo.novuelo || '--' %>" readonly tabindex="-1">
       </div>
 
       <div class="form-group">
@@ -99,8 +104,8 @@
       </div>
 
       <div class="form-group">
-        <label for="ebNombreOperador"><i class="fas fa-user-shield"></i> Nombre del Operador (Agente) <span style="color: var(--danger);">*</span></label>
-        <input type="text" id="ebNombreOperador" class="form-control" value="<%= nombreOperadorVal %>" required>
+        <label for="ebNombreOperador"><i class="fas fa-user-shield"></i> Agente de Seguridad <i class="fas fa-lock input-lock-icon" title="Agente autenticado en sesión (Solo lectura)"></i></label>
+        <input type="text" id="ebNombreOperador" class="form-control input-locked" value="<%= nombreOperadorVal %>" readonly tabindex="-1" required>
       </div>
     </div>
   </div>

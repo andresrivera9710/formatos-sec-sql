@@ -82,6 +82,10 @@ class SioSignaturePad {
     return !this.hasDrawn;
   }
 
+  isBlank() {
+    return this.isEmpty();
+  }
+
   toDataURL(type = 'image/png') {
     return this.canvas.toDataURL(type);
   }

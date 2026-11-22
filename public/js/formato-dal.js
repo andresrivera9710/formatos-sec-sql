@@ -82,8 +82,8 @@ document.addEventListener('DOMContentLoaded', () => {
       nombreAgenteDelta: val('dalNombreAgenteDelta'),
       guardSig1: nombreGuardia,
       guardSig3: nombreGuardia,
-      firmaGuardSup: (padGuardSup && !padGuardSup.isBlank()) ? padGuardSup.toDataURL() : '',
-      firmaDLAgent: (padDLAgent && !padDLAgent.isBlank()) ? padDLAgent.toDataURL() : ''
+      firmaGuardSup: (padGuardSup && !padGuardSup.isEmpty()) ? padGuardSup.toDataURL() : '',
+      firmaDLAgent: (padDLAgent && !padDLAgent.isEmpty()) ? padDLAgent.toDataURL() : ''
     };
   }
 
@@ -196,14 +196,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (encInput) encInput.value = String(encabezadoId);
       }
 
-      Swal.fire({
+      await Swal.fire({
         icon: 'success',
         title: '¡Guardado Exitoso!',
         text: json.mensaje || 'Daily Activity Log guardado correctamente.',
-        confirmButtonColor: '#275B88'
-      }).then(() => {
-        window.location.href = '/formatos';
+        timer: 1100,
+        showConfirmButton: false
       });
+      if (json.previewUrl) {
+        window.location.href = json.previewUrl;
+      } else {
+        window.location.href = '/formatos';
+      }
     } catch (err) {
       if (previewWin && !previewWin.closed) previewWin.close();
       if (typeof ocultarPantallaCarga === 'function') ocultarPantallaCarga();

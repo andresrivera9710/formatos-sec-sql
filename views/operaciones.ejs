@@ -2,21 +2,39 @@
 <html lang="es">
 <%- include('partials/head', { title: 'Tarjetas de Operaciones | SIO Formatos SEC' }) %>
 <body>
-  <div class="app-container">
-    <%- include('partials/sidebar', { activeTab: 'operaciones', currentUser: user }) %>
+  <div class="app-container app-container-full">
+    <div class="workspace workspace-full">
+      <main class="content-body content-body-operaciones">
+        <!-- Encabezado Corporativo Simétrico -->
+        <header class="op-hero-header">
+          <div class="op-hero-brand">
+            <div class="op-hero-emblem" aria-hidden="true">
+              <i class="fas fa-shield-alt"></i>
+            </div>
+            <div>
+              <div class="op-hero-eyebrow">SIO — LAATS • Seguridad Operacional (SEC)</div>
+              <h1 class="op-hero-title">Tarjetas de Operaciones</h1>
+            </div>
+          </div>
 
-    <div class="workspace">
-      <%- include('partials/header', { pageTitle: 'Tarjetas de Operaciones', vueloActivo: vueloActivo }) %>
+          <% if (typeof vueloActivo !== 'undefined' && vueloActivo) { %>
+            <div class="op-hero-meta">
+              <a href="/formatos" class="op-active-flight-pill" title="Ir a los formatos del vuelo activo">
+                <i class="fas fa-plane"></i>
+                <span><%= vueloActivo.operador %> (<%= vueloActivo.novuelo %>) | Matrícula: <%= vueloActivo.Matricula || 'S/N' %></span>
+              </a>
+            </div>
+          <% } %>
+        </header>
 
-      <main class="content-body">
         <!-- Barra de Filtros de Itinerario -->
         <form id="formFiltrosOperaciones" class="filter-bar">
-          <div class="form-group" style="max-width: 200px;">
+          <div class="form-group form-group-date">
             <label for="filtroFecha1"><i class="far fa-calendar-alt"></i> Fecha de Operación</label>
             <input type="date" id="filtroFecha1" name="fecha" class="form-control" required>
           </div>
 
-          <div class="form-group" id="grupoFecha2" style="max-width: 200px; display: none;">
+          <div class="form-group form-group-date is-hidden" id="grupoFecha2">
             <label for="filtroFecha2"><i class="far fa-calendar-alt"></i> Hasta (Rango)</label>
             <input type="date" id="filtroFecha2" name="fecha2" class="form-control">
           </div>
@@ -33,37 +51,36 @@
             </select>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-            <input type="checkbox" id="checkRangoFechas" style="width: 16px; height: 16px; cursor: pointer;">
-            <label for="checkRangoFechas" style="font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text-2);">
+          <div class="filter-range-toggle">
+            <input type="checkbox" id="checkRangoFechas" class="filter-range-checkbox">
+            <label for="checkRangoFechas" class="filter-range-label">
               Activar Rango
             </label>
           </div>
 
-          <button type="submit" id="btnConsultarOperaciones" class="btn btn-primary" style="height: 42px; min-width: 145px;">
+          <button type="submit" id="btnConsultarOperaciones" class="btn btn-primary filter-submit-btn">
             <i class="fas fa-search"></i> Consultar
           </button>
         </form>
 
         <!-- Barra de estado de resultados -->
-        <div id="barraResumenOperaciones" style="display: none; margin-bottom: 16px; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-2); background: var(--surface); padding: 10px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-2);">
-          <span id="textoResumenOperaciones"><i class="fas fa-info-circle" style="color: var(--brand);"></i> Listo</span>
-          <span id="badgeTiempoConsulta" class="badge badge-gold">Azure SQL En Vivo</span>
+        <div id="barraResumenOperaciones" class="op-summary-bar is-hidden">
+          <span id="textoResumenOperaciones"><i class="fas fa-info-circle op-summary-icon"></i> Listo</span>
         </div>
 
         <!-- Contenedor de Resultados -->
         <div id="gridOperaciones" class="operations-grid">
-          <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; background: var(--surface); border-radius: 12px; border: 1px solid var(--border);">
-            <i class="fas fa-search-location fa-3x" style="color: var(--brand);"></i>
-            <h3 style="margin-top: 16px; color: var(--text);">Itinerarios sin vuelos cargados</h3>
-            <p style="color: var(--text-3); margin-top: 8px;">Seleccione una fecha y busque una aerolínea / operador en el cuadro combinado, luego presione Consultar para visualizar los vuelos.</p>
+          <div class="op-empty-state">
+            <i class="fas fa-search-location fa-3x op-empty-icon"></i>
+            <h3 class="op-empty-title">Itinerarios sin vuelos cargados</h3>
+            <p class="op-empty-desc">Seleccione una fecha y busque una aerolínea / operador en el cuadro combinado, luego presione Consultar para visualizar los vuelos.</p>
           </div>
         </div>
       </main>
 
+      <%- include('partials/tab-bar', { activeTab: 'operaciones', user: user, vueloActivo: vueloActivo }) %>
       <%- include('partials/footer') %>
     </div>
   </div>
 </body>
 </html>
-

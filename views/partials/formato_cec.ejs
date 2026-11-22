@@ -11,26 +11,29 @@
   };
 
   let fechaInicial = new Date().toISOString().substring(0, 10);
-  if (comp.Fecha) {
-    fechaInicial = String(comp.Fecha instanceof Date ? comp.Fecha.toISOString() : comp.Fecha).substring(0, 10);
-  } else if (vuelo && vuelo.FechaItinerado) {
+  if (vuelo && vuelo.FechaItinerado) {
     fechaInicial = String(vuelo.FechaItinerado instanceof Date ? vuelo.FechaItinerado.toISOString() : vuelo.FechaItinerado).substring(0, 10);
+  } else if (comp.Fecha) {
+    fechaInicial = String(comp.Fecha instanceof Date ? comp.Fecha.toISOString() : comp.Fecha).substring(0, 10);
   }
 
   const horaInicioVal = extractHHMM(comp.HoraInicio) || '';
-  const supLoginIdVal = comp.SupervisorLoginId ? String(comp.SupervisorLoginId) : '';
-  const agenteLoginIdVal = comp.AgenteLoginId
-    ? String(comp.AgenteLoginId)
-    : (user && user.loginSecId ? String(user.loginSecId) : '');
-  const compartimientoVal = comp.Compartimiento !== undefined && comp.Compartimiento !== null ? String(comp.Compartimiento) : '1';
+  const supRawVal = String(comp.SupervisorLoginId || comp.Supervisor || '').trim();
+  const agenteRawVal = String(
+    comp.AgenteLoginId || comp.Agente || (user && user.usuario) || ''
+  ).trim();
+  const compartimientoRaw = comp.CompartimientoNo ?? comp.Compartimiento;
+  const compartimientoVal = compartimientoRaw !== undefined && compartimientoRaw !== null && String(compartimientoRaw).trim() !== ''
+    ? String(compartimientoRaw)
+    : '1';
   const compAbiertoVal = extractHHMM(comp.CompAbierto) || '';
   const compCerradoVal = extractHHMM(comp.CompCerrado) || '';
 
-  const embarqueInicioVal = extractHHMM(comp.EmbarqueInicio) || '';
-  const embarqueFinalVal = extractHHMM(comp.EmbarqueFinal) || '';
+  const embarqueInicioVal = extractHHMM(comp.EmbarqueHoraInicio || comp.EmbarqueInicio) || '';
+  const embarqueFinalVal = extractHHMM(comp.EmbarqueHoraFinal || comp.EmbarqueFinal) || '';
 
-  const desembarqueInicioVal = extractHHMM(comp.DesembarqueInicio) || '';
-  const desembarqueFinalVal = extractHHMM(comp.DesembarqueFinal) || '';
+  const desembarqueInicioVal = extractHHMM(comp.DesembarqueHoraInicio || comp.DesembarqueInicio) || '';
+  const desembarqueFinalVal = extractHHMM(comp.DesembarqueHoraFinal || comp.DesembarqueFinal) || '';
   const equipajeVal = comp.Equipaje ?? '';
   const carruajesVal = comp.Carruajes ?? '';
   const correosVal = comp.Correos ?? '';
@@ -38,26 +41,32 @@
   const cantSinEtiqVal = comp.CantidadSinEtiqueta ?? '';
   const cantConEtiqVal = comp.CantidadConEtiqueta ?? '';
 
+  const splitPair = (raw) => String(raw || '').split(/[,/]/).map(s => s.trim());
+  const combNames = splitPair(comp.NombreCombustible);
+  const combTias = splitPair(comp.TIACombustible);
+  const cocNames = splitPair(comp.NombreCocinas);
+  const cocTias = splitPair(comp.TIACocinas);
+
   const nombreOirsaVal = comp.NombreOirsa || '';
-  const tiaOirsaVal = comp.TiaOirsa || '';
-  const pilotoCombVal = comp.PilotoCombustible || '';
-  const tiaPilotoCombVal = comp.TiaPilotoCombustible || '';
-  const ayudanteCombVal = comp.AyudanteCombustible || '';
-  const tiaAyudanteCombVal = comp.TiaAyudanteCombustible || '';
+  const tiaOirsaVal = comp.TIAOirsa || comp.TiaOirsa || '';
+  const pilotoCombVal = comp.PilotoCombustible || combNames[0] || '';
+  const tiaPilotoCombVal = comp.TiaPilotoCombustible || combTias[0] || '';
+  const ayudanteCombVal = comp.AyudanteCombustible || combNames[1] || '';
+  const tiaAyudanteCombVal = comp.TiaAyudanteCombustible || combTias[1] || '';
   const noUnidadCombVal = comp.NoUnidadCombustible || '';
   const combEntradaVal = extractHHMM(comp.CombustibleEntrada) || '';
   const combSalidaVal = extractHHMM(comp.CombustibleSalida) || '';
 
-  const pilotoCocVal = comp.PilotoCocinas || '';
-  const tiaPilotoCocVal = comp.TiaPilotoCocinas || '';
-  const ayudanteCocVal = comp.AyudanteCocinas || '';
-  const tiaAyudanteCocVal = comp.TiaAyudanteCocinas || '';
+  const pilotoCocVal = comp.PilotoCocinas || cocNames[0] || '';
+  const tiaPilotoCocVal = comp.TiaPilotoCocinas || cocTias[0] || '';
+  const ayudanteCocVal = comp.AyudanteCocinas || cocNames[1] || '';
+  const tiaAyudanteCocVal = comp.TiaAyudanteCocinas || cocTias[1] || '';
   const noUnidadCocVal = comp.NoUnidadCocinas || '';
   const cocEntradaVal = extractHHMM(comp.CocinasEntrada) || '';
   const cocSalidaVal = extractHHMM(comp.CocinasSalida) || '';
 
   const operadoresRampaVal = comp.OperadoresRampa || '';
-  const observacionVal = comp.Observacion ? String(comp.Observacion).trim() : '';
+  const observacionVal = String(comp.Observaciones || comp.Observacion || '').trim();
 
   const initialCecPayload = {
     formatoId: formato.id,
@@ -94,8 +103,8 @@
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px;">
       <div class="form-group">
-        <label for="cecFecha"><i class="far fa-calendar-alt"></i> Fecha <span style="color: var(--danger);">*</span></label>
-        <input type="date" id="cecFecha" class="form-control" value="<%= fechaInicial %>" required>
+        <label for="cecFecha"><i class="far fa-calendar-alt"></i> Fecha <i class="fas fa-lock input-lock-icon" title="Fecha vinculada al itinerario (Solo lectura)"></i></label>
+        <input type="date" id="cecFecha" class="form-control input-locked" value="<%= fechaInicial %>" readonly tabindex="-1" required>
       </div>
 
       <div class="form-group">
@@ -106,6 +115,21 @@
             <i class="far fa-clock"></i> Ahora
           </button>
         </div>
+      </div>
+
+      <div class="form-group">
+        <label for="cecNoVuelo"><i class="fas fa-plane"></i> No. Vuelo <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <input type="text" id="cecNoVuelo" class="form-control input-locked" value="<%= vuelo.novuelo || '--' %>" readonly tabindex="-1">
+      </div>
+
+      <div class="form-group">
+        <label for="cecMatricula"><i class="fas fa-barcode"></i> Matrícula <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <input type="text" id="cecMatricula" class="form-control input-locked" value="<%= vuelo.Matricula || 'Pendiente' %>" readonly tabindex="-1">
+      </div>
+
+      <div class="form-group">
+        <label for="cecPuerta"><i class="fas fa-door-open"></i> Puerta <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <input type="text" id="cecPuerta" class="form-control input-locked" value="<%= vuelo.puertaposicion || '--' %>" readonly tabindex="-1">
       </div>
 
       <div class="form-group">
@@ -137,28 +161,47 @@
         <label for="cecSupervisor"><i class="fas fa-user-tie"></i> Nombre del Supervisor <span style="color: var(--danger);">*</span></label>
         <select id="cecSupervisor" class="form-control" required>
           <option value="">-- Seleccione Supervisor --</option>
-          <% (supervisores || []).forEach(sup => { %>
+          <% (supervisores || []).forEach(sup => {
+               const matchSup = supRawVal && (
+                 String(sup.LoginId) === supRawVal ||
+                 String(sup.EmpleadoId || '') === supRawVal ||
+                 String(sup.Usuario || '').trim().toUpperCase() === supRawVal.toUpperCase()
+               );
+          %>
             <option
               value="<%= sup.LoginId %>"
               data-usuario="<%= sup.Usuario %>"
-              <%= String(sup.LoginId) === supLoginIdVal ? 'selected' : '' %>
+              <%= matchSup ? 'selected' : '' %>
             ><%= sup.Usuario %></option>
           <% }) %>
         </select>
       </div>
 
       <div class="form-group">
-        <label for="cecAgente"><i class="fas fa-user-shield"></i> Nombre del Agente <span style="color: var(--danger);">*</span></label>
-        <select id="cecAgente" class="form-control" required>
-          <option value="">-- Seleccione Agente --</option>
-          <% (usuariosSEC || []).forEach(u => { %>
-            <option
-              value="<%= u.LoginId %>"
-              data-usuario="<%= u.Usuario %>"
-              <%= (String(u.LoginId) === agenteLoginIdVal || (!agenteLoginIdVal && user && u.Usuario === user.usuario)) ? 'selected' : '' %>
-            ><%= u.Usuario %> (<%= u.Rol || 'AGENTE' %>)</option>
-          <% }) %>
-        </select>
+        <label for="cecAgente"><i class="fas fa-user-shield"></i> Nombre del Agente <i class="fas fa-lock input-lock-icon" title="Agente autenticado en sesión (Solo lectura)"></i></label>
+        <%
+          let resolvedAgenteNombre = (user && user.usuario) ? String(user.usuario).trim() : agenteRawVal;
+          const matchedAgUser = (usuariosSEC || []).find(u =>
+            agenteRawVal && (
+              String(u.LoginId) === agenteRawVal ||
+              String(u.EmpleadoId || '') === agenteRawVal ||
+              String(u.Usuario || '').trim().toUpperCase() === agenteRawVal.toUpperCase()
+            )
+          );
+          if (matchedAgUser && matchedAgUser.Usuario) {
+            resolvedAgenteNombre = String(matchedAgUser.Usuario).trim();
+          }
+        %>
+        <input
+          type="text"
+          id="cecAgente"
+          class="form-control input-locked"
+          value="<%= resolvedAgenteNombre %>"
+          data-usuario="<%= resolvedAgenteNombre %>"
+          readonly
+          tabindex="-1"
+          required
+        >
       </div>
     </div>
   </div>

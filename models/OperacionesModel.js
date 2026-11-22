@@ -15,9 +15,12 @@ class OperacionesModel {
         OperadorId,
         Nombre
       FROM Operador
-      WHERE Nombre IN (
-        'AEROMEXICO', 'ARAJET', 'DELTA', 'AMERIJET', 
-        'LAN CARGO', 'LATAM', 'FEDEX', 'AIR CANADA', 'AVIANCA', 'TAMPA', 'TAMPA CARGO'
+      WHERE (
+        Nombre IN (
+          'AEROMEXICO', 'ARAJET', 'DELTA', 'AMERIJET', 
+          'LAN CARGO', 'LATAM', 'FEDEX', 'AIR CANADA', 'AVIANCA', 'TAMPA', 'TAMPA CARGO'
+        )
+        OR UPPER(Nombre) LIKE '%AMERIJET%'
       )
         AND ISNULL(EstaEliminado, 0) = 0
       ORDER BY Nombre ASC

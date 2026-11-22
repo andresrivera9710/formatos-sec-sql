@@ -1,72 +1,12 @@
-/* Barra flotante para Vista Preliminar de Formatos Controlados (invisible al imprimir) */
-.sio-preview-toolbar {
-  position: fixed;
-  top: 14px;
-  right: 16px;
-  z-index: 99999;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background-color: #0F2744;
-  color: #FFFFFF;
-  padding: 8px 12px;
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(15, 39, 68, 0.35);
-  font-family: Arial, Helvetica, sans-serif;
-  font-size: 12px;
+/* Regla de Oro: Documentos Controlados Oficiales siempre con fondo blanco puro (#FFFFFF) y texto oscuro */
+html,
+body {
+  color-scheme: light !important;
+  background-color: #FFFFFF !important;
+  color: #000000 !important;
 }
 
-.sio-preview-badge {
-  background-color: #D4AF37;
-  color: #0F2744;
-  font-weight: 700;
-  padding: 4px 8px;
-  border-radius: 999px;
-  font-size: 11px;
+.sio-preview-toolbar,
+.preview-toolbar {
+  display: none !important;
 }
-
-.sio-preview-warn {
-  background-color: #FEF2F2;
-  color: #B91C1C;
-  border: 1px solid #FCA5A5;
-  font-weight: 700;
-  padding: 4px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-}
-
-.sio-preview-btn {
-  border: none;
-  border-radius: 6px;
-  padding: 6px 12px;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.sio-preview-btn.print {
-  background-color: #D4AF37;
-  color: #0F2744;
-}
-
-.sio-preview-btn.print:hover {
-  background-color: #E3C254;
-}
-
-.sio-preview-btn.close {
-  background-color: rgba(255, 255, 255, 0.18);
-  color: #FFFFFF;
-}
-
-.sio-preview-btn.close:hover {
-  background-color: rgba(255, 255, 255, 0.3);
-}
-
-@media print {
-  .no-print,
-  .sio-preview-toolbar {
-    display: none !important;
-  }
-}
-

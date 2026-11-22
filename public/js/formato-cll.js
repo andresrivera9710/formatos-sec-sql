@@ -174,8 +174,8 @@ document.addEventListener('DOMContentLoaded', () => {
       agenteTIA: tiaSec,
       tiaSecurity: tiaSec,
       tiaLD: tiaLd || tiaSec,
-      firmaSecurity: (padSec && !padSec.isBlank()) ? padSec.toDataURL() : '',
-      firmaLD: (padLd && !padLd.isBlank()) ? padLd.toDataURL() : '',
+      firmaSecurity: (padSec && !padSec.isEmpty()) ? padSec.toDataURL() : '',
+      firmaLD: (padLd && !padLd.isEmpty()) ? padLd.toDataURL() : '',
       registros: registros.map((r) => ({
         DetalleCLLId: r.DetalleCLLId || 0,
         Guia: String(r.Guia || '').trim(),
@@ -287,14 +287,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (encInput) encInput.value = String(encabezadoId);
       }
 
-      Swal.fire({
+      await Swal.fire({
         icon: 'success',
         title: '¡Guardado Exitoso!',
         text: json.mensaje || 'Cargo Loading Log guardado correctamente.',
-        confirmButtonColor: '#275B88'
-      }).then(() => {
-        window.location.href = '/formatos';
+        timer: 1100,
+        showConfirmButton: false
       });
+      if (json.previewUrl) {
+        window.location.href = json.previewUrl;
+      } else {
+        window.location.href = '/formatos';
+      }
     } catch (err) {
       if (previewWin && !previewWin.closed) previewWin.close();
       if (typeof ocultarPantallaCarga === 'function') ocultarPantallaCarga();
