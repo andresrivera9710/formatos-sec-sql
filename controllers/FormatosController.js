@@ -440,10 +440,97 @@ class FormatosController {
 
   /**
    * Renderiza la vista preliminar HTML imprimible del formato (HTML controlado o fallback CP).
+   * Si no existe aún un snapshot en req.session.formatPreviews (ej. acceso directo o reinicio de instancia en Azure App Service),
+   * hidrata automáticamente desde Azure SQL + Repositorio de Firmas y renderiza la plantilla controlada de FormatosHTML/.
    */
   static async renderVistaPreliminarCP(req, res) {
     const { formatoId } = req.params;
-    const entry = req.session?.formatPreviews?.[formatoId];
+    let entry = req.session?.formatPreviews?.[formatoId];
+
+    if (!entry && HtmlPreviewService.hasControlledTemplate(formatoId)) {
+      try {
+        const vuelo = req.session?.vueloSeleccionado || {};
+        const user = req.session?.user || {};
+        if (vuelo.operador) {
+          const autorizados = OperacionesService.obtenerFormatosParaAerolinea(vuelo.operador, user.puestoSec);
+          if (!autorizados.some(f => f.id === formatoId)) {
+            return res.redirect('/formatos');
+          }
+        }
+
+        const targetEncId = req.query.encabezadoId ? parseInt(req.query.encabezadoId, 10) : null;
+        let hydrated = { datos: [], complementos: [] };
+        if (vuelo.itinerarioId) {
+          try {
+            hydrated = await FormatosService.prepararFormato({
+              formatoId,
+              itinerarioId: vuelo.itinerarioId,
+              encabezadoId: targetEncId,
+              user
+            });
+          } catch (hydErr) {
+            console.warn('[DIRECT PREVIEW HYDRATION WARNING]', hydErr.message);
+          }
+        }
+
+        const formatoMetaCatalogo = hydrated?.meta ||
+          OperacionesService.getCatalogoFormatosPorAerolinea().find(f => f.id === formatoId) ||
+          null;
+        const docNameInfo = HtmlPreviewService.buildDocumentName({
+          vuelo,
+          formatoMeta: formatoMetaCatalogo,
+          formatoNombre: formatoMetaCatalogo?.nombre || formatoId,
+          encabezadoId: hydrated?.encabezadoId || targetEncId || null
+        });
+
+        let vars;
+        let meta = {};
+        if (formatoId.endsWith('-cp')) {
+          const basePreview = hydrated && hydrated.cpState
+            ? FormatosService.construirPreviewCPDesdeBD({
+                hydrated,
+                formatoMeta: formatoMetaCatalogo,
+                vuelo,
+                user,
+                fallbackPayload: {}
+              })
+            : {};
+          const puerta = vuelo.puertaposicion || '--';
+          const horaInicio = basePreview?.horaInicio || '--:--';
+          const cpDoc = {
+            ...basePreview,
+            aerolinea: vuelo.operador || basePreview?.aerolinea || '',
+            vuelo: vuelo.novuelo || '--',
+            matricula: vuelo.Matricula || 'Pendiente',
+            puerta,
+            horaInicioPuerta: `${horaInicio} / ${puerta}`
+          };
+          vars = HtmlPreviewService.buildCpData({ cpDoc, vuelo, user });
+          meta = { pendientesSalidaCount: cpDoc.pendientesSalidaCount || 0 };
+        } else {
+          vars = HtmlPreviewService.buildAeromexicoOtherData({
+            formatoId,
+            formDatos: {},
+            vuelo,
+            user,
+            datosPrevios: hydrated.datos || [],
+            complementos: hydrated.complementos || [],
+            hydrated,
+            preferPersisted: true
+          });
+        }
+
+        entry = {
+          type: 'controlled-html',
+          vars,
+          meta,
+          documentBaseName: docNameInfo.documentBaseName,
+          fileName: docNameInfo.fileName
+        };
+      } catch (err) {
+        console.error('[DIRECT PREVIEW RENDER ERROR]', err);
+      }
+    }
 
     if (!entry) {
       return res.redirect(`/formatos/${encodeURIComponent(formatoId)}`);
