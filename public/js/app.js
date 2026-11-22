@@ -4,6 +4,7 @@
  */
 
 let _sioLoadingInterval = null;
+let _sioLoadingTimeout = null;
 let _sioLoadingStart = 0;
 let _comboOperador = null;
 const _operacionesCache = new Map();
@@ -26,6 +27,10 @@ function mostrarPantallaCarga(titulo = 'Procesando solicitud...', subtitulo = 'C
     clearInterval(_sioLoadingInterval);
     _sioLoadingInterval = null;
   }
+  if (_sioLoadingTimeout) {
+    clearTimeout(_sioLoadingTimeout);
+    _sioLoadingTimeout = null;
+  }
 
   _sioLoadingStart = performance.now();
   if (timerEl) timerEl.textContent = 'Ejecutando consulta (0.0s)';
@@ -36,6 +41,11 @@ function mostrarPantallaCarga(titulo = 'Procesando solicitud...', subtitulo = 'C
       timerEl.textContent = `Ejecutando consulta (${elapsed}s)`;
     }
   }, 100);
+
+  // Auto-cierre de seguridad tras 20s para jamás bloquear al usuario si se interrumpe la navegación
+  _sioLoadingTimeout = setTimeout(() => {
+    ocultarPantallaCarga();
+  }, 20000);
 
   if (overlay) {
     overlay.classList.add('active');
@@ -51,12 +61,24 @@ function ocultarPantallaCarga() {
     clearInterval(_sioLoadingInterval);
     _sioLoadingInterval = null;
   }
+  if (_sioLoadingTimeout) {
+    clearTimeout(_sioLoadingTimeout);
+    _sioLoadingTimeout = null;
+  }
   const overlay = document.getElementById('sioLoadingOverlay');
   if (overlay) {
     overlay.classList.remove('active');
     overlay.setAttribute('aria-hidden', 'true');
   }
 }
+
+// Solución al Bug de Navegación Atrás (BFCache en dispositivos móviles: Safari iOS / Chrome Android)
+window.addEventListener('pageshow', () => {
+  ocultarPantallaCarga();
+});
+window.addEventListener('popstate', () => {
+  ocultarPantallaCarga();
+});
 
 /**
  * Obtiene la fecha actual en formato YYYY-MM-DD según la zona horaria local
@@ -98,6 +120,19 @@ function escapeHtml(text) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Asegurar que cualquier overlay remanente de caché se oculte al cargar
+  ocultarPantallaCarga();
+
+  // Cierre de emergencia si el usuario toca el fondo oscuro del overlay
+  const overlayEl = document.getElementById('sioLoadingOverlay');
+  if (overlayEl) {
+    overlayEl.addEventListener('click', (e) => {
+      if (e.target === overlayEl) {
+        ocultarPantallaCarga();
+      }
+    });
+  }
+
   // 1. Manejador del Modo Oscuro (Sincronizado con tab-bar.js y [data-theme="dark"])
   const btnDarkMode = document.getElementById('btnDarkModeToggle');
   if (btnDarkMode) {

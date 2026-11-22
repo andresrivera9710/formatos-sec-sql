@@ -14,4 +14,18 @@
   } catch (_) {
     document.documentElement.setAttribute('data-theme', 'light');
   }
+
+  // Protección temprana universal contra pantalla de carga infinita al retroceder en dispositivos móviles (BFCache)
+  function ocultarOverlaysGlobal() {
+    try {
+      const overlays = document.querySelectorAll('.sio-loading-overlay, #sioLoadingOverlay');
+      overlays.forEach(function (el) {
+        el.classList.remove('active');
+        el.setAttribute('aria-hidden', 'true');
+      });
+    } catch (_) {}
+  }
+
+  window.addEventListener('pageshow', ocultarOverlaysGlobal);
+  window.addEventListener('popstate', ocultarOverlaysGlobal);
 })();

@@ -1617,24 +1617,14 @@ body.dark-mode .er-fluid-table tbody tr.er-row-invalid td {
   margin-bottom: 28px;
 }
 
-.login-icon-wrap {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, rgba(39, 91, 136, 0.12) 0%, rgba(15, 39, 68, 0.06) 100%);
-  border: 1px solid rgba(39, 91, 136, 0.2);
+.login-key-icon {
+  font-size: 38px;
   color: var(--brand);
-  font-size: 26px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
-[data-theme="dark"] .login-icon-wrap,
-body.dark-mode .login-icon-wrap {
-  background: rgba(96, 165, 250, 0.12);
-  border-color: rgba(96, 165, 250, 0.25);
+[data-theme="dark"] .login-key-icon,
+body.dark-mode .login-key-icon {
   color: var(--gold);
 }
 
@@ -1758,8 +1748,32 @@ body.dark-mode .login-input:focus {
   gap: 10px;
 }
 
+.login-server-status-wrap {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.btn-server-status {
+  font-size: 11px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  background-color: var(--surface-hover);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-server-status:hover {
+  background-color: var(--border);
+  color: var(--brand);
+}
+
 .login-footer-info {
-  margin-top: 28px;
+  margin-top: 24px;
   text-align: center;
   font-size: 11px;
   color: var(--text-muted);
@@ -1824,11 +1838,9 @@ body.dark-mode .login-input:focus {
     padding: 28px 20px 24px;
   }
 
-  .login-icon-wrap {
-    width: 52px;
-    height: 52px;
-    font-size: 20px;
-    margin-bottom: 8px;
+  .login-key-icon {
+    font-size: 32px;
+    margin-bottom: 6px;
   }
 
   .login-form-title {
@@ -1837,13 +1849,17 @@ body.dark-mode .login-input:focus {
 
   .login-input {
     height: 48px;
-    font-size: 20px;
-    letter-spacing: 5px;
+    font-size: 18px;
+    letter-spacing: 4px;
   }
 
   .login-submit-btn {
     height: 48px;
     font-size: 14px;
+  }
+
+  .login-server-status-wrap {
+    margin-top: 16px;
   }
 
   .login-footer-info {

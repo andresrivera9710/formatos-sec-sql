@@ -5,9 +5,9 @@
 
   <div class="login-wrapper">
     <div class="login-card">
-      <!-- Panel Izquierdo / Superior Corporativo LAATS -->
+      <!-- Panel Izquierdo Corporativo LAATS -->
       <div class="login-brand-panel">
-        <div class="login-brand-header">
+        <div>
           <div class="login-badge">
             <i class="fas fa-shield-alt"></i> Seguridad Operacional
           </div>
@@ -28,7 +28,7 @@
       <!-- Panel Derecho Formulario de PIN -->
       <div class="login-form-panel">
         <div class="login-form-header">
-          <div class="login-icon-wrap">
+          <div class="login-key-icon">
             <i class="fas fa-key"></i>
           </div>
           <h2 class="login-form-title">Acceso al Sistema</h2>
@@ -76,6 +76,13 @@
           </button>
         </form>
 
+        <!-- Botón Interactivo: Verificar Estado del Servidor -->
+        <div class="login-server-status-wrap">
+          <button type="button" id="btnVerificarEstadoServidor" class="btn btn-secondary btn-server-status">
+            <i class="fas fa-heartbeat" style="color: var(--success);"></i> Verificar Estado del Servidor
+          </button>
+        </div>
+
         <div class="login-footer-info">
           Versión del Sistema: <span class="login-version"><%= version %></span><br>
           ¿Problemas para acceder? Comuníquese con Supervisor o IT.
@@ -99,4 +106,3 @@
   <script src="/js/login.js"></script>
 </body>
 </html>
-
