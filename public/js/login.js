@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const pinInput = document.getElementById('pinInput');
   const formLogin = document.getElementById('formLogin');
   const loadingOverlay = document.getElementById('sioLoadingOverlay');
-  const btnHealth = document.getElementById('btnVerificarEstadoServidor');
 
   // Visibilidad de PIN
   if (toggleBtn && pinInput) {
@@ -15,45 +14,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const isPass = pinInput.type === 'password';
       pinInput.type = isPass ? 'text' : 'password';
       toggleBtn.innerHTML = isPass ? '<i class="fas fa-eye-slash"></i>' : '<i class="fas fa-eye"></i>';
-    });
-  }
-
-  // Verificación Interactiva del Estado del Servidor
-  if (btnHealth) {
-    btnHealth.addEventListener('click', async () => {
-      btnHealth.disabled = true;
-      const originalHtml = btnHealth.innerHTML;
-      btnHealth.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando...';
-      try {
-        const res = await fetch('/api/health', { cache: 'no-store' });
-        const data = await res.json();
-        Swal.fire({
-          icon: 'success',
-          title: 'Servidor Operacional',
-          html: `
-            <div style="text-align: left; font-size: 13px; line-height: 1.6;">
-              <p style="margin: 4px 0;"><strong>Estado:</strong> <span style="color: var(--success); font-weight: bold;">${(data.status || 'OK').toUpperCase()}</span></p>
-              <p style="margin: 4px 0;"><strong>Aplicación:</strong> ${data.app || 'SIO Formatos SEC'}</p>
-              <p style="margin: 4px 0;"><strong>Entorno:</strong> ${data.environment || 'Producción'}</p>
-              <p style="margin: 4px 0;"><strong>Cifrado TLS:</strong> Activo (encrypt: true)</p>
-              <p style="margin: 4px 0;"><strong>Timestamp:</strong> ${data.timestamp || new Date().toISOString()}</p>
-            </div>
-          `,
-          confirmButtonColor: '#275B88',
-          confirmButtonText: 'Aceptar'
-        });
-      } catch (err) {
-        Swal.fire({
-          icon: 'info',
-          title: 'Servidor en Línea',
-          text: 'Plataforma SIO Formatos SEC activa y protegida.',
-          confirmButtonColor: '#275B88',
-          confirmButtonText: 'Aceptar'
-        });
-      } finally {
-        btnHealth.disabled = false;
-        btnHealth.innerHTML = originalHtml;
-      }
     });
   }
 
@@ -78,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const btn = document.getElementById('btnLoginSubmit');
       if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Validando credenciales...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Validando...';
       }
       if (loadingOverlay) loadingOverlay.classList.add('active');
 
@@ -101,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
             title: '¡SESIÓN EXITOSA!',
             text: 'Bienvenido a SIO Formatos SEC.',
             showConfirmButton: false,
-            timer: 1200
+            timer: 1000
           }).then(() => {
             if (loadingOverlay) {
               const t = document.getElementById('sioLoadingTitle');

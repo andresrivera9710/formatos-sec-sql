@@ -1748,43 +1748,6 @@ body.dark-mode .login-input:focus {
   gap: 10px;
 }
 
-.login-server-status-wrap {
-  margin-top: 20px;
-  text-align: center;
-}
-
-.btn-server-status {
-  font-size: 11px;
-  padding: 6px 14px;
-  border-radius: 6px;
-  cursor: pointer;
-  background-color: var(--surface-hover);
-  border: 1px solid var(--border);
-  color: var(--text-2);
-  transition: all 0.2s ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.btn-server-status:hover {
-  background-color: var(--border);
-  color: var(--brand);
-}
-
-.login-footer-info {
-  margin-top: 24px;
-  text-align: center;
-  font-size: 11px;
-  color: var(--text-muted);
-  line-height: 1.5;
-}
-
-.login-version {
-  font-weight: 700;
-  color: var(--brand);
-}
-
 /* ==========================================================================
    Adaptación Responsiva para Dispositivos Móviles (<= 768px y <= 480px)
    ========================================================================== */
@@ -1856,14 +1819,6 @@ body.dark-mode .login-input:focus {
   .login-submit-btn {
     height: 48px;
     font-size: 14px;
-  }
-
-  .login-server-status-wrap {
-    margin-top: 16px;
-  }
-
-  .login-footer-info {
-    margin-top: 20px;
   }
 }
 

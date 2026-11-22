@@ -105,12 +105,15 @@ app.set('views', path.join(__dirname, 'views'));
 
 app.use(express.static(path.join(__dirname, 'public'), {
   index: false,
-  maxAge: isProduction ? '7d' : 0,
+  maxAge: isProduction ? '1d' : 0,
   etag: true,
   setHeaders: (res, filePath) => {
     if (path.basename(filePath) === 'sw.js') {
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       res.setHeader('Service-Worker-Allowed', '/');
+    } else if (filePath.endsWith('.css') || filePath.endsWith('.js')) {
+      // Revalidación inmediata para cambios de interfaz en dispositivos móviles
+      res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
     }
   }
 }));
