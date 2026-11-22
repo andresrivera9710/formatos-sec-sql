@@ -179,51 +179,23 @@ Antes de desplegar y probar el inicio de sesión en Azure App Service:
 Requisitos: Azure CLI instalado (`az --version`) y sesión iniciada (`az login`).
 
 ```powershell
-# 1. Definir nombres del entorno Azure (ajustar según suscripción LAATS)
-$RESOURCE_GROUP = "rg-sio-laats-prod"
-$LOCATION       = "eastus2"
-$PLAN_NAME      = "asp-sio-formatos-sec-linux"
-$WEBAPP_NAME    = "sio-formatos-sec-laats"   # Debe ser único globalmente (*.azurewebsites.net)
+# 1. Definir nombres reales del entorno productivo Azure LAATS (sio.laats.net)
+$AZ_CMD         = "C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd"
+$RESOURCE_GROUP = "app-laats-prod"
+$WEBAPP_NAME    = "laats-prod"   # Dominio personalizado: https://sio.laats.net (laats-prod-ekfbekf6bmada5en.eastus-01.azurewebsites.net)
 
-# 2. (Solo primera vez) Crear Resource Group, App Service Plan Linux y Web App Node 20 LTS
-az group create --name $RESOURCE_GROUP --location $LOCATION
-az appservice plan create --name $PLAN_NAME --resource-group $RESOURCE_GROUP --is-linux --sku B1
-az webapp create --name $WEBAPP_NAME --resource-group $RESOURCE_GROUP --plan $PLAN_NAME --runtime "NODE:20-lts"
+# 2. Verificar sesión activa en Azure CLI (programadorit@laats.net / Azure LAATS ISS)
+& $AZ_CMD account show
 
-# 3. Configurar parámetros base de producción (HTTPS Only, Startup, Health Check, Always On)
-az webapp update --name $WEBAPP_NAME --resource-group $RESOURCE_GROUP --https-only true
-az webapp config set --name $WEBAPP_NAME --resource-group $RESOURCE_GROUP `
-  --startup-file "npm start" `
-  --always-on true `
-  --min-tls-version 1.2 `
-  --generic-configurations '{"healthCheckPath":"/api/health"}'
-
-# 4. Configurar Application Settings (tomar los valores reales desde tu .env local sin exponerlos en Git)
-az webapp config appsettings set --name $WEBAPP_NAME --resource-group $RESOURCE_GROUP --settings `
-  NODE_ENV="production" `
-  PORT="8080" `
-  WEBSITES_PORT="8080" `
-  SCM_DO_BUILD_DURING_DEPLOYMENT="true" `
-  DB_SERVER="<tu-servidor>.database.windows.net" `
-  DB_PORT="1433" `
-  DB_USER="<tu-usuario>" `
-  DB_PASSWORD="<tu-password>" `
-  DB_DATABASE="<tu-bd>" `
-  DB_ENCRYPT="true" `
-  DB_TRUST_SERVER_CERT="false" `
-  SESSION_SECRET="<secreto-minimo-32-caracteres>" `
-  ALLOWED_ORIGINS="https://$WEBAPP_NAME.azurewebsites.net"
-
-# 5. Validar CI local y generar paquete ZIP limpio (excluyendo .git, node_modules, .env, GEMINI.md)
+# 3. Validar CI local y generar paquete ZIP limpio (excluyendo .git, node_modules, .env, GEMINI.md, readmegithub.md)
 npm test
 git archive --format=zip --output=../sio-formatos-sec-azure.zip HEAD
 
-# 6. Desplegar el ZIP hacia Azure App Service (Oryx ejecutará npm install --omit=dev automáticamente)
-az webapp deploy --resource-group $RESOURCE_GROUP --name $WEBAPP_NAME --src-path ../sio-formatos-sec-azure.zip --type zip
+# 4. Desplegar el ZIP hacia Azure App Service (Oryx ejecuta npm install --omit=dev automáticamente)
+& $AZ_CMD webapp deploy --resource-group $RESOURCE_GROUP --name $WEBAPP_NAME --src-path ../sio-formatos-sec-azure.zip --type zip
 
-# 7. Verificar salud y logs en vivo
-curl "https://$WEBAPP_NAME.azurewebsites.net/api/health"
-az webapp log tail --name $WEBAPP_NAME --resource-group $RESOURCE_GROUP
+# 5. Verificar salud en producción
+curl.exe "https://sio.laats.net/api/health"
 ```
 
 ### 5. Opción B — Despliegue Automatizado con GitHub Actions
