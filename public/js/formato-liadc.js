@@ -61,12 +61,14 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('btnLimpiarFirmaInspectorLIADC')?.addEventListener('click', () => {
+    if (sigPadInsp?.isLocked?.()) return;
     if (sigPadInsp) sigPadInsp.clear();
     savedFirmaInsp = '';
     if (noticeFirmaInsp) noticeFirmaInsp.style.display = 'none';
   });
 
   document.getElementById('btnLimpiarFirmaSupervisorLIADC')?.addEventListener('click', () => {
+    if (sigPadSup?.isLocked?.()) return;
     if (sigPadSup) sigPadSup.clear();
     savedFirmaSup = '';
     if (noticeFirmaSup) noticeFirmaSup.style.display = 'none';
@@ -308,6 +310,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (encEl) encEl.value = String(encabezadoId);
         const badgeEl = document.getElementById('liadcBadgeEstadoEncabezado');
         if (badgeEl) badgeEl.textContent = `REGISTRO CARGADO #${encabezadoId}`;
+      }
+      if (json.firmasRepo) {
+        window.SioSignatureRepoClient?.applyRepoState?.(json.firmasRepo);
       }
 
       await Swal.fire({

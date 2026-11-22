@@ -84,62 +84,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnVistaPreliminar = document.getElementById('btnVistaPreliminarMECD');
   const btnGuardarDefinitivo = document.getElementById('btnGuardarDefinitivoMECD');
 
-  // Inicializar los 3 lienzos de firma
+  // Inicializar los 3 lienzos de firma (con bloqueo inmutable desde Repositorio GitHub)
   const signaturePads = {};
   ['mecdCanvasFirmaCCO', 'mecdCanvasFirmaAgente', 'mecdCanvasFirmaSupervisor'].forEach((canvasId) => {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    let drawing = false;
-    let hasInk = false;
-
-    const resize = () => {
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width || 280;
-      canvas.height = rect.height || 120;
-      ctx.strokeStyle = '#0F2744';
-      ctx.lineWidth = 2;
-      ctx.lineCap = 'round';
-    };
-    resize();
-
-    const getPos = (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      return { x: clientX - rect.left, y: clientY - rect.top };
-    };
-
-    canvas.addEventListener('mousedown', (e) => {
-      drawing = true;
-      hasInk = true;
-      const p = getPos(e);
-      ctx.beginPath();
-      ctx.moveTo(p.x, p.y);
-    });
-    canvas.addEventListener('mousemove', (e) => {
-      if (!drawing) return;
-      const p = getPos(e);
-      ctx.lineTo(p.x, p.y);
-      ctx.stroke();
-    });
-    window.addEventListener('mouseup', () => {
-      drawing = false;
-    });
-
-    signaturePads[canvasId] = {
-      clear: () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        hasInk = false;
-      },
-      toDataURL: () => (hasInk ? canvas.toDataURL('image/png') : '')
-    };
+    if (typeof window.SioSignaturePad === 'function') {
+      signaturePads[canvasId] = new window.SioSignaturePad(canvas);
+    }
   });
 
   form.querySelectorAll('button[data-clear-canvas]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const id = btn.getAttribute('data-clear-canvas');
-      signaturePads[id]?.clear();
+      const pad = signaturePads[id];
+      if (pad && pad.isLocked && pad.isLocked()) return;
+      pad?.clear();
     });
   });
 
@@ -332,9 +292,15 @@ document.addEventListener('DOMContentLoaded', () => {
         revision,
         conFirma,
         sinFirma,
-        firmaCCO: signaturePads.mecdCanvasFirmaCCO?.toDataURL() || '',
-        firmaAgente: signaturePads.mecdCanvasFirmaAgente?.toDataURL() || '',
-        firmaSupervisor: signaturePads.mecdCanvasFirmaSupervisor?.toDataURL() || ''
+        firmaCCO: (signaturePads.mecdCanvasFirmaCCO && !signaturePads.mecdCanvasFirmaCCO.isEmpty())
+          ? signaturePads.mecdCanvasFirmaCCO.toDataURL('image/png')
+          : '',
+        firmaAgente: (signaturePads.mecdCanvasFirmaAgente && !signaturePads.mecdCanvasFirmaAgente.isEmpty())
+          ? signaturePads.mecdCanvasFirmaAgente.toDataURL('image/png')
+          : '',
+        firmaSupervisor: (signaturePads.mecdCanvasFirmaSupervisor && !signaturePads.mecdCanvasFirmaSupervisor.isEmpty())
+          ? signaturePads.mecdCanvasFirmaSupervisor.toDataURL('image/png')
+          : ''
       }
     };
   }
@@ -450,6 +416,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (json.encabezadoId && inputEncabezadoId) {
         inputEncabezadoId.value = String(json.encabezadoId);
+      }
+      if (json.firmasRepo) {
+        window.SioSignatureRepoClient?.applyRepoState?.(json.firmasRepo);
       }
 
       await Swal.fire({

@@ -344,12 +344,14 @@ class FormatoValidationService {
     ];
 
     // Normalizar campos por fila antes de pasar al validador de esquema
-    const filasParaValidar = registrosRaw.map((r) => {
+    const isDeltaER = String(payload.formatoId || '').trim().toLowerCase() === 'dl-er';
+    const filasParaValidar = registrosRaw.map((r, idx) => {
       const horaNorm = FormatoValidationService.normalizarHora(r?.HoraRevision ?? r?.Hora ?? '');
+      const rawSec = String(r?.Secuencia ?? '').trim();
       return {
         DetalleControlERId: parseInt(r?.DetalleControlERId, 10) || 0,
         Pasajero: String(r?.Pasajero ?? r?.Nombre ?? '').trim(),
-        Secuencia: String(r?.Secuencia ?? '').trim(),
+        Secuencia: (isDeltaER && !rawSec) ? String(idx + 1) : rawSec,
         Colilla: String(r?.Colilla ?? '').trim(),
         Vuelo: String(vueloSesion?.novuelo || r?.Vuelo || '').trim(),
         Destino: String(r?.Destino ?? '').trim(),
@@ -675,6 +677,14 @@ class FormatoValidationService {
       Motivo: String(s?.Motivo ?? '').trim()
     }));
 
+    const isDeltaCEC = String(payload.formatoId || '').trim().toLowerCase() === 'dl-cec';
+    const tieneDesembarque =
+      isDeltaCEC ||
+      (parseInt(equipaje, 10) || 0) > 0 ||
+      (parseInt(carruajes, 10) || 0) > 0 ||
+      (parseInt(correos, 10) || 0) > 0 ||
+      (parseInt(carga, 10) || 0) > 0;
+
     const esq = FormatoValidationService.validarEsquemaFormato({
       headerData: {
         fecha: fechaIso,
@@ -698,8 +708,8 @@ class FormatoValidationService {
       rows: filasSecuencias,
       headerRules,
       rowRules,
-      minRows: 1,
-      emptyRowsMessage: 'Debe registrar al menos una (1) secuencia de equipaje en la matriz de Embarque antes de guardar.'
+      minRows: tieneDesembarque ? 0 : 1,
+      emptyRowsMessage: 'Debe registrar al menos una (1) secuencia en Embarque o cantidades de Desembarque antes de guardar.'
     });
 
     if (!esq.valido) return esq;
@@ -772,6 +782,116 @@ class FormatoValidationService {
           Valor: s.Valor.toUpperCase() === 'X' ? 'X' : String(s.Secuencia),
           Motivo: s.Motivo
         }))
+      }
+    };
+  }
+
+  /**
+   * 2b. Valida "Control de Perimétrica (unificado)" (ControlPerimetrica / amx-cp y homólogos *-cp)
+   */
+  static validarControlCP(payload = {}, user = {}, vueloSesion = null) {
+    const ctx = FormatoValidationService._validarContextoOperacion(payload, user, vueloSesion);
+    if (!ctx.valido) return ctx;
+
+    const cp = payload.datos?.cpPayload || payload.datos || {};
+    const fechaIso = FormatoValidationService._resolverFechaItinerario(vueloSesion, cp.fecha);
+    const horaInicio = FormatoValidationService.normalizarHora(cp.horaInicio);
+    const supervisorEmpleadoId = String(cp.supervisorEmpleadoId ?? '').trim();
+    const arriboDelVuelo = FormatoValidationService.normalizarHora(cp.arriboDelVuelo || vueloSesion?.ata || '00:00');
+    const horaAsegurado = FormatoValidationService.normalizarHora(cp.horaAsegurado);
+    const tractoristaEmpleadoId = String(cp.tractoristaEmpleadoId ?? '').trim();
+    const maquinariaEquipoId = String(cp.maquinariaEquipoId ?? '').trim();
+    const registrosRaw = Array.isArray(cp.registros) ? cp.registros : [];
+
+    const pendientesSalida = registrosRaw.filter(r => !r?.HoraSalida || String(r.HoraSalida).trim() === '');
+    if (pendientesSalida.length > 0) {
+      const idxPend = registrosRaw.findIndex(r => !r?.HoraSalida || String(r.HoraSalida).trim() === '');
+      return {
+        valido: false,
+        statusCode: 400,
+        message: '¡ALERTA DE SEGURIDAD! Hay una o más personas que aún NO han salido de la aeronave. Por favor, registra su hora de salida antes de guardar.',
+        errors: [{
+          scope: 'row',
+          row: idxPend + 1,
+          field: 'HoraSalida',
+          label: 'Hora de Salida',
+          message: `Persona #${idxPend + 1} (${registrosRaw[idxPend]?.Nombre || 'Sin nombre'}): Falta registrar la Hora de Salida.`
+        }]
+      };
+    }
+
+    const maqNum = parseInt(maquinariaEquipoId, 10) || 0;
+    const headerRules = [
+      { field: 'fecha', label: 'Fecha de Operación', type: 'date', required: true, requiredMessage: 'La fecha de operación es obligatoria.' },
+      { field: 'horaInicio', label: 'Hora de Revisión', type: 'time', required: true, requiredMessage: 'Debe ingresar una Hora de Revisión válida (HH:mm).' },
+      { field: 'supervisorEmpleadoId', label: 'Supervisor de Turno', type: 'integer', required: true, min: 1, requiredMessage: 'Debe seleccionar un Supervisor de Turno en el cuadro combinado.' }
+    ];
+    if (horaAsegurado) {
+      headerRules.push({ field: 'horaAsegurado', label: 'Hora Aeronave Asegurada', type: 'time', required: false });
+    }
+    if (maqNum > 0) {
+      headerRules.push({ field: 'maquinariaEquipoId', label: 'No. Unidad', type: 'integer', required: false, min: 1 });
+      headerRules.push({
+        field: 'tractoristaEmpleadoId',
+        label: 'Tractorista',
+        type: 'integer',
+        required: true,
+        min: 1,
+        requiredMessage: 'Debe seleccionar al Tractorista cuando asigna un No. Unidad.'
+      });
+    } else if (tractoristaEmpleadoId) {
+      headerRules.push({ field: 'tractoristaEmpleadoId', label: 'Tractorista', type: 'integer', required: false, min: 1 });
+    }
+
+    const rowRules = [
+      { field: 'Nombre', label: 'Nombre de la Persona', type: 'string', required: true, maxLength: 200 },
+      { field: 'NoTIA', label: 'No. de TIA', type: 'string', required: true, maxLength: 50 },
+      { field: 'Empresa', label: 'Empresa', type: 'string', required: true, maxLength: 150 },
+      { field: 'HoraIngreso', label: 'Hora de Ingreso', type: 'time', required: true },
+      { field: 'Motivo', label: 'Motivo', type: 'string', required: true, maxLength: 250 },
+      { field: 'HoraSalida', label: 'Hora de Salida', type: 'time', required: true }
+    ];
+
+    const filasPersonas = registrosRaw.map(r => ({
+      DetalleCPId: parseInt(r?.DetalleCPId, 10) || 0,
+      Nombre: String(r?.Nombre || '').trim(),
+      NoTIA: String(r?.NoTIA || '').trim(),
+      Empresa: String(r?.Empresa || '').trim(),
+      HoraIngreso: FormatoValidationService.normalizarHora(r?.HoraIngreso),
+      Motivo: String(r?.Motivo || '').trim(),
+      HoraSalida: FormatoValidationService.normalizarHora(r?.HoraSalida)
+    }));
+
+    const esq = FormatoValidationService.validarEsquemaFormato({
+      headerData: {
+        fecha: fechaIso,
+        horaInicio,
+        supervisorEmpleadoId,
+        horaAsegurado,
+        tractoristaEmpleadoId,
+        maquinariaEquipoId
+      },
+      rows: filasPersonas,
+      headerRules,
+      rowRules,
+      minRows: 0
+    });
+    if (!esq.valido) return esq;
+
+    return {
+      valido: true,
+      statusCode: 200,
+      message: 'Validación exitosa.',
+      errors: [],
+      normalized: {
+        fechaIso,
+        horaInicio,
+        supervisorId: parseInt(supervisorEmpleadoId, 10),
+        arriboDelVuelo: arriboDelVuelo || '00:00',
+        horaAsegurado,
+        tractoristaId: parseInt(tractoristaEmpleadoId, 10) || 0,
+        maquinariaEquipoId: maqNum,
+        registros: filasPersonas
       }
     };
   }
@@ -1331,7 +1451,7 @@ class FormatoValidationService {
     if (!ctx.valido) return ctx;
 
     const rx = payload.datos?.rxPayload || payload.datos || {};
-    const fechaIso = String(rx.fecha || '').trim().substring(0, 10);
+    const fechaIso = FormatoValidationService._resolverFechaItinerario(vueloSesion, rx.fecha);
     const horaInicio = FormatoValidationService.normalizarHora(rx.horaInicio);
     const supervisorEmpleadoId = String(rx.supervisorEmpleadoId ?? rx.empleadoId ?? '').trim();
     const supervisorNombre = String(rx.supervisorNombre ?? rx.supervisor ?? '').trim();
@@ -1446,10 +1566,14 @@ class FormatoValidationService {
     if (!ctx.valido) return ctx;
 
     const cll = payload.datos?.cllPayload || payload.datos || {};
-    const fechaIso = String(cll.fecha || '').trim().substring(0, 10);
-    const agenteSeguridad = String(cll.agenteSeguridad || '').trim();
-    const agenteDelta = String(cll.agenteDelta || '').trim();
-    const agenteTIA = String(cll.agenteTIA || '').trim();
+    const fechaIso = FormatoValidationService._resolverFechaItinerario(vueloSesion, cll.fecha);
+    const agenteSeguridad = String(cll.agenteSeguridad || user?.usuario || '').trim();
+    const rawAgenteDelta = String(cll.agenteDelta || '').trim();
+    const agenteTIA = String(cll.agenteTIA || cll.tiaSecurity || '').trim();
+    const tiaLD = String(cll.tiaLD || '').trim();
+    const agenteDelta = (tiaLD && !rawAgenteDelta.includes(','))
+      ? `${rawAgenteDelta}, ${tiaLD}`
+      : rawAgenteDelta;
     const registrosRaw = Array.isArray(cll.registros) ? cll.registros : [];
 
     const headerRules = [
@@ -1520,9 +1644,10 @@ class FormatoValidationService {
     if (!ctx.valido) return ctx;
 
     const sp = payload.datos?.spPayload || payload.datos || {};
-    const fechaIso = String(sp.fecha || '').trim().substring(0, 10);
+    const fechaIso = FormatoValidationService._resolverFechaItinerario(vueloSesion, sp.fecha);
     const supervisorLoginId = String(sp.supervisorLoginId ?? user?.loginId ?? '1').trim();
     const supervisorNombre = String(sp.supervisorNombre || user?.usuario || '').trim();
+    const firmaScreener = String(sp.firmaScreener || '').trim();
     const registrosRaw = Array.isArray(sp.registros) ? sp.registros : [];
 
     const headerRules = [
@@ -1575,10 +1700,12 @@ class FormatoValidationService {
         fechaIso,
         supervisorLoginId: parseInt(supervisorLoginId, 10) || 1,
         supervisorNombre,
+        firmaScreener,
         registros: filas.map(f => ({
           ...f,
           SeleccionSPId: parseInt(f.SeleccionSPId, 10) || 1,
-          BCN: parseInt(f.BCN, 10) || 0
+          BCN: parseInt(f.BCN, 10) || 0,
+          FirmaScreener: String(f.FirmaScreener || firmaScreener || '').trim()
         }))
       }
     };
@@ -1751,6 +1878,10 @@ class FormatoValidationService {
       normalized: {
         encabezadoId: ctx.encabezadoId,
         itinerarioId: ctx.itinerarioId,
+        fechaIso: FormatoValidationService._resolverFechaItinerario(vueloSesion, sel.fecha),
+        aircraftArrived: FormatoValidationService._resolverFechaItinerario(vueloSesion, sel.aircraftArrived || sel.fecha),
+        aircraftArrivedTime: FormatoValidationService.normalizarHora(sel.aircraftArrivedTime),
+        guard: String(sel.guard || sel.supervisorNombre || user?.usuario || '').trim(),
         supervisorLoginId: parseInt(sel.supervisorLoginId, 10) || parseInt(user?.loginId, 10) || 1,
         supervisorNombre: String(sel.supervisorNombre || user?.usuario || '').trim(),
         horaCierreFila,

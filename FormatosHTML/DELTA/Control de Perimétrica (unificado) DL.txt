@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <title>CONTROL DE PERIMÉTRICA - DELTA</title>
     <style>
+        @page { size: A4 portrait; margin: 0; }
         * { box-sizing: border-box; -webkit-print-color-adjust: exact; }
-        body { margin: 0; padding: 0; background-color: #f4f4f4; font-family: Arial, sans-serif; display: flex; justify-content: center; color: #000; }
+        body { margin: 0; padding: 0; background-color: #ffffff; font-family: Arial, sans-serif; display: flex; justify-content: center; color: #000; }
         .page { background-color: white; width: 210mm; min-height: 297mm; height: auto; padding: 5mm; margin: 10mm auto; }
         .inner-frame { border: 2px solid black; padding: 0mm 8mm 6mm 8mm; min-height: 287mm; height: auto; display: flex; flex-direction: column; }
         .header { display: flex; align-items: center; margin-top: 2mm; margin-bottom: 2mm; }

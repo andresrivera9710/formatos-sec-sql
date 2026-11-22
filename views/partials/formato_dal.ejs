@@ -2,11 +2,11 @@
   const det = (dalState && dalState.detalle) ? dalState.detalle : {};
 
   let fechaVal = new Date().toISOString().substring(0, 10);
-  if (det.Fecha) {
+  if (vuelo && vuelo.FechaItinerado) {
+    fechaVal = String(vuelo.FechaItinerado instanceof Date ? vuelo.FechaItinerado.toISOString() : vuelo.FechaItinerado).substring(0, 10);
+  } else if (det.Fecha) {
     const d = new Date(det.Fecha);
     if (!Number.isNaN(d.getTime())) fechaVal = d.toISOString().substring(0, 10);
-  } else if (vuelo && vuelo.FechaItinerado) {
-    fechaVal = String(vuelo.FechaItinerado).substring(0, 10);
   }
 
   const evalParts = String(det.Evaluadores || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -52,20 +52,20 @@
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
       <div class="form-group">
-        <label><i class="fas fa-plane"></i> Flight #</label>
-        <input type="text" class="form-control" value="<%= vuelo.novuelo || '--' %>" readonly style="background: var(--bg); font-weight: 700;">
+        <label><i class="fas fa-plane"></i> Flight # <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <input type="text" class="form-control input-locked" value="<%= vuelo.novuelo || '--' %>" readonly tabindex="-1">
       </div>
       <div class="form-group">
         <label for="dalRoute"><i class="fas fa-route"></i> Route</label>
         <input type="text" id="dalRoute" class="form-control" maxlength="50" value="<%= rutaDefault %>" placeholder="GUA - ATL">
       </div>
       <div class="form-group">
-        <label><i class="fas fa-barcode"></i> A/C #</label>
-        <input type="text" class="form-control" value="<%= vuelo.Matricula || 'Pendiente' %>" readonly style="background: var(--bg); font-weight: 700;">
+        <label><i class="fas fa-barcode"></i> A/C # <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <input type="text" class="form-control input-locked" value="<%= vuelo.Matricula || 'Pendiente' %>" readonly tabindex="-1">
       </div>
       <div class="form-group">
-        <label for="dalFecha"><i class="far fa-calendar-alt"></i> Date</label>
-        <input type="date" id="dalFecha" class="form-control" value="<%= fechaVal %>">
+        <label for="dalFecha"><i class="far fa-calendar-alt"></i> Date <i class="fas fa-lock input-lock-icon" title="Fecha vinculada al itinerario (Solo lectura)"></i></label>
+        <input type="date" id="dalFecha" class="form-control input-locked" value="<%= fechaVal %>" readonly tabindex="-1">
       </div>
     </div>
   </div>

@@ -15,9 +15,25 @@
           </div>
 
           <div>
-            <span class="badge <%= esNuevo ? 'badge-success' : 'badge-gold' %>">
+            <span class="badge <%= esNuevo ? 'badge-success' : 'badge-gold' %>" id="sioFormatoModeBadge">
               <%= esNuevo ? 'MODO: NUEVO REGISTRO' : `MODO: REANUDANDO BORRADOR #${encabezadoId}` %>
             </span>
+          </div>
+        </div>
+
+        <!-- Banner Discreto de Resiliencia Offline / Borrador Restaurado desde IndexedDB -->
+        <div id="sioOfflineDraftBanner" class="sio-offline-draft-banner" hidden role="status" aria-live="polite">
+          <div class="sio-offline-banner-text">
+            <i class="fas fa-database"></i>
+            <span id="sioOfflineDraftBannerMsg">Borrador local restaurado desde caché IndexedDB.</span>
+          </div>
+          <div class="sio-offline-banner-actions">
+            <button type="button" id="btnOfflinePreviewBanner" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" hidden>
+              <i class="fas fa-eye"></i> Vista Preliminar Offline
+            </button>
+            <button type="button" id="btnOfflineDiscardDraft" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;">
+              <i class="fas fa-undo"></i> Descartar borrador local
+            </button>
           </div>
         </div>
 
@@ -191,6 +207,18 @@
         <% } %>
       </main>
 
+      <script type="application/json" id="sioFirmasRepoStateJson"><%- JSON.stringify(typeof firmasRepo !== 'undefined' ? firmasRepo : null).replace(/</g, '\\u003c') %></script>
+      <script type="application/json" id="sioOfflineContextJson"><%- JSON.stringify({
+        formatoId: formato ? formato.id : '',
+        formatoNombre: formato ? formato.nombre : '',
+        cliente: vuelo ? (vuelo.operador || '') : '',
+        itinerarioId: vuelo ? (vuelo.itinerarioId || 0) : 0,
+        correlativo: vuelo ? String(vuelo.nocorrelativo || vuelo.itinerarioId || '') : '',
+        encabezadoId: typeof encabezadoId !== 'undefined' && encabezadoId ? encabezadoId : null,
+        esNuevo: Boolean(esNuevo),
+        vuelo: vuelo || {},
+        user: user ? { usuario: user.usuario || user.nombreCompleto || '', puestoSec: user.puestoSec || '' } : {}
+      }).replace(/</g, '\\u003c') %></script>
       <%- include('partials/tab-bar', { activeTab: 'formatos', user: user, vueloActivo: vuelo }) %>
       <%- include('partials/footer') %>
     </div>

@@ -286,6 +286,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const encInput = document.getElementById('cllEncabezadoId');
         if (encInput) encInput.value = String(encabezadoId);
       }
+      if (json.firmasRepo) {
+        window.SioSignatureRepoClient?.applyRepoState?.(json.firmasRepo);
+      }
 
       await Swal.fire({
         icon: 'success',

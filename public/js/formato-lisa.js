@@ -378,6 +378,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const badgeEl = document.getElementById('lisaBadgeEstadoEncabezado');
         if (badgeEl) badgeEl.textContent = `REGISTRO CARGADO #${encabezadoId}`;
       }
+      if (json.firmasRepo) {
+        window.SioSignatureRepoClient?.applyRepoState?.(json.firmasRepo);
+      }
 
       await Swal.fire({
         icon: 'success',

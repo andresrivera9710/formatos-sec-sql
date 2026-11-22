@@ -17,7 +17,7 @@
 
     /* Vista en navegador: Simula una hoja física de papel carta centrada */
     body {
-      background-color: #e5e7eb;
+      background-color: #ffffff;
       font-family: Arial, Helvetica, sans-serif;
       font-size: 11px;
       color: #000000;
@@ -33,7 +33,7 @@
       max-width: 800px;
       background-color: #ffffff;
       padding: 12mm 14mm;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      box-shadow: none;
       border-radius: 2px;
       margin: 0 auto;
     }

@@ -124,6 +124,85 @@ class HtmlPreviewService {
     return fs.existsSync(path.join(FORMATOS_HTML_DIR, rel));
   }
 
+  static readRawTemplate(formatoId) {
+    const rel = FORMAT_HTML_MAP[formatoId];
+    if (!rel) return '';
+    const fullPath = path.join(FORMATOS_HTML_DIR, rel);
+    if (!fs.existsSync(fullPath)) return '';
+    return fs.readFileSync(fullPath, 'utf8');
+  }
+
+  /**
+   * Sanitiza un segmento para nombre de archivo HTML sin caracteres inválidos ni traversal.
+   */
+  static _sanitizeFilenameSegment(val, fallback = 'NA') {
+    const raw = String(val ?? '')
+      .replace(/[\r\n\t\x00-\x1f\x7f]/g, ' ')
+      .replace(/[\\/:*?"<>|]/g, '_')
+      .replace(/\s+/g, ' ')
+      .replace(/_+/g, '_')
+      .trim()
+      .replace(/^[._\s]+|[._\s]+$/g, '');
+    return raw || fallback;
+  }
+
+  /**
+   * Construye el nombre estándar del documento HTML siguiendo la guía oficial:
+   * <Vuelo>_<Matricula>_<NombreFormato>_<EncabezadoId|PRELIMINAR>.html
+   * Ej.: 678_679_NA_Control de Equipajes en Banda de Salida (rayos x)_70.html
+   */
+  static buildDocumentName({ vuelo = {}, formatoMeta = {}, formatoNombre = '', encabezadoId = null } = {}) {
+    const rawVuelo = vuelo.novuelo || vuelo.numeroVuelo || '';
+    const vueloSeg = HtmlPreviewService._sanitizeFilenameSegment(rawVuelo, 'SIN_VUELO');
+
+    const rawMatricula = String(vuelo.Matricula || vuelo.matricula || '').trim();
+    const matUpper = rawMatricula.toUpperCase();
+    const matriculaEsVacia = !rawMatricula ||
+      matUpper === 'NA' ||
+      matUpper === 'N/A' ||
+      matUpper === 'PENDIENTE' ||
+      matUpper === 'SIN MATRICULA' ||
+      matUpper === 'S/M';
+    const matriculaSeg = matriculaEsVacia
+      ? 'NA'
+      : HtmlPreviewService._sanitizeFilenameSegment(rawMatricula, 'NA');
+
+    const rawFormato = (formatoMeta?.id === 'dl-rx')
+      ? 'Control de Equipaje en Rayos X DELTA'
+      : (formatoMeta?.nombre || formatoNombre || 'Formato SEC');
+    const formatoSeg = HtmlPreviewService._sanitizeFilenameSegment(rawFormato, 'Formato_SEC');
+
+    const encIdNum = parseInt(encabezadoId, 10);
+    const idSeg = Number.isInteger(encIdNum) && encIdNum > 0
+      ? String(encIdNum)
+      : 'PRELIMINAR';
+
+    const documentBaseName = `${vueloSeg}_${matriculaSeg}_${formatoSeg}_${idSeg}`;
+    return {
+      documentBaseName,
+      fileName: `${documentBaseName}.html`
+    };
+  }
+
+  /**
+   * Construye la cabecera Content-Disposition segura (RFC 6266 / anti-CRLF) para descargas o vista en línea.
+   */
+  static buildContentDispositionHeader(fileName, asAttachment = false) {
+    const cleanUtf8 = String(fileName || 'documento.html')
+      .split(/[\r\n]/)[0]
+      .replace(/[\x00-\x1f\x7f]/g, '')
+      .trim() || 'documento.html';
+    const asciiFallback = cleanUtf8
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^\x20-\x7E]/g, '_')
+      .replace(/["\\]/g, '_');
+    const encodedUtf8 = encodeURIComponent(cleanUtf8)
+      .replace(/['()!*]/g, c => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+    const dispositionType = asAttachment ? 'attachment' : 'inline';
+    return `${dispositionType}; filename="${asciiFallback}"; filename*=UTF-8''${encodedUtf8}`;
+  }
+
   static formatDDMMYYYY(val) {
     if (!val) return '';
     const str = String(val).trim();
@@ -184,11 +263,44 @@ class HtmlPreviewService {
    */
   static buildCpData({ cpDoc, vuelo, user }) {
     const esc = HtmlPreviewService.escapeHtml;
-    const rows = Array.isArray(cpDoc?.filasTabla) ? cpDoc.filasTabla : [];
+    const rawRows = (Array.isArray(cpDoc?.filasTabla) && cpDoc.filasTabla.length > 0)
+      ? cpDoc.filasTabla
+      : (Array.isArray(cpDoc?.registros)
+        ? cpDoc.registros.map((r, idx) => {
+          const hIn = HtmlPreviewService.extractHHMM(r?.HoraIngreso || r?.horaIngreso || '');
+          const hOut = HtmlPreviewService.extractHHMM(r?.HoraSalida || r?.HoraSalidaReal || r?.HoraSalidaEstimada || r?.horaSalida || '');
+          const nom = String(r?.Nombre || r?.nombre || '').trim();
+          return {
+            numero: idx + 1,
+            nombre: nom,
+            noTia: String(r?.NoTIA || r?.noTia || '').trim(),
+            horaIngreso: hIn,
+            empresa: String(r?.Empresa || r?.empresa || '').trim(),
+            motivo: String(r?.Motivo || r?.motivo || '').trim(),
+            horaSalida: hOut,
+            estaPendiente: Boolean(nom && !hOut)
+          };
+        })
+        : []);
+
+    const minRows = Math.max(25, rawRows.length);
+    const rows = [];
+    for (let i = 0; i < minRows; i++) {
+      rows.push(rawRows[i] || {
+        numero: i + 1,
+        nombre: '',
+        noTia: '',
+        horaIngreso: '',
+        empresa: '',
+        motivo: '',
+        horaSalida: '',
+        estaPendiente: false
+      });
+    }
 
     const filasTablaHtml = rows.map((r) => {
       const salidaCell = r.nombre && r.estaPendiente
-        ? '<span style="color:#B91C1C;">Pendiente</span>'
+        ? '<span style="color:#DC2626; font-weight:bold;">Pendiente</span>'
         : esc(r.horaSalida || '');
 
       return `<tr>
@@ -202,13 +314,16 @@ class HtmlPreviewService {
       </tr>`;
     }).join('');
 
+    const horaIniStr = cpDoc?.horaInicio || '--:--';
+    const puertaStr = String(vuelo?.puertaposicion ?? vuelo?.puerta ?? '').trim();
+
     return {
-      Fecha: cpDoc?.fechaFormatoUS || HtmlPreviewService.formatMMDDYYYY(cpDoc?.fechaIso || vuelo?.FechaItinerado),
+      Fecha: cpDoc?.fechaFormatoUS || HtmlPreviewService.formatMMDDYYYY(cpDoc?.fechaIso || cpDoc?.fecha || vuelo?.FechaItinerado),
       Supervisor: cpDoc?.supervisor || '',
-      HoraInicioPuerta: cpDoc?.horaInicioPuerta || `${cpDoc?.horaInicio || '--:--'} / ${vuelo?.puertaposicion || '--'}`,
+      HoraInicioPuerta: cpDoc?.horaInicioPuerta || (puertaStr ? `${horaIniStr} / ${puertaStr}` : `${horaIniStr} / `),
       Agente: cpDoc?.agente || user?.usuario || user?.nombreCompleto || '',
-      Vuelo: cpDoc?.vuelo || vuelo?.novuelo || '',
-      Matricula: cpDoc?.matricula || vuelo?.Matricula || '',
+      Vuelo: cpDoc?.vuelo || vuelo?.novuelo || vuelo?.numeroVuelo || '',
+      Matricula: cpDoc?.matricula || vuelo?.Matricula || vuelo?.matricula || '',
       FilasTabla: filasTablaHtml,
       ArriboVuelo: cpDoc?.arriboVuelo || '',
       AeronaveAsegurada: cpDoc?.aeronaveAsegurada || '',
@@ -218,6 +333,39 @@ class HtmlPreviewService {
       Aleros: cpDoc?.nombreAlerosDelta || [cpDoc?.alero1, cpDoc?.alero2].filter(Boolean).join(', ') || '',
       Observaciones: cpDoc?.observaciones || ''
     };
+  }
+
+  /**
+   * Resuelve un nombre legible de Supervisor/Agente incluso cuando SQL almacena LoginId o EmpleadoId numérico
+   */
+  static resolvePersonaNombre(rawVal, explicitId = null, hydrated = {}) {
+    const text = String(rawVal ?? '').trim();
+    if (text && !/^\d+$/.test(text)) {
+      return text;
+    }
+
+    const numericId = parseInt(explicitId ?? text, 10);
+    if (Number.isInteger(numericId) && numericId > 0) {
+      const pools = [
+        ...(Array.isArray(hydrated?.supervisores) ? hydrated.supervisores : []),
+        ...(Array.isArray(hydrated?.usuariosSEC) ? hydrated.usuariosSEC : []),
+        ...(Array.isArray(hydrated?.usuariosLogin) ? hydrated.usuariosLogin : []),
+        ...(Array.isArray(hydrated?.empleados) ? hydrated.empleados : []),
+        ...(Array.isArray(hydrated?.catalogos?.supervisores) ? hydrated.catalogos.supervisores : []),
+        ...(Array.isArray(hydrated?.catalogos?.usuariosSEC) ? hydrated.catalogos.usuariosSEC : []),
+        ...(Array.isArray(hydrated?.catalogos?.usuariosLogin) ? hydrated.catalogos.usuariosLogin : []),
+        ...(Array.isArray(hydrated?.catalogos?.empleados) ? hydrated.catalogos.empleados : [])
+      ];
+      const match = pools.find(
+        p => Number(p?.LoginId) === numericId || Number(p?.EmpleadoId) === numericId
+      );
+      if (match) {
+        const resolved = String(match.Usuario || match.NombreCompleto || match.Nombre || '').trim();
+        if (resolved) return resolved;
+      }
+    }
+
+    return text;
   }
 
   /**
@@ -240,6 +388,13 @@ class HtmlPreviewService {
     const unidad = formDatos.unidad || formDatos.noUnidad || '';
     const observaciones = formDatos.observaciones || comp.Observaciones || comp.Observacion || '';
     const firmaDataUrl = HtmlPreviewService.sanitizeSignatureDataUrl(formDatos.firmaBase64 || formDatos.firma);
+    const repoFirmas = hydrated?.firmasRepo?.firmas || {};
+    const pickRepoSig = (repoKey, liveVal, legacyVal = '') => {
+      const repoUrl = repoFirmas?.[repoKey]?.locked && repoFirmas?.[repoKey]?.dataUrl
+        ? repoFirmas[repoKey].dataUrl
+        : '';
+      return HtmlPreviewService.sanitizeSignatureDataUrl(repoUrl || liveVal || legacyVal || '');
+    };
 
     if (formatoId.endsWith('-ciec')) {
       const ciecData = formDatos.ciecPayload || formDatos || {};
@@ -258,59 +413,51 @@ class HtmlPreviewService {
         const salidaHtml = (r.Nombre && !hOut)
           ? '<span style="color:#DC2626; font-weight:bold;">Pendiente</span>'
           : esc(hOut);
-        filas.push(`<tr>
-          <td style="border: 1px solid black; padding: 3px; text-align:center;">${i + 1}</td>
-          <td style="border: 1px solid black; padding: 3px;">${esc(r.Nombre || '')}</td>
-          <td style="border: 1px solid black; padding: 3px; text-align:center;">${esc(r.NoTIA || '')}</td>
-          <td style="border: 1px solid black; padding: 3px; text-align:center;">${esc(r.Empresa || '')}</td>
-          <td style="border: 1px solid black; padding: 3px; text-align:center;">${esc(hIn)}</td>
-          <td style="border: 1px solid black; padding: 3px;">${esc(r.Motivo || '')}</td>
-          <td style="border: 1px solid black; padding: 3px; text-align:center;">${salidaHtml}</td>
+        filas.push(`<tr class="grid-row">
+          <td style="border: 1px solid black; padding: 2px 3px; text-align: center;">${i + 1}</td>
+          <td style="border: 1px solid black; padding: 2px 4px; text-align: left;">${esc(r.Nombre || '')}</td>
+          <td style="border: 1px solid black; padding: 2px 3px; text-align: center;">${esc(r.NoTIA || '')}</td>
+          <td style="border: 1px solid black; padding: 2px 3px; text-align: center;">${esc(r.Empresa || '')}</td>
+          <td style="border: 1px solid black; padding: 2px 3px; text-align: center;">${esc(hIn)}</td>
+          <td style="border: 1px solid black; padding: 2px 3px; text-align: center;">${esc(r.Motivo || '')}</td>
+          <td style="border: 1px solid black; padding: 2px 3px; text-align: center;">${salidaHtml}</td>
         </tr>`);
       }
 
       const dbEqPuerta = Array.isArray(ciecDb.equipajePuerta) ? ciecDb.equipajePuerta : [];
-      const rawEqPuerta = (preferPersisted && dbEqPuerta.length > 0)
-        ? dbEqPuerta
-        : (Array.isArray(ciecData.equipajePuerta) ? ciecData.equipajePuerta : dbEqPuerta);
+      const hasLiveEqArray = !preferPersisted && Array.isArray(ciecData.equipajePuerta);
+      const rawEqPuerta = preferPersisted
+        ? (dbEqPuerta.length > 0 ? dbEqPuerta : (Array.isArray(ciecData.equipajePuerta) ? ciecData.equipajePuerta : []))
+        : (hasLiveEqArray ? ciecData.equipajePuerta : dbEqPuerta);
       const eqPuertaList = rawEqPuerta
         .map(x => String(x?.Valor ?? x?.Secuencia ?? x ?? '').trim())
         .filter(v => v && v.toUpperCase() !== 'X' && v !== '0');
 
-      let equipajePuertaHtml = eqPuertaList.length > 0 ? esc(eqPuertaList.join(', ')) : esc(compDb.EquipajePuertaHTML || '');
-      if (formatoId === 'dl-ciec') {
-        const totalEqRows = Math.max(5, Math.ceil(rawEqPuerta.length / 10));
-        let eqRowsHtml = '';
-        for (let rIdx = 0; rIdx < totalEqRows; rIdx++) {
-          eqRowsHtml += '<tr>';
-          for (let cIdx = 0; cIdx < 10; cIdx++) {
-            const it = rawEqPuerta[rIdx * 10 + cIdx];
-            let cellHtml = '&nbsp;';
-            if (it !== undefined && it !== null) {
-              const valStr = String(it?.Valor ?? it?.Secuencia ?? it ?? '').trim();
-              if (valStr.toUpperCase() === 'X' || it?.EstaEliminado) {
-                cellHtml = '<span style="color:#DC2626; font-weight:bold;">✗</span>';
-              } else if (valStr !== '' && valStr !== '0') {
-                cellHtml = esc(valStr);
-              }
-            }
-            eqRowsHtml += `<td style="border: 1px solid #94a3b8; text-align:center; font-size:9px; font-weight:bold; height:15px; width:10%; padding:1px;">${cellHtml}</td>`;
-          }
-          eqRowsHtml += '</tr>';
-        }
-        equipajePuertaHtml = `<table style="width:100%; border-collapse:collapse;"><tbody>${eqRowsHtml}</tbody></table>`;
-      }
+      const equipajePuertaHtml = eqPuertaList.length > 0
+        ? esc(eqPuertaList.join(', '))
+        : (hasLiveEqArray ? '' : esc(compDb.EquipajePuertaHTML || ''));
 
-      const sups = Array.isArray(hydrated?.supervisores) ? hydrated.supervisores : [];
       const emps = Array.isArray(hydrated?.empleados) ? hydrated.empleados : [];
       const maqs = Array.isArray(hydrated?.maquinaria) ? hydrated.maquinaria : [];
 
-      const supEmpId = parseInt(encDb.EmpleadoId ?? compDb.EncabezadoEmpleadoId ?? ciecData.supervisorEmpleadoId, 10) || 0;
-      const supFromDb = sups.find(s => Number(s.EmpleadoId) === supEmpId)?.Usuario || '';
+      const dbSupEmpId = parseInt(encDb.EmpleadoId ?? compDb.EncabezadoEmpleadoId, 10) || 0;
+      const liveSupEmpId = parseInt(ciecData.supervisorEmpleadoId, 10) || 0;
+      const supEmpId = preferPersisted ? (dbSupEmpId || liveSupEmpId) : (liveSupEmpId || dbSupEmpId);
+      const resolvedSupPool = supEmpId > 0
+        ? HtmlPreviewService.resolvePersonaNombre('', supEmpId, hydrated)
+        : '';
+      const supFromDb = (resolvedSupPool && !/^\d+$/.test(resolvedSupPool)) ? resolvedSupPool : '';
+      const supLiveRaw = String(ciecData.supervisorNombre || '').trim();
+      const supLive = !/^--\s*Seleccione/i.test(supLiveRaw) ? supLiveRaw : '';
 
-      const trEmpId = parseInt(compDb.MaquinariaEmpleadoId ?? ciecData.tractoristaEmpleadoId, 10) || 0;
+      const dbTrEmpId = parseInt(compDb.MaquinariaEmpleadoId, 10) || 0;
+      const liveTrEmpId = parseInt(ciecData.tractoristaEmpleadoId, 10) || 0;
+      const trEmpId = preferPersisted ? (dbTrEmpId || liveTrEmpId) : (liveTrEmpId || dbTrEmpId);
       const trFromDb = emps.find(e => Number(e.EmpleadoId) === trEmpId)?.Nombre || '';
-      const maqEqId = parseInt(compDb.MaquinariaEquipoId ?? ciecData.maquinariaEquipoId, 10) || 0;
+
+      const dbMaqEqId = parseInt(compDb.MaquinariaEquipoId, 10) || 0;
+      const liveMaqEqId = parseInt(ciecData.maquinariaEquipoId, 10) || 0;
+      const maqEqId = preferPersisted ? (dbMaqEqId || liveMaqEqId) : (liveMaqEqId || dbMaqEqId);
       const maqFromDb = maqs.find(m => Number(m.MaquinariaEquipoId) === maqEqId)?.NoUnidad || '';
 
       const aleroIdsFromDb = compDb.AlerosEmpleadoIds
@@ -320,63 +467,89 @@ class HtmlPreviewService {
         .map(id => emps.find(e => Number(e.EmpleadoId) === Number(id))?.Nombre || '')
         .filter(Boolean);
 
+      const hasKey = (k) => !preferPersisted && Object.prototype.hasOwnProperty.call(ciecData, k);
       const tractoristaDelta = String(ciecData.tractoristaDelta || compDb.TractoristaDelta || ciecDb.tractoristaDelta || trFromDb || ciecData.tractoristaNombre || '').trim();
       const maquinariaDelta = String(ciecData.maquinariaDelta || compDb.MaquinariaDelta || ciecDb.maquinariaDelta || maqFromDb || ciecData.noUnidadLabel || unidad || '').trim();
       const alerosDelta = String(ciecData.alerosDelta || compDb.AlerosDelta || ciecDb.alerosDelta || '').trim();
-      const tractoristaNombre = String((preferPersisted && trFromDb) ? trFromDb : (ciecData.tractoristaNombre || trFromDb || '')).trim();
-      const noUnidadLabel = String((preferPersisted && maqFromDb) ? maqFromDb : (ciecData.noUnidadLabel || maqFromDb || unidad || '')).trim();
+      const tractoristaNombre = String(
+        preferPersisted
+          ? (trFromDb || ciecData.tractoristaNombre || '')
+          : (hasKey('tractoristaNombre') ? (ciecData.tractoristaNombre || trFromDb || '') : (ciecData.tractoristaNombre || trFromDb || ''))
+      ).trim();
+      const noUnidadLabel = String(
+        preferPersisted
+          ? (maqFromDb || ciecData.noUnidadLabel || unidad || '')
+          : (hasKey('noUnidadLabel') || hasKey('noUnidadNombre')
+            ? (ciecData.noUnidadLabel || ciecData.noUnidadNombre || maqFromDb || '')
+            : (maqFromDb || unidad || ''))
+      ).trim();
       const tractoristaUnidad = (formatoId === 'dl-ciec'
         ? [tractoristaDelta, maquinariaDelta].filter(Boolean).join(' / ')
         : [tractoristaNombre, noUnidadLabel].filter(Boolean).join(' / ')
-      ) || compDb.TractoristaUnidad || '';
+      ) || (!preferPersisted && (hasKey('tractoristaNombre') || hasKey('noUnidadLabel') || hasKey('noUnidadNombre')) ? '' : (compDb.TractoristaUnidad || ''));
       const alerosText = (formatoId === 'dl-ciec' && alerosDelta)
         ? alerosDelta
         : ((preferPersisted && alerosNombresFromDb.length > 0)
           ? alerosNombresFromDb.join(', ')
-          : (Array.isArray(ciecData.alerosNombres) && ciecData.alerosNombres.length > 0
-            ? ciecData.alerosNombres.filter(Boolean).join(', ')
+          : (Array.isArray(ciecData.alerosNombres)
+            ? (ciecData.alerosNombres.length > 0
+              ? ciecData.alerosNombres.filter(Boolean).join(', ')
+              : (preferPersisted ? alerosNombresFromDb.join(', ') : ''))
             : (alerosNombresFromDb.join(', ') || ciecData.alerosText || compDb.Aleros || '')));
 
-      const pickTime = (liveVal, dbVal, fallbackVal = '') =>
-        HtmlPreviewService.extractHHMM(preferPersisted ? (dbVal || liveVal || fallbackVal) : (liveVal || dbVal || fallbackVal));
+      const pickTime = (liveVal, dbVal, fallbackVal = '', keyPresent = false) =>
+        HtmlPreviewService.extractHHMM(
+          preferPersisted
+            ? (dbVal || liveVal || fallbackVal)
+            : (keyPresent ? (liveVal || '') : (liveVal || dbVal || fallbackVal))
+        );
 
       const obsVal = (preferPersisted && ciecDb.observacionesLimpia !== undefined)
         ? ciecDb.observacionesLimpia
         : (ciecData.observaciones !== undefined ? ciecData.observaciones : (ciecDb.observacionesLimpia ?? observaciones));
 
+      const agenteFromDb = HtmlPreviewService.resolvePersonaNombre(encDb.CreadoPor, null, hydrated);
+      const agenteResuelto = preferPersisted
+        ? (agenteFromDb || ciecData.agente || agente)
+        : (ciecData.agente || agenteFromDb || agente);
+
+      const resolvePax = (key, dbVal) => {
+        if (preferPersisted) return dbVal ?? ciecData[key] ?? '';
+        if (hasKey(key)) return ciecData[key] !== undefined && ciecData[key] !== null ? ciecData[key] : '';
+        return ciecData[key] !== undefined && ciecData[key] !== null ? ciecData[key] : (dbVal ?? '');
+      };
+
       return {
         Fecha: String(fechaItiVuelo || encDb.Fecha || ciecData.fecha || fechaRaw).substring(0, 10),
-        HoraInicio: pickTime(ciecData.horaInicio, encDb.HoraInicio || compDb.HoraInicio),
+        HoraInicio: pickTime(ciecData.horaInicio, encDb.HoraInicio || compDb.HoraInicio, '', hasKey('horaInicio')),
         Vuelo: vueloNo,
-        Supervisor: (preferPersisted && supFromDb) ? supFromDb : (ciecData.supervisorNombre || supFromDb || supervisor || 'SIN SUPERVISOR'),
-        Agente: encDb.CreadoPor || ciecData.agente || agente,
+        Supervisor: (preferPersisted && supFromDb) ? supFromDb : (supLive || supFromDb || supervisor || 'SIN SUPERVISOR'),
+        Agente: agenteResuelto,
         Matricula: matricula,
         FilasInOutHTML: filas.join(''),
-        ArriboVuelo: pickTime(ciecData.arriboVuelo || ciecData.arriboDelVuelo, compDb.ArriboVuelo, vuelo.ata),
-        PrimerPax: pickTime(ciecData.primerPax, compDb.PrimerPax),
-        AeronaveAsegurada: pickTime(ciecData.aeronaveAsegurada, compDb.AeronaveAsegurada),
-        UltimoPax: pickTime(ciecData.ultimoPax, compDb.UltimoPax),
-        PasarelaAcoplada: pickTime(ciecData.pasarelaAcoplada, compDb.PasarelaAcoplada),
-        PaxAbordos: preferPersisted
-          ? (compDb.PaxAbordos ?? ciecData.paxAbordos ?? '')
-          : (ciecData.paxAbordos !== undefined && ciecData.paxAbordos !== null ? ciecData.paxAbordos : (compDb.PaxAbordos ?? '')),
-        PuertaAbierta: pickTime(ciecData.puertaAbierta, compDb.PuertaAbierta),
-        PuertaCerrada: pickTime(ciecData.puertaCerrada, compDb.PuertaCerrada),
-        EgresoTripulacion: pickTime(ciecData.egresoTripulacion, compDb.EgresoTripulacion),
-        DesacoplePasarela: pickTime(ciecData.desacoplePasarela, compDb.DesacoplePasarela),
-        IngresoTripulacion: pickTime(ciecData.ingresoTripulacion, compDb.IngresoTripulacion),
-        TotalEquipajePuerta: eqPuertaList.length > 0 ? eqPuertaList.length : (compDb.TotalEquipaje ?? 0),
-        PushBack: pickTime(ciecData.pushBack, compDb.PushBack),
-        PaxEntrandoGUA: preferPersisted
-          ? (compDb.PaxEntrando ?? ciecData.paxEntrando ?? '')
-          : (ciecData.paxEntrando !== undefined && ciecData.paxEntrando !== null ? ciecData.paxEntrando : (compDb.PaxEntrando ?? '')),
-        Despegue: pickTime(ciecData.despegue, compDb.Despegue),
+        ArriboVuelo: pickTime(ciecData.arriboVuelo || ciecData.arriboDelVuelo, compDb.ArriboVuelo, vuelo.ata, hasKey('arriboVuelo') || hasKey('arriboDelVuelo')),
+        PrimerPax: pickTime(ciecData.primerPax, compDb.PrimerPax, '', hasKey('primerPax')),
+        AeronaveAsegurada: pickTime(ciecData.aeronaveAsegurada, compDb.AeronaveAsegurada, '', hasKey('aeronaveAsegurada')),
+        UltimoPax: pickTime(ciecData.ultimoPax, compDb.UltimoPax, '', hasKey('ultimoPax')),
+        PasarelaAcoplada: pickTime(ciecData.pasarelaAcoplada, compDb.PasarelaAcoplada, '', hasKey('pasarelaAcoplada')),
+        PaxAbordos: resolvePax('paxAbordos', compDb.PaxAbordos),
+        PuertaAbierta: pickTime(ciecData.puertaAbierta, compDb.PuertaAbierta, '', hasKey('puertaAbierta')),
+        PuertaCerrada: pickTime(ciecData.puertaCerrada, compDb.PuertaCerrada, '', hasKey('puertaCerrada')),
+        EgresoTripulacion: pickTime(ciecData.egresoTripulacion, compDb.EgresoTripulacion, '', hasKey('egresoTripulacion')),
+        DesacoplePasarela: pickTime(ciecData.desacoplePasarela, compDb.DesacoplePasarela, '', hasKey('desacoplePasarela')),
+        IngresoTripulacion: pickTime(ciecData.ingresoTripulacion, compDb.IngresoTripulacion, '', hasKey('ingresoTripulacion')),
+        TotalEquipajePuerta: (hasLiveEqArray || eqPuertaList.length > 0)
+          ? eqPuertaList.length
+          : (compDb.TotalEquipaje ?? 0),
+        PushBack: pickTime(ciecData.pushBack, compDb.PushBack, '', hasKey('pushBack')),
+        PaxEntrandoGUA: resolvePax('paxEntrando', compDb.PaxEntrando),
+        Despegue: pickTime(ciecData.despegue, compDb.Despegue, '', hasKey('despegue')),
         Observaciones: obsVal,
         EquipajePuertaHTML: equipajePuertaHtml,
         TractoristaUnidad: tractoristaUnidad,
         AlerosText: alerosText,
         Aleros: alerosText,
-        FirmaOperador: encDb.CreadoPor || ciecData.agente || compDb.FirmaOperador || agente
+        FirmaOperador: agenteResuelto || compDb.FirmaOperador || ''
       };
     }
 
@@ -389,39 +562,72 @@ class HtmlPreviewService {
       const sourceRows = (preferPersisted && dbRows.length > 0)
         ? dbRows
         : (liveRows && liveRows.length > 0 ? liveRows : dbRows);
-      const fechaEr = fechaItiVuelo || erData.fecha || fechaRaw;
       const compEr = hydrated?.erState?.complemento || comp || {};
+      const fechaEr = (preferPersisted && compEr.Fecha)
+        ? compEr.Fecha
+        : (fechaItiVuelo || erData.fecha || compEr.Fecha || fechaRaw);
       const obsEr = (preferPersisted && compEr.Observacion !== undefined)
         ? String(compEr.Observacion || '').trim()
         : (erData.observaciones !== undefined ? erData.observaciones : (compEr.Observacion || observaciones));
-      const firmaEr = HtmlPreviewService.sanitizeSignatureDataUrl(
+      const firmaEr = pickRepoSig(
+        'firmaBase64',
         erData.firmaBase64 || erData.firma || formDatos.firmaBase64 || formDatos.firma
       );
-      const nombreSeguridadEr = erData.agente || user.usuario || agente;
+      const creadorEr = compEr.CreadoPor
+        || (compEr.LoginId ? HtmlPreviewService.resolvePersonaNombre('', compEr.LoginId, hydrated) : '')
+        || '';
+      const nombreSeguridadEr = (preferPersisted && creadorEr)
+        ? creadorEr
+        : (erData.agente || creadorEr || user.usuario || agente);
 
       const total = Math.max(15, sourceRows.length);
       const filas = [];
       for (let i = 0; i < total; i++) {
         const r = sourceRows[i] || {};
         const tieneDatos = Boolean(r.Pasajero || r.Nombre || r.Colilla || r.Secuencia);
-        const destinoVal = r.Destino || (tieneDatos ? (vuelo.Destino || vuelo.destino || 'N/A') : '');
-        const secCell = formatoId === 'dl-er'
-          ? ''
-          : `\n          <td style="text-align:center;">${esc(r.Secuencia ?? '')}</td>`;
-        filas.push(`<tr>
+        if (formatoId === 'dl-er') {
+          const destinoDelta = r.Destino || vuelo.Destino || vuelo.destino || 'N/A';
+          if (tieneDatos) {
+            filas.push(`<tr class="data-row">
+          <td class="col-no" style="text-align:center;">${i + 1}</td>
+          <td class="col-nombre" style="text-align:left;">${esc(r.Pasajero || r.Nombre || '')}</td>
+          <td class="col-colilla" style="text-align:center;">${esc(r.Colilla || '')}</td>
+          <td class="col-vuelo" style="text-align:center;">${esc(r.Vuelo || vueloNo)}</td>
+          <td class="col-destino" style="text-align:center;">${esc(destinoDelta)}</td>
+          <td class="col-hora" style="text-align:center;">${esc(HtmlPreviewService.extractHHMM(r.HoraRevision || r.Hora))}</td>
+          <td class="col-agente1" style="text-align:left;">${esc(r.AgenteAVSEC || r.Avsec || '')}</td>
+          <td class="col-agente2" style="text-align:left;">${esc(r.AgenteSeguridad || r.CreadoPor || r.Seguridad || '')}</td>
+        </tr>`);
+          } else {
+            filas.push(`<tr class="data-row">
+          <td class="col-no" style="text-align:center;">${i + 1}</td>
+          <td class="col-nombre">&nbsp;</td>
+          <td class="col-colilla">&nbsp;</td>
+          <td class="col-vuelo">&nbsp;</td>
+          <td class="col-destino" style="text-align:center;">N/A</td>
+          <td class="col-hora">&nbsp;</td>
+          <td class="col-agente1">&nbsp;</td>
+          <td class="col-agente2">&nbsp;</td>
+        </tr>`);
+          }
+        } else {
+          const destinoVal = r.Destino || (tieneDatos ? (vuelo.Destino || vuelo.destino || 'N/A') : '');
+          filas.push(`<tr>
           <td style="text-align:center;">${i + 1}</td>
-          <td>${esc(r.Pasajero || r.Nombre || '')}</td>${secCell}
+          <td style="text-align:left;">${esc(r.Pasajero || r.Nombre || '')}</td>
+          <td style="text-align:center;">${esc(r.Secuencia ?? '')}</td>
           <td style="text-align:center;">${esc(r.Colilla || '')}</td>
           <td style="text-align:center;">${esc(r.Vuelo || (tieneDatos ? vueloNo : ''))}</td>
           <td style="text-align:center;">${esc(destinoVal)}</td>
           <td style="text-align:center;">${esc(HtmlPreviewService.extractHHMM(r.HoraRevision || r.Hora))}</td>
-          <td>${esc(r.AgenteAVSEC || r.Avsec || '')}</td>
-          <td>${esc(r.AgenteSeguridad || r.CreadoPor || r.Seguridad || '')}</td>
+          <td style="text-align:left;">${esc(r.AgenteAVSEC || r.Avsec || '')}</td>
+          <td style="text-align:left;">${esc(r.AgenteSeguridad || r.CreadoPor || r.Seguridad || '')}</td>
         </tr>`);
+        }
       }
 
       return {
-        Fecha: String(fechaEr).substring(0, 10),
+        Fecha: String(fechaEr instanceof Date ? fechaEr.toISOString() : fechaEr).substring(0, 10),
         FilasEquipajeHTML: filas.join(''),
         Observaciones: obsEr,
         FirmaFinal: firmaEr,
@@ -433,74 +639,68 @@ class HtmlPreviewService {
 
     if (formatoId.endsWith('-eb')) {
       const ebData = formDatos.ebPayload || formDatos || {};
+      const ebCompDb = hydrated?.ebState?.complemento || comp || {};
+      const ebRowsDb = Array.isArray(hydrated?.ebState?.detalles) && hydrated.ebState.detalles.length > 0
+        ? hydrated.ebState.detalles
+        : rows;
       const liveRows = Array.isArray(ebData.registros)
         ? ebData.registros
-        : (Array.isArray(ebData.detalles) ? ebData.detalles : null);
-      const sourceRows = liveRows ? liveRows : rows.map((r, idx) => ({
+        : (Array.isArray(ebData.detalles) && ebData.detalles.length > 0 ? ebData.detalles : null);
+      const sourceRows = liveRows ? liveRows : ebRowsDb.map((r, idx) => ({
         Orden: idx + 1,
         Secuencia: r.Secuencia,
-        Valor: String(r.Secuencia || ''),
-        Motivo: ''
+        Valor: r.Valor || String(r.Secuencia || ''),
+        Motivo: r.Motivo || ''
       }));
 
       const totalFilas = Math.max(15, Math.ceil(sourceRows.length / 10));
-      let matrizHTML = '';
-      if (formatoId === 'ara-eb') {
-        let thCols = `<th style='width: 35px;'></th>`;
-        for (let c = 1; c <= 10; c++) {
-          thCols += `<th style='color: #000000; font-size: 12px; font-weight: bold; padding-bottom: 5px;'>${c}</th>`;
-        }
-        let bodyRows = '';
-        for (let fila = 1; fila <= totalFilas; fila++) {
-          bodyRows += `<tr><td style='color: #000000; font-size: 12px; font-weight: bold; text-align: center; width: 35px; padding-right: 5px;'>${fila}</td>`;
-          for (let col = 1; col <= 10; col++) {
-            const idx = (fila - 1) * 10 + col - 1;
-            const reg = sourceRows[idx];
-            const secStr = reg && reg.Secuencia !== undefined && reg.Secuencia !== null ? esc(reg.Secuencia) : '';
-            const isAnulado = reg && String(reg.Valor || '').toUpperCase() === 'X';
-            const tacheHtml = isAnulado
-              ? `<div style='position: absolute; top: -2px; left: 0; width: 100%; height: 100%; color: red; font-size: 26px; font-weight: bold;'>✗</div>`
-              : '';
-            bodyRows += `<td style='border: 1px solid black; text-align: center; height: 30px; width: 45px; color: #000000; font-size: 16px; font-weight: bold; position: relative;'>${secStr}${tacheHtml}</td>`;
-          }
-          bodyRows += `</tr>`;
-        }
-        matrizHTML = `<table class='matriz-table' style='width: 100%; border-collapse: collapse; font-family: Segoe UI, sans-serif;'><thead><tr>${thCols}</tr></thead><tbody>${bodyRows}</tbody></table>`;
-      } else {
-        let matrizRows = '';
-        for (let fila = 1; fila <= totalFilas; fila++) {
-          matrizRows += '<tr>';
-          for (let col = 1; col <= 10; col++) {
-            const idx = (fila - 1) * 10 + col - 1;
-            const reg = sourceRows[idx];
-            const secStr = reg && reg.Secuencia !== undefined && reg.Secuencia !== null ? esc(reg.Secuencia) : '';
-            const isAnulado = reg && String(reg.Valor || '').toUpperCase() === 'X';
-            const tacheHtml = isAnulado ? `<div class='tache'>✗</div>` : '';
-            matrizRows += `<td>${secStr}${tacheHtml}</td>`;
-          }
-          matrizRows += '</tr>';
-        }
-        matrizHTML = `<table class='matriz-table'><tbody>${matrizRows}</tbody></table>`;
+      let thCols = `<th style='width: 35px;'></th>`;
+      for (let c = 1; c <= 10; c++) {
+        thCols += `<th style='color: #000000; font-size: 12px; font-weight: bold; padding-bottom: 5px;'>${c}</th>`;
       }
+      let bodyRows = '';
+      for (let fila = 1; fila <= totalFilas; fila++) {
+        bodyRows += `<tr><td style='color: #000000; font-size: 12px; font-weight: bold; text-align: center; width: 35px; padding-right: 5px;'>${fila}</td>`;
+        for (let col = 1; col <= 10; col++) {
+          const idx = (fila - 1) * 10 + col - 1;
+          const reg = sourceRows[idx];
+          const secStr = reg && reg.Secuencia !== undefined && reg.Secuencia !== null ? esc(reg.Secuencia) : '';
+          const isAnulado = reg && String(reg.Valor || '').toUpperCase() === 'X';
+          const tacheHtml = isAnulado
+            ? `<div style='position: absolute; top: -2px; left: 0; width: 100%; height: 100%; color: red; font-size: 26px; font-weight: bold;'>✗</div>`
+            : '';
+          bodyRows += `<td style='border: 1px solid black; text-align: center; height: 30px; width: 45px; color: #000000; font-size: 16px; font-weight: bold; position: relative;'>${secStr}${tacheHtml}</td>`;
+        }
+        bodyRows += `</tr>`;
+      }
+      const matrizHTML = `<table style='width: 100%; border-collapse: collapse; font-family: Segoe UI, sans-serif;'><thead><tr>${thCols}</tr></thead><tbody>${bodyRows}</tbody></table>`;
 
       const activosCount = sourceRows.filter(r => r && String(r.Valor || '').toUpperCase() !== 'X' && Number(r.Secuencia) > 0).length;
       const anulados = sourceRows.filter(r => r && String(r.Valor || '').toUpperCase() === 'X' && r.Motivo);
-      const baseObs = ebData.observaciones !== undefined ? String(ebData.observaciones || '').trim() : String(observaciones || '').trim();
+      const baseObs = ebData.observaciones !== undefined
+        ? String(ebData.observaciones || '').trim()
+        : String(ebCompDb.Observaciones ?? ebCompDb.Observacion ?? observaciones ?? '').trim();
       const obsConMotivos = anulados.length > 0 && !baseObs.includes('Motivos de anulación:')
         ? `${baseObs ? `${baseObs} | ` : ''}Motivos de anulación: ${anulados.map(a => `Sec. ${a.Secuencia}: ${a.Motivo}`).join(', ')}`
         : baseObs;
 
+      const supList = Array.isArray(hydrated?.supervisores) ? hydrated.supervisores : [];
+      const supLoginId = parseInt(ebData.supervisorLoginId ?? ebCompDb.LoginId, 10) || 0;
+      const supFromList = supLoginId > 0
+        ? (supList.find(s => Number(s.LoginId) === supLoginId)?.Usuario || '')
+        : '';
+
       return {
-        Fecha: String(ebData.fecha || fechaRaw).substring(0, 10),
-        Supervisor: ebData.supervisorNombre || supervisor || '',
+        Fecha: String(fechaItiVuelo || ebData.fecha || ebCompDb.Fecha || fechaRaw).substring(0, 10),
+        Supervisor: String(ebData.supervisorNombre || supFromList || supervisor || '').trim(),
         Vuelo: vueloNo,
-        Operador: ebData.nombreOperador || comp.NombreOperador || user.usuario || agente,
-        HoraInicio: HtmlPreviewService.extractHHMM(ebData.horaInicio || comp.Hora),
+        Operador: String(ebData.nombreOperador || ebCompDb.NombreOperador || user.usuario || agente || '').trim(),
+        HoraInicio: HtmlPreviewService.extractHHMM(ebData.horaInicio || ebCompDb.Hora),
         MatrizHTML: matrizHTML,
-        Correos: ebData.correos !== undefined ? ebData.correos : (comp.CorreosCantidad ?? 0),
-        EqTransito: ebData.eqTransito !== undefined ? ebData.eqTransito : (comp.EqTransitoCantidad ?? 0),
-        HoraCierre: HtmlPreviewService.extractHHMM(ebData.horaCierre || ebData.horaFin || comp.HoraCierre),
-        Comat: ebData.comat !== undefined ? ebData.comat : (comp.ComatCantidad ?? 0),
+        Correos: ebData.correos ?? ebCompDb.CorreosCantidad ?? 0,
+        EqTransito: ebData.eqTransito ?? ebCompDb.EqTransitoCantidad ?? 0,
+        HoraCierre: HtmlPreviewService.extractHHMM(ebData.horaCierre || ebData.horaFin || ebCompDb.HoraCierre),
+        Comat: ebData.comat ?? ebCompDb.ComatCantidad ?? 0,
         TotalEquipajes: activosCount,
         Observaciones: obsConMotivos
       };
@@ -508,15 +708,24 @@ class HtmlPreviewService {
 
     if (formatoId.endsWith('-cec')) {
       const cecData = formDatos.cecPayload || formDatos || {};
+      const cecDbComp = hydrated?.cecState?.complemento || comp || {};
+      const cecDbRows = Array.isArray(hydrated?.cecState?.detalles) && hydrated.cecState.detalles.length > 0
+        ? hydrated.cecState.detalles
+        : rows.map((r, idx) => ({
+            Orden: idx + 1,
+            Secuencia: r.Secuencia,
+            Valor: String(r.Secuencia || ''),
+            Motivo: ''
+          }));
       const liveSecs = Array.isArray(cecData.secuencias)
         ? cecData.secuencias
         : (Array.isArray(cecData.detalles) ? cecData.detalles : null);
-      const sourceSecs = liveSecs ? liveSecs : rows.map((r, idx) => ({
-        Orden: idx + 1,
-        Secuencia: r.Secuencia,
-        Valor: String(r.Secuencia || ''),
-        Motivo: ''
-      }));
+      const hasMarkedX = Array.isArray(liveSecs) && liveSecs.some(
+        s => s && (String(s.Valor || '').toUpperCase() === 'X' || Number(s.Secuencia) === 0 || s.EstaEliminado)
+      );
+      const sourceSecs = (preferPersisted && cecDbRows.length > 0 && !hasMarkedX)
+        ? cecDbRows
+        : (liveSecs !== null ? liveSecs : cecDbRows);
 
       const totalFilas = Math.max(10, Math.ceil(sourceSecs.length / 10));
       const activosEmbarque = sourceSecs.filter(
@@ -531,8 +740,10 @@ class HtmlPreviewService {
           const reg = sourceSecs[idx];
           let cellContent = '';
           if (reg) {
-            if (String(reg.Valor || '').toUpperCase() === 'X' || Number(reg.Secuencia) === 0 || reg.EstaEliminado) {
-              cellContent = `<div style='position: absolute; top: -2px; left: 0; width: 100%; height: 100%; color: red; font-size: 20px; font-weight: bold;'>✗</div>`;
+            const isTachado = String(reg.Valor || '').toUpperCase() === 'X' || Number(reg.Secuencia) === 0 || reg.EstaEliminado;
+            if (isTachado) {
+              const secPrefix = Number(reg.Secuencia) > 0 ? esc(reg.Secuencia) : '';
+              cellContent = `${secPrefix}<div style='position: absolute; top: 0; left: 0; width: 100%; height: 100%; line-height: 20px; color: red; font-size: 20px; font-weight: bold;'>✗</div>`;
             } else {
               cellContent = esc(reg.Secuencia);
             }
@@ -550,13 +761,13 @@ class HtmlPreviewService {
       }
       const tablaEmbarqueHTML = `<table style='width: 100%; border-collapse: collapse;'><tbody>${embarqueRowsHtml}</tbody></table>`;
 
-      const eqRecp = Number(cecData.equipaje !== undefined ? cecData.equipaje : (comp.Equipaje ?? 0)) || 0;
-      const carrRecp = Number(cecData.carruajes !== undefined ? cecData.carruajes : (comp.Carruajes ?? 0)) || 0;
-      const corrRecp = Number(cecData.correos !== undefined ? cecData.correos : (comp.Correos ?? 0)) || 0;
-      const cargRecp = Number(cecData.carga !== undefined ? cecData.carga : (comp.Carga ?? 0)) || 0;
+      const eqRecp = Number(cecData.equipaje !== undefined && cecData.equipaje !== null ? cecData.equipaje : (cecDbComp.Equipaje ?? 0)) || 0;
+      const carrRecp = Number(cecData.carruajes !== undefined && cecData.carruajes !== null ? cecData.carruajes : (cecDbComp.Carruajes ?? 0)) || 0;
+      const corrRecp = Number(cecData.correos !== undefined && cecData.correos !== null ? cecData.correos : (cecDbComp.Correos ?? 0)) || 0;
+      const cargRecp = Number(cecData.carga !== undefined && cecData.carga !== null ? cecData.carga : (cecDbComp.Carga ?? 0)) || 0;
       const totalDesembarque = eqRecp + carrRecp + corrRecp + cargRecp;
-      const sinEtiqueta = Number(cecData.cantidadSinEtiqueta !== undefined ? cecData.cantidadSinEtiqueta : (comp.CantidadSinEtiqueta ?? 0)) || 0;
-      const conEtiqueta = Number(cecData.cantidadConEtiqueta !== undefined ? cecData.cantidadConEtiqueta : (comp.CantidadConEtiqueta ?? 0)) || 0;
+      const sinEtiqueta = Number(cecData.cantidadSinEtiqueta !== undefined && cecData.cantidadSinEtiqueta !== null ? cecData.cantidadSinEtiqueta : (cecDbComp.CantidadSinEtiqueta ?? 0)) || 0;
+      const conEtiqueta = Number(cecData.cantidadConEtiqueta !== undefined && cecData.cantidadConEtiqueta !== null ? cecData.cantidadConEtiqueta : (cecDbComp.CantidadConEtiqueta ?? 0)) || 0;
 
       const tablaDesembarqueHTML = `<table style='width: 100%; border-collapse: collapse; font-family: Segoe UI, sans-serif; font-size: 12px;'>
         <tbody>
@@ -596,31 +807,49 @@ class HtmlPreviewService {
         </tbody>
       </table>`;
 
-      const oirsaNom = esc(cecData.nombreOirsa ?? comp.NombreOirsa ?? '');
-      const oirsaTia = esc(cecData.tiaOirsa ?? comp.TIAOirsa ?? '');
-      const combParts = String(comp.NombreCombustible || '').split(/[,/]/);
-      const combTiaParts = String(comp.TIACombustible || '').split(/[,/]/);
-      const pilotoComb = esc(cecData.pilotoCombustible ?? combParts[0] ?? '');
-      const ayudComb = esc(cecData.ayudanteCombustible ?? combParts[1] ?? '');
-      const tiaPilComb = esc(cecData.tiaPilotoCombustible ?? combTiaParts[0] ?? '');
-      const tiaAyudComb = esc(cecData.tiaAyudanteCombustible ?? combTiaParts[1] ?? '');
-      const combUni = esc(cecData.noUnidadCombustible ?? comp.NoUnidadCombustible ?? '');
-      const combIn = esc(HtmlPreviewService.extractHHMM(cecData.combustibleEntrada ?? comp.CombustibleEntrada));
-      const combOut = esc(HtmlPreviewService.extractHHMM(cecData.combustibleSalida ?? comp.CombustibleSalida));
+      const oirsaRaw = String(cecData.nombreOirsa ?? cecDbComp.NombreOirsa ?? '').trim();
+      const oirsaTiaRaw = String(cecData.tiaOirsa ?? cecDbComp.TIAOirsa ?? '').trim();
+      const combPartsRaw = String(cecDbComp.NombreCombustible || '').split(/[,/]/).map(s => s.trim());
+      const combTiaRaw = String(cecDbComp.TIACombustible || '').split(/[,/]/).map(s => s.trim());
+      const pilCombRaw = String(cecData.pilotoCombustible ?? combPartsRaw[0] ?? '').trim();
+      const ayCombRaw = String(cecData.ayudanteCombustible ?? combPartsRaw[1] ?? '').trim();
+      const tPilCombRaw = String(cecData.tiaPilotoCombustible ?? combTiaRaw[0] ?? '').trim();
+      const tAyCombRaw = String(cecData.tiaAyudanteCombustible ?? combTiaRaw[1] ?? '').trim();
+      const combUniRaw = String(cecData.noUnidadCombustible ?? cecDbComp.NoUnidadCombustible ?? '').trim();
+      const combInRaw = HtmlPreviewService.extractHHMM(cecData.combustibleEntrada ?? cecDbComp.CombustibleEntrada);
+      const combOutRaw = HtmlPreviewService.extractHHMM(cecData.combustibleSalida ?? cecDbComp.CombustibleSalida);
 
-      const cocParts = String(comp.NombreCocinas || '').split(/[,/]/);
-      const cocTiaParts = String(comp.TIACocinas || '').split(/[,/]/);
-      const pilotoCoc = esc(cecData.pilotoCocinas ?? cocParts[0] ?? '');
-      const ayudCoc = esc(cecData.ayudanteCocinas ?? cocParts[1] ?? '');
-      const tiaPilCoc = esc(cecData.tiaPilotoCocinas ?? cocTiaParts[0] ?? '');
-      const tiaAyudCoc = esc(cecData.tiaAyudanteCocinas ?? cocTiaParts[1] ?? '');
-      const cocUni = esc(cecData.noUnidadCocinas ?? comp.NoUnidadCocinas ?? '');
-      const cocIn = esc(HtmlPreviewService.extractHHMM(cecData.cocinasEntrada ?? comp.CocinasEntrada));
-      const cocOut = esc(HtmlPreviewService.extractHHMM(cecData.cocinasSalida ?? comp.CocinasSalida));
+      const cocPartsRaw = String(cecDbComp.NombreCocinas || '').split(/[,/]/).map(s => s.trim());
+      const cocTiaRaw = String(cecDbComp.TIACocinas || '').split(/[,/]/).map(s => s.trim());
+      const pilCocRaw = String(cecData.pilotoCocinas ?? cocPartsRaw[0] ?? '').trim();
+      const ayCocRaw = String(cecData.ayudanteCocinas ?? cocPartsRaw[1] ?? '').trim();
+      const tPilCocRaw = String(cecData.tiaPilotoCocinas ?? cocTiaRaw[0] ?? '').trim();
+      const tAyCocRaw = String(cecData.tiaAyudanteCocinas ?? cocTiaRaw[1] ?? '').trim();
+      const cocUniRaw = String(cecData.noUnidadCocinas ?? cecDbComp.NoUnidadCocinas ?? '').trim();
+      const cocInRaw = HtmlPreviewService.extractHHMM(cecData.cocinasEntrada ?? cecDbComp.CocinasEntrada);
+      const cocOutRaw = HtmlPreviewService.extractHHMM(cecData.cocinasSalida ?? cecDbComp.CocinasSalida);
 
-      const opRampa = Array.isArray(cecData.operadoresRampa)
-        ? esc(cecData.operadoresRampa.filter(Boolean).join(' / '))
-        : esc(cecData.operadoresRampa ?? comp.OperadoresRampa ?? '');
+      const opRampaRaw = Array.isArray(cecData.operadoresRampa)
+        ? cecData.operadoresRampa.map(x => String(x || '').trim()).filter(Boolean).join(' / ')
+        : String(cecData.operadoresRampa ?? cecDbComp.OperadoresRampa ?? '').trim();
+
+      const oirsaNom = esc(oirsaRaw);
+      const oirsaTia = esc(oirsaTiaRaw);
+      const pilotoComb = esc(pilCombRaw);
+      const ayudComb = esc(ayCombRaw);
+      const tiaPilComb = esc(tPilCombRaw);
+      const tiaAyudComb = esc(tAyCombRaw);
+      const combUni = esc(combUniRaw);
+      const combIn = esc(combInRaw);
+      const combOut = esc(combOutRaw);
+      const pilotoCoc = esc(pilCocRaw);
+      const ayudCoc = esc(ayCocRaw);
+      const tiaPilCoc = esc(tPilCocRaw);
+      const tiaAyudCoc = esc(tAyCocRaw);
+      const cocUni = esc(cocUniRaw);
+      const cocIn = esc(cocInRaw);
+      const cocOut = esc(cocOutRaw);
+      const opRampa = esc(opRampaRaw);
 
       const tablaPersonalHTML = `<div style='font-family: Segoe UI, sans-serif; font-size: 14px; font-weight: bold; margin-bottom: 3px; text-transform: uppercase;'>
         PERSONAL EN PLATAFORMA:
@@ -657,75 +886,105 @@ class HtmlPreviewService {
               <b>OPERADORES RAMPA:</b> ${opRampa}
             </td>
           </tr>
+          <tr><td colspan='4' style='padding: 10px; border: 1px solid black;'></td></tr>
+          <tr><td colspan='4' style='padding: 10px; border: 1px solid black;'></td></tr>
+          <tr><td colspan='4' style='padding: 10px; border: 1px solid black;'></td></tr>
         </tbody>
       </table>`;
 
-      const oirsaRaw = String(cecData.nombreOirsa ?? comp.NombreOirsa ?? '').trim();
-      const oirsaTiaRaw = String(cecData.tiaOirsa ?? comp.TIAOirsa ?? '').trim();
-      const combPartsRaw = String(comp.NombreCombustible || '').split(/[,/]/);
-      const combTiaRaw = String(comp.TIACombustible || '').split(/[,/]/);
-      const pilCombRaw = String(cecData.pilotoCombustible ?? combPartsRaw[0] ?? '').trim();
-      const ayCombRaw = String(cecData.ayudanteCombustible ?? combPartsRaw[1] ?? '').trim();
-      const tPilCombRaw = String(cecData.tiaPilotoCombustible ?? combTiaRaw[0] ?? '').trim();
-      const tAyCombRaw = String(cecData.tiaAyudanteCombustible ?? combTiaRaw[1] ?? '').trim();
-      const combUniRaw = String(cecData.noUnidadCombustible ?? comp.NoUnidadCombustible ?? '').trim();
-      const combInRaw = HtmlPreviewService.extractHHMM(cecData.combustibleEntrada ?? comp.CombustibleEntrada);
-      const combOutRaw = HtmlPreviewService.extractHHMM(cecData.combustibleSalida ?? comp.CombustibleSalida);
-
-      const cocPartsRaw = String(comp.NombreCocinas || '').split(/[,/]/);
-      const cocTiaRaw = String(comp.TIACocinas || '').split(/[,/]/);
-      const pilCocRaw = String(cecData.pilotoCocinas ?? cocPartsRaw[0] ?? '').trim();
-      const ayCocRaw = String(cecData.ayudanteCocinas ?? cocPartsRaw[1] ?? '').trim();
-      const tPilCocRaw = String(cecData.tiaPilotoCocinas ?? cocTiaRaw[0] ?? '').trim();
-      const tAyCocRaw = String(cecData.tiaAyudanteCocinas ?? cocTiaRaw[1] ?? '').trim();
-      const cocUniRaw = String(cecData.noUnidadCocinas ?? comp.NoUnidadCocinas ?? '').trim();
-      const cocInRaw = HtmlPreviewService.extractHHMM(cecData.cocinasEntrada ?? comp.CocinasEntrada);
-      const cocOutRaw = HtmlPreviewService.extractHHMM(cecData.cocinasSalida ?? comp.CocinasSalida);
-
-      const opRampaRaw = Array.isArray(cecData.operadoresRampa)
-        ? cecData.operadoresRampa.filter(Boolean).join(' / ')
-        : String(cecData.operadoresRampa ?? comp.OperadoresRampa ?? '').trim();
-
       let tablaEmbarqueOut = tablaEmbarqueHTML;
+      let tablaDesembarqueOut = tablaDesembarqueHTML;
       if (formatoId === 'dl-cec') {
         const embDelta = hydrated?.cecState?.embarqueDelta || {};
-        const cargaDelta = Number(cecData.cargaEmbarqueDelta ?? embDelta.Carga ?? comp.CargaEmbarqueDelta ?? 0) || 0;
-        const eqMostrador = Number(cecData.equipajeMostrador ?? embDelta.EquipajeMostrador ?? comp.EquipajeMostrador ?? 0) || 0;
-        const eqPuertaDelta = Number(cecData.equipajePuerta ?? embDelta.EquipajePuerta ?? comp.EquipajePuerta ?? 0) || 0;
-        tablaEmbarqueOut += `<table style='width:100%; border-collapse:collapse; margin-top:4px; font-size:10px;'>
-          <tr>
-            <td style='border:1px solid black; padding:2px 4px;'><b>CARGA:</b> ${cargaDelta}</td>
-            <td style='border:1px solid black; padding:2px 4px;'><b>EQ. MOSTRADOR:</b> ${eqMostrador}</td>
-            <td style='border:1px solid black; padding:2px 4px;'><b>EQ. PUERTA:</b> ${eqPuertaDelta}</td>
-          </tr>
-        </table>`;
+        const cargaDelta = Number(
+          preferPersisted
+            ? (embDelta.Carga ?? cecDbComp.CargaEmbarqueDelta ?? cecData.cargaEmbarqueDelta ?? 0)
+            : (cecData.cargaEmbarqueDelta !== undefined && cecData.cargaEmbarqueDelta !== null
+                ? cecData.cargaEmbarqueDelta
+                : (embDelta.Carga ?? cecDbComp.CargaEmbarqueDelta ?? 0))
+        ) || 0;
+        const eqMostrador = Number(
+          preferPersisted
+            ? (embDelta.EquipajeMostrador ?? cecDbComp.EquipajeMostrador ?? cecData.equipajeMostrador ?? 0)
+            : (cecData.equipajeMostrador !== undefined && cecData.equipajeMostrador !== null
+                ? cecData.equipajeMostrador
+                : (embDelta.EquipajeMostrador ?? cecDbComp.EquipajeMostrador ?? 0))
+        ) || 0;
+        const eqPuertaDelta = Number(
+          preferPersisted
+            ? (embDelta.EquipajePuerta ?? cecDbComp.EquipajePuerta ?? cecData.equipajePuerta ?? 0)
+            : (cecData.equipajePuerta !== undefined && cecData.equipajePuerta !== null
+                ? cecData.equipajePuerta
+                : (embDelta.EquipajePuerta ?? cecDbComp.EquipajePuerta ?? 0))
+        ) || 0;
+        const totalEqEmbarque = eqMostrador + eqPuertaDelta;
+        const blankCells = (count) => Array.from({ length: count }, () => `<td style='border: 1px solid black; height: 18px; width: 7%;'></td>`).join('');
+
+        tablaEmbarqueOut = `<table style='width: 100%; border-collapse: collapse; font-family: Segoe UI, Arial, sans-serif; font-size: 10px;'><tbody>` +
+          `<tr><td colspan='4' style='border: 1px solid black; height: 18px; font-weight: bold; padding-left: 5px; text-align: left; width: 32%;'>EQUIPAJE MOSTRADOR</td><td style='border: 1px solid black; height: 18px; text-align: center; font-weight: bold; width: 8%;'>${eqMostrador}</td>${blankCells(7)}<td style='border: none; width: 11%;'></td></tr>` +
+          `<tr><td colspan='4' style='border: 1px solid black; height: 18px; font-weight: bold; padding-left: 5px; text-align: left;'>EQUIPAJE POR PUERTA</td><td style='border: 1px solid black; height: 18px; text-align: center; font-weight: bold;'>${eqPuertaDelta}</td>${blankCells(7)}<td style='border: none;'></td></tr>` +
+          `<tr><td colspan='4' style='border: 1px solid black; height: 18px; font-weight: bold; padding-left: 5px; text-align: left;'>CARGA:</td><td style='border: 1px solid black; height: 18px; text-align: center; font-weight: bold;'>${cargaDelta}</td>${blankCells(7)}<td style='border: none;'></td></tr>` +
+          `<tr>${blankCells(12)}<td style='border: none;'></td></tr>` +
+          `<tr>${blankCells(12)}<td style='border: none;'></td></tr>` +
+          `<tr>${blankCells(12)}<td style='border: none;'></td></tr>` +
+          `<tr>${blankCells(12)}<td style='border: 1px solid black; height: 18px; text-align: left; padding-left: 4px; font-weight: bold; background-color: #f8fafc;'>TOTAL EQ.: ${totalEqEmbarque}</td></tr>` +
+          `<tr>${blankCells(12)}<td style='border: 1px solid black; height: 18px; text-align: left; padding-left: 4px; font-weight: bold; background-color: #f8fafc;'>TOTAL CARGA: ${cargaDelta}</td></tr>` +
+          `</tbody></table>`;
+
+        const totalEqDesembarqueDelta = eqRecp + carrRecp;
+        tablaDesembarqueOut = `<table style='width: 100%; border-collapse: collapse; font-family: Segoe UI, Arial, sans-serif; font-size: 10px;'><tbody>` +
+          `<tr><td colspan='4' style='border: 1px solid black; height: 18px; font-weight: bold; padding-left: 5px; text-align: left; width: 32%;'>EQUIPAJES</td><td style='border: 1px solid black; height: 18px; text-align: center; font-weight: bold; width: 8%;'>${eqRecp}</td>${blankCells(7)}</tr>` +
+          `<tr><td colspan='4' style='border: 1px solid black; height: 18px; font-weight: bold; padding-left: 5px; text-align: left;'>CARRUAJES</td><td style='border: 1px solid black; height: 18px; text-align: center; font-weight: bold;'>${carrRecp}</td>${blankCells(7)}</tr>` +
+          `<tr><td colspan='4' style='border: 1px solid black; height: 18px; font-weight: bold; padding-left: 5px; text-align: left;'>CARGA</td><td style='border: 1px solid black; height: 18px; text-align: center; font-weight: bold;'>${cargRecp}</td>${blankCells(6)}<td style='border: 1px solid black; height: 18px; text-align: left; padding-left: 4px; font-weight: bold; width: 11%; background-color: #f8fafc;'>TOTAL EQ.: ${totalEqDesembarqueDelta}</td></tr>` +
+          `<tr>${blankCells(11)}<td style='border: 1px solid black; height: 18px; text-align: left; padding-left: 4px; font-weight: bold; width: 11%; background-color: #f8fafc;'>TOTAL CARGA: ${cargRecp}</td></tr>` +
+          `<tr>${blankCells(12)}</tr>` +
+          `<tr>${blankCells(12)}</tr>` +
+          `</tbody></table>`;
       }
 
       const vueloParts = String(vueloNo || '').split('/').map(s => s.trim()).filter(Boolean);
-      const vueloDes = (formatoId === 'ajt-cec')
-        ? (cecData.vueloDesembarque || vueloParts[0] || vueloNo)
-        : (cecData.vueloDesembarque || vueloNo);
-      const vueloEmb = (formatoId === 'ajt-cec')
-        ? (cecData.vueloEmbarque || vueloParts[vueloParts.length - 1] || vueloNo)
-        : (cecData.vueloEmbarque || vueloNo);
+      const vueloDes = cecData.vueloDesembarque || cecDbComp.VueloDesembarque || vueloParts[0] || vueloNo;
+      const vueloEmb = cecData.vueloEmbarque || cecDbComp.VueloEmbarque || vueloParts[vueloParts.length - 1] || vueloNo;
+
+      const supervisorResolved = HtmlPreviewService.resolvePersonaNombre(
+        preferPersisted
+          ? (cecDbComp.Supervisor ?? cecData.supervisorNombre ?? cecData.supervisor)
+          : (cecData.supervisorNombre ?? cecData.supervisor ?? cecDbComp.Supervisor),
+        cecData.supervisorLoginId,
+        hydrated
+      ) || supervisor;
+
+      const agenteResolved = HtmlPreviewService.resolvePersonaNombre(
+        preferPersisted
+          ? (cecDbComp.Agente ?? cecData.agenteNombre ?? cecData.agente)
+          : (cecData.agenteNombre ?? cecData.agente ?? cecDbComp.Agente),
+        cecData.agenteLoginId,
+        hydrated
+      ) || agente;
+
+      const compNoResolved = cecData.compartimientoNo ?? cecData.compartimiento ?? cecDbComp.CompartimientoNo ?? '';
+      const obsCecRaw = preferPersisted
+        ? (cecDbComp.Observaciones ?? cecDbComp.Observacion ?? cecData.observaciones ?? observaciones)
+        : (cecData.observaciones !== undefined ? cecData.observaciones : (cecDbComp.Observaciones ?? cecDbComp.Observacion ?? observaciones));
+      const obsCec = String(obsCecRaw || '').trim() || 'N/A';
 
       return {
-        HoraIniciaPuesto: HtmlPreviewService.extractHHMM(cecData.horaInicio || comp.HoraInicio),
-        Supervisor: cecData.supervisor || supervisor,
+        HoraIniciaPuesto: HtmlPreviewService.extractHHMM(cecData.horaInicio || cecDbComp.HoraInicio),
+        Supervisor: supervisorResolved,
         Fecha: (formatoId === 'ajt-cec')
-          ? HtmlPreviewService.formatDDMMYYYY(cecData.fecha || fechaRaw)
-          : HtmlPreviewService.formatMMDDYYYY(cecData.fecha || fechaRaw),
-        Agente: cecData.agente || comp.Agente || agente,
+          ? HtmlPreviewService.formatDDMMYYYY(fechaItiVuelo || cecData.fecha || cecDbComp.Fecha || fechaRaw)
+          : HtmlPreviewService.formatMMDDYYYY(fechaItiVuelo || cecData.fecha || cecDbComp.Fecha || fechaRaw),
+        Agente: agenteResolved,
         Vuelo: vueloNo,
         Matricula: matricula,
-        CompartimentoNo: cecData.compartimientoNo || comp.CompartimientoNo || '',
+        CompartimentoNo: compNoResolved === '' ? '' : String(compNoResolved),
         PuertaNo: puerta,
-        CompAbierto: HtmlPreviewService.extractHHMM(cecData.compAbierto || comp.CompAbierto),
-        CompCerrado: HtmlPreviewService.extractHHMM(cecData.compCerrado || comp.CompCerrado),
+        CompAbierto: HtmlPreviewService.extractHHMM(cecData.compAbierto ?? cecDbComp.CompAbierto),
+        CompCerrado: HtmlPreviewService.extractHHMM(cecData.compCerrado ?? cecDbComp.CompCerrado),
         VueloEmbarque: vueloEmb,
         TablaEmbarqueHTML: tablaEmbarqueOut,
         VueloDesembarque: vueloDes,
-        TablaDesembarqueHTML: tablaDesembarqueHTML,
+        TablaDesembarqueHTML: tablaDesembarqueOut,
         TablaPersonalHTML: tablaPersonalHTML,
         Oirsa: [oirsaRaw, oirsaTiaRaw ? `(TIA: ${oirsaTiaRaw})` : ''].filter(Boolean).join(' '),
         Combustible: `${pilCombRaw}${tPilCombRaw ? ` (TIA: ${tPilCombRaw})` : ''}${ayCombRaw ? ` / ${ayCombRaw}${tAyCombRaw ? ` (TIA: ${tAyCombRaw})` : ''}` : ''}`,
@@ -735,28 +994,31 @@ class HtmlPreviewService {
         CocinasUnidad: cocUniRaw,
         CocinasLlegaSale: [cocInRaw, cocOutRaw].filter(Boolean).join(' / '),
         OpRampa: opRampaRaw,
-        DesembarqueInicio: HtmlPreviewService.extractHHMM(cecData.desembarqueInicio || comp.DesembarqueHoraInicio),
-        DesembarqueFin: HtmlPreviewService.extractHHMM(cecData.desembarqueFinal || comp.DesembarqueHoraFinal),
-        EmbarqueInicio: HtmlPreviewService.extractHHMM(cecData.embarqueInicio || comp.EmbarqueHoraInicio),
-        EmbarqueFin: HtmlPreviewService.extractHHMM(cecData.embarqueFinal || comp.EmbarqueHoraFinal),
-        Observaciones: cecData.observaciones || observaciones || 'N/A'
+        DesembarqueInicio: HtmlPreviewService.extractHHMM(cecData.desembarqueInicio || cecDbComp.DesembarqueHoraInicio),
+        DesembarqueFin: HtmlPreviewService.extractHHMM(cecData.desembarqueFinal || cecDbComp.DesembarqueHoraFinal),
+        EmbarqueInicio: HtmlPreviewService.extractHHMM(cecData.embarqueInicio || cecDbComp.EmbarqueHoraInicio),
+        EmbarqueFin: HtmlPreviewService.extractHHMM(cecData.embarqueFinal || cecDbComp.EmbarqueHoraFinal),
+        Observaciones: obsCec
       };
     }
 
     if (formatoId === 'amx-mecd') {
       const mecdData = formDatos.mecdPayload || formDatos || {};
       const mecdDb = hydrated?.mecdState || {};
-      const revList = (preferPersisted && Array.isArray(mecdDb.revisiones) && mecdDb.revisiones.length > 0)
-        ? mecdDb.revisiones
-        : (Array.isArray(mecdData.revisiones)
-          ? mecdData.revisiones
-          : (Array.isArray(mecdData.revision) ? mecdData.revision : (mecdDb.revisiones || [])));
-      const cfList = (preferPersisted && Array.isArray(mecdDb.conFirma) && mecdDb.conFirma.length > 0)
-        ? mecdDb.conFirma
-        : (Array.isArray(mecdData.conFirma) ? mecdData.conFirma : (mecdDb.conFirma || []));
-      const sfList = (preferPersisted && Array.isArray(mecdDb.sinFirma) && mecdDb.sinFirma.length > 0)
-        ? mecdDb.sinFirma
-        : (Array.isArray(mecdData.sinFirma) ? mecdData.sinFirma : (mecdDb.sinFirma || []));
+      const encMecd = mecdDb.encabezado || mecdDb.complemento || {};
+      const cleanLiveOrDb = (liveArr, dbArr) => {
+        const chosen = (preferPersisted && Array.isArray(dbArr) && dbArr.length > 0)
+          ? dbArr
+          : (Array.isArray(liveArr) ? liveArr : (dbArr || []));
+        return chosen.filter(Boolean);
+      };
+
+      const revList = cleanLiveOrDb(
+        Array.isArray(mecdData.revisiones) ? mecdData.revisiones : mecdData.revision,
+        mecdDb.revisiones || mecdDb.revision
+      );
+      const cfList = cleanLiveOrDb(mecdData.conFirma, mecdDb.conFirma);
+      const sfList = cleanLiveOrDb(mecdData.sinFirma, mecdDb.sinFirma);
 
       const totalPairsRev = Math.max(9, Math.ceil(revList.length / 2));
       let tablaRevisionHtml = '';
@@ -786,24 +1048,46 @@ class HtmlPreviewService {
         return htmlRows;
       };
 
+      const ccoDbNombre = mecdDb.ccoNombre
+        || (encMecd.EmpleadoId ? HtmlPreviewService.resolvePersonaNombre('', encMecd.EmpleadoId, hydrated) : '');
+      const agDbNombre = mecdDb.agenteNombre
+        || (encMecd.AgenteId ? HtmlPreviewService.resolvePersonaNombre('', encMecd.AgenteId, hydrated) : '')
+        || encMecd.CreadoPor
+        || '';
+      const supDbNombre = mecdDb.supervisorNombre
+        || (encMecd.SupervisorId ? HtmlPreviewService.resolvePersonaNombre('', encMecd.SupervisorId, hydrated) : '');
+
+      const ccoNom = (preferPersisted && ccoDbNombre)
+        ? ccoDbNombre
+        : (mecdData.ccoNombre || ccoDbNombre || '');
+      const agNom = (preferPersisted && agDbNombre)
+        ? agDbNombre
+        : (mecdData.agenteNombre || agDbNombre || agente);
+      const supNom = (preferPersisted && supDbNombre)
+        ? supDbNombre
+        : (mecdData.supervisorNombre || supDbNombre || supervisor);
+
+      const fechaMecdRaw = fechaItiVuelo || mecdData.fecha || fechaRaw;
+
       return {
-        Fecha: HtmlPreviewService.formatMMDDYYYY(mecdData.fecha || fechaRaw),
+        Fecha: String(fechaMecdRaw instanceof Date ? fechaMecdRaw.toISOString() : fechaMecdRaw).trim().substring(0, 10),
         NoVuelo: vueloNo,
         TablaRevision: tablaRevisionHtml,
         TablaConFirma: buildDamageRows(cfList, 12),
         TablaSinFirma: buildDamageRows(sfList, 5),
-        FirmaAgente: HtmlPreviewService.sanitizeSignatureDataUrl(mecdData.firmaAgente || firmaDataUrl),
-        NombreAgente: mecdData.agenteNombre || agente,
-        FirmaCCO: HtmlPreviewService.sanitizeSignatureDataUrl(mecdData.firmaCCO),
-        NombreCCO: mecdData.ccoNombre || '',
-        FirmaSupervisor: HtmlPreviewService.sanitizeSignatureDataUrl(mecdData.firmaSupervisor || firmaDataUrl),
-        NombreSupervisor: mecdData.supervisorNombre || supervisor
+        FirmaAgente: pickRepoSig('firmaAgente', mecdData.firmaAgente),
+        NombreAgente: agNom,
+        FirmaCCO: pickRepoSig('firmaCCO', mecdData.firmaCCO),
+        NombreCCO: ccoNom,
+        FirmaSupervisor: pickRepoSig('firmaSupervisor', mecdData.firmaSupervisor),
+        NombreSupervisor: supNom
       };
     }
 
     if (formatoId === 'amx-po') {
       const poData = formDatos.poPayload || formDatos || {};
       const poDb = hydrated?.poState || {};
+      const compDb = poDb.complemento || comp || {};
       const dbRows = Array.isArray(poDb.detalles) && poDb.detalles.length > 0 ? poDb.detalles : rows;
       const liveRows = Array.isArray(poData.registros)
         ? poData.registros
@@ -820,19 +1104,38 @@ class HtmlPreviewService {
         }
         filasHtml += `<tr>
           <td style="border: 1px solid black; padding: 4px; text-align: center; font-weight: bold;">${i + 1}</td>
-          <td style="border: 1px solid black; padding: 4px;">${esc(r.Agentes || r.Usuario || r.Nombre || '')}</td>
+          <td style="border: 1px solid black; padding: 4px; text-align: left;">${esc(r.Agentes || r.Usuario || r.Nombre || '')}</td>
           ${posCells}
         </tr>`;
       }
 
+      const supLoginId = parseInt(compDb.SupervisorLoginSECId ?? compDb.LoginId ?? poData.supervisorLoginId ?? poData.supervisorLoginSecId, 10) || 0;
+      const supResuelto = supLoginId > 0
+        ? HtmlPreviewService.resolvePersonaNombre('', supLoginId, hydrated)
+        : (poDb.supervisorNombre || '');
+      const supFromDb = (supResuelto && !/^\d+$/.test(supResuelto)) ? supResuelto : (poDb.supervisorNombre || '');
+      const supLiveRaw = String(poData.supervisorNombre || '').trim();
+      const supLive = !/^--\s*Seleccione/i.test(supLiveRaw) ? supLiveRaw : '';
+      const nombreSupervisor = (preferPersisted && supFromDb)
+        ? supFromDb
+        : (supLive || supFromDb || supervisor || '');
+
+      const leadAgent = (preferPersisted && compDb.CreadoPor)
+        ? compDb.CreadoPor
+        : (poData.leadAgent || compDb.CreadoPor || user.usuario || agente);
+
+      const obsPo = (preferPersisted && compDb.Observaciones !== undefined)
+        ? String(compDb.Observaciones || '').trim()
+        : (poData.observaciones !== undefined ? poData.observaciones : (compDb.Observaciones ?? observaciones));
+
       return {
-        Fecha: HtmlPreviewService.formatMMDDYYYY(poData.fecha || fechaRaw),
-        LeadAgent: poData.leadAgent || user.usuario || agente,
+        Fecha: String(poData.fecha || compDb.Fecha || fechaRaw).substring(0, 10),
+        LeadAgent: leadAgent,
         Vuelo: vueloNo,
         FilasEquipajeHTML: filasHtml,
-        Observaciones: poData.observaciones !== undefined ? poData.observaciones : observaciones,
-        FirmaSupervisor: HtmlPreviewService.sanitizeSignatureDataUrl(poData.firmaSupervisor || poData.firmaBase64 || firmaDataUrl),
-        NombreSupervisor: poData.supervisorNombre || supervisor || agente
+        Observaciones: obsPo,
+        FirmaSupervisor: pickRepoSig('firmaSupervisor', poData.firmaSupervisor || poData.firmaBase64 || firmaDataUrl, poDb.firmaSupervisor || ''),
+        NombreSupervisor: nombreSupervisor
       };
     }
 
@@ -901,90 +1204,121 @@ class HtmlPreviewService {
     if (formatoId === 'dl-rx') {
       const rxData = formDatos.rxPayload || formDatos || {};
       const encDb = hydrated?.rxState?.encabezado || comp || {};
-      const sagList = Array.isArray(rxData.personalSAG)
-        ? rxData.personalSAG
-        : (hydrated?.rxState?.personalSAG || []);
-      const laatsList = Array.isArray(rxData.personalLaats)
-        ? rxData.personalLaats
-        : (hydrated?.rxState?.personalLaats || []);
+      const dbSag = Array.isArray(hydrated?.rxState?.personalSAG) ? hydrated.rxState.personalSAG : [];
+      const dbLaats = Array.isArray(hydrated?.rxState?.personalLaats) ? hydrated.rxState.personalLaats : [];
+      const sagList = (preferPersisted && dbSag.length > 0)
+        ? dbSag
+        : (Array.isArray(rxData.personalSAG) ? rxData.personalSAG : dbSag);
+      const laatsList = (preferPersisted && dbLaats.length > 0)
+        ? dbLaats
+        : (Array.isArray(rxData.personalLaats) ? rxData.personalLaats : dbLaats);
 
       const totalSag = Math.max(6, sagList.length);
       let sagHtml = '';
       for (let i = 0; i < totalSag; i++) {
         const s = sagList[i] || {};
-        sagHtml += `<tr>
-          <td>${esc(s.Nombre || '')}</td>
-          <td style="text-align:center;">${esc(s.Id || s.Identificacion || s.NoTIA || '')}</td>
-        </tr>`;
+        const hasSag = Boolean(s.Nombre || s.Id || s.Identificacion || s.NoTIA);
+        sagHtml += hasSag
+          ? `<tr><td style='border: 1px solid #333333; padding: 6px 10px; font-size: 11px; font-weight: bold;'>${esc(s.Nombre || '')}</td><td style='border: 1px solid #333333; padding: 6px; font-size: 11px; text-align: center;'>${esc(s.Id || s.Identificacion || s.NoTIA || '')}</td></tr>`
+          : `<tr><td style='border: 1px solid #333333; padding: 6px 10px; height: 22px;'>&nbsp;</td><td style='border: 1px solid #333333; padding: 6px; height: 22px;'>&nbsp;</td></tr>`;
       }
 
       const totalLaats = Math.max(6, laatsList.length);
       let laatsHtml = '';
       for (let i = 0; i < totalLaats; i++) {
         const l = laatsList[i] || {};
-        laatsHtml += `<tr>
-          <td>${esc(l.Nombre || '')}</td>
-          <td style="text-align:center;">${esc(l.Id || l.Identificacion || l.NoTIA || '')}</td>
-        </tr>`;
+        const hasLaats = Boolean(l.Nombre || l.Id || l.Identificacion || l.NoTIA);
+        laatsHtml += hasLaats
+          ? `<tr><td style='border: 1px solid #333333; padding: 6px 10px; font-size: 11px; font-weight: bold;'>${esc(l.Nombre || '')}</td><td style='border: 1px solid #333333; padding: 6px; font-size: 11px; text-align: center;'>${esc(l.Id || l.Identificacion || l.NoTIA || '')}</td></tr>`
+          : `<tr><td style='border: 1px solid #333333; padding: 6px 10px; height: 22px;'>&nbsp;</td><td style='border: 1px solid #333333; padding: 6px; height: 22px;'>&nbsp;</td></tr>`;
       }
 
+      const supResolvedRx = HtmlPreviewService.resolvePersonaNombre(
+        preferPersisted ? (encDb.Supervisor || rxData.supervisorNombre) : (rxData.supervisorNombre || encDb.Supervisor),
+        preferPersisted ? (encDb.EmpleadoId || rxData.supervisorEmpleadoId) : (rxData.supervisorEmpleadoId || encDb.EmpleadoId),
+        hydrated
+      ) || supervisor || '';
+
+      const agenteResolvedRx = HtmlPreviewService.resolvePersonaNombre(
+        preferPersisted ? (encDb.CreadoPor || rxData.agente) : (rxData.agente || encDb.CreadoPor),
+        encDb.LoginId,
+        hydrated
+      ) || user.usuario || agente || '';
+
+      const obsRx = preferPersisted
+        ? (encDb.Observacion ?? encDb.Observaciones ?? rxData.observaciones ?? observaciones)
+        : (rxData.observaciones !== undefined ? rxData.observaciones : (encDb.Observacion ?? encDb.Observaciones ?? observaciones));
+
       return {
-        HoraIniciaPuesto: HtmlPreviewService.extractHHMM(rxData.horaInicio || encDb.HoraInicio),
-        Supervisor: rxData.supervisorNombre || supervisor || encDb.Supervisor || '',
-        Fecha: HtmlPreviewService.formatMMDDYYYY(rxData.fecha || encDb.Fecha || fechaRaw),
-        Agente: rxData.agente || user.usuario || agente,
+        HoraIniciaPuesto: HtmlPreviewService.extractHHMM(preferPersisted ? (encDb.HoraInicio || rxData.horaInicio) : (rxData.horaInicio || encDb.HoraInicio)),
+        Supervisor: supResolvedRx,
+        Fecha: HtmlPreviewService.formatDDMMYYYY(fechaItiVuelo || rxData.fecha || encDb.Fecha || fechaRaw),
+        Agente: agenteResolvedRx,
         Vuelo: vueloNo,
-        PEquipajeRecibidoRX: HtmlPreviewService.extractHHMM(rxData.pEquipajeRecibidoRX || encDb.PEquipajeRecibidoRX),
-        PCarretaEnviada: HtmlPreviewService.extractHHMM(rxData.pCarretaEnviada || encDb.PCarretaEnviada),
-        UEquipajeRX: HtmlPreviewService.extractHHMM(rxData.uEquipajeRX || encDb.UEquipajeRX),
-        UCarretaEnviada: HtmlPreviewService.extractHHMM(rxData.uCarretaEnviada || encDb.UCarretaEnviada),
+        PEquipajeRecibidoRX: HtmlPreviewService.extractHHMM(preferPersisted ? (encDb.PEquipajeRecibidoRX || rxData.pEquipajeRecibidoRX) : (rxData.pEquipajeRecibidoRX || encDb.PEquipajeRecibidoRX)),
+        PCarretaEnviada: HtmlPreviewService.extractHHMM(preferPersisted ? (encDb.PCarretaEnviada || rxData.pCarretaEnviada) : (rxData.pCarretaEnviada || encDb.PCarretaEnviada)),
+        UEquipajeRX: HtmlPreviewService.extractHHMM(preferPersisted ? (encDb.UEquipajeRX || rxData.uEquipajeRX) : (rxData.uEquipajeRX || encDb.UEquipajeRX)),
+        UCarretaEnviada: HtmlPreviewService.extractHHMM(preferPersisted ? (encDb.UCarretaEnviada || rxData.uCarretaEnviada) : (rxData.uCarretaEnviada || encDb.UCarretaEnviada)),
         TablaSAG_HTML: sagHtml,
         TablaLAATS_HTML: laatsHtml,
-        Observaciones: rxData.observaciones !== undefined ? rxData.observaciones : (encDb.Observaciones || observaciones)
+        Observaciones: String(obsRx || '').trim() || 'N/A'
       };
     }
 
     if (formatoId === 'dl-cll') {
       const cllData = formDatos.cllPayload || formDatos || {};
-      const liveRows = Array.isArray(cllData.registros)
-        ? cllData.registros
-        : (hydrated?.cllState?.detalles || rows);
+      const compCll = hydrated?.cllState?.complemento || comp || {};
+      const dbRowsCll = Array.isArray(hydrated?.cllState?.detalles) && hydrated.cllState.detalles.length > 0
+        ? hydrated.cllState.detalles
+        : rows;
+      const liveRows = (preferPersisted && dbRowsCll.length > 0)
+        ? dbRowsCll
+        : (Array.isArray(cllData.registros) ? cllData.registros : dbRowsCll);
       const total = Math.max(21, liveRows.length);
       let tablaHtml = '';
       for (let i = 0; i < total; i++) {
         const r = liveRows[i] || {};
-        tablaHtml += `<tr>
-          <td style="text-align:center;">${esc(r.Guia || '')}</td>
-          <td>${esc(r.Contenido || '')}</td>
-          <td style="text-align:center;">${r.Piezas !== undefined && r.Piezas !== null && r.Piezas !== '' ? esc(r.Piezas) : ''}</td>
-          <td style="text-align:center;">${esc(r.BIN || '')}</td>
-        </tr>`;
+        tablaHtml += `<tr><td>${esc(r.Guia || '')}</td><td style='text-align: left; padding-left: 5px;'>${esc(r.Contenido || '')}</td><td>${r.Piezas !== undefined && r.Piezas !== null && r.Piezas !== '' ? esc(r.Piezas) : ''}</td><td>${esc(r.BIN || '')}</td></tr>`;
       }
 
-      const securityAgent = cllData.agenteSeguridad || comp.AgenteSeguridad || '';
-      const deltaAgent = cllData.agenteDelta || comp.AgenteDelta || '';
-      const sharedTia = cllData.agenteTIA || comp.AgenteTIA || '';
+      const securityAgent = preferPersisted
+        ? (compCll.AgenteSeguridad || cllData.agenteSeguridad || user.usuario || agente || '')
+        : (cllData.agenteSeguridad || compCll.AgenteSeguridad || user.usuario || agente || '');
+      const rawAgenteDelta = String(
+        preferPersisted
+          ? (compCll.AgenteDelta || cllData.agenteDelta || '')
+          : (cllData.agenteDelta || compCll.AgenteDelta || '')
+      ).trim();
+      const agDeltaParts = rawAgenteDelta.split(',').map(s => s.trim());
+      const deltaAgentName = agDeltaParts[0] || '';
+      const deltaTiaFromSplit = agDeltaParts.slice(1).join(', ').trim();
+      const sharedTia = preferPersisted
+        ? (compCll.AgenteTIA || cllData.agenteTIA || '')
+        : (cllData.agenteTIA || compCll.AgenteTIA || '');
 
       return {
         Flight: vueloNo,
-        Date: HtmlPreviewService.formatMMDDYYYY(cllData.fecha || fechaRaw),
+        Date: HtmlPreviewService.formatDDMMYYYY(fechaItiVuelo || cllData.fecha || compCll.Fecha || fechaRaw),
         Station: cllData.station || 'GUA',
         TablaHTML: tablaHtml,
-        FirmaSecurity: HtmlPreviewService.sanitizeSignatureDataUrl(cllData.firmaSecurity),
+        FirmaSecurity: pickRepoSig('firmaSecurity', cllData.firmaSecurity),
         SecurityAgent: securityAgent,
         TiaSecurity: cllData.tiaSecurity || sharedTia,
-        FirmaLD: HtmlPreviewService.sanitizeSignatureDataUrl(cllData.firmaLD),
-        AgenteLD: deltaAgent,
-        TiaLD: cllData.tiaLD || sharedTia
+        FirmaLD: pickRepoSig('firmaLD', cllData.firmaLD),
+        AgenteLD: deltaAgentName,
+        TiaLD: (preferPersisted ? (deltaTiaFromSplit || cllData.tiaLD) : (cllData.tiaLD || deltaTiaFromSplit)) || sharedTia
       };
     }
 
     if (formatoId === 'dl-sp') {
       const spData = formDatos.spPayload || formDatos || {};
-      const liveRows = Array.isArray(spData.registros)
-        ? spData.registros
-        : (hydrated?.spState?.detalles || []);
+      const encSpDb = hydrated?.spState?.encabezado || comp || {};
+      const dbRowsSp = Array.isArray(hydrated?.spState?.detalles) ? hydrated.spState.detalles : [];
+      const liveRows = (preferPersisted && dbRowsSp.length > 0)
+        ? dbRowsSp
+        : (Array.isArray(spData.registros) ? spData.registros : dbRowsSp);
       const selNames = { 1: 'R Random', 2: 'S Selected', 3: 'I Interview' };
+      const repoFirmaScreener = pickRepoSig('firmaScreener', spData.firmaScreener);
 
       let totalRandom = 0;
       let totalSelected = 0;
@@ -1002,111 +1336,152 @@ class HtmlPreviewService {
           else if (selId === 3) totalInterview += 1;
         }
         const selLabel = hasRow ? (selNames[selId] || r.SelectionLabel || r.SelectionCode || '') : '';
-        tablaPaxHtml += `<tr>
-          <td style="text-align:center;">${i + 1}</td>
-          <td>${esc(r.Apellido || '')}</td>
-          <td>${esc(r.Nombre || '')}</td>
-          <td style="text-align:center;">${esc(selLabel)}</td>
-          <td style="text-align:center;">${esc(r.Asiento || '')}</td>
-          <td style="text-align:center;">${hasRow ? esc(r.BCN ?? '') : ''}</td>
-          <td>${esc(r.NombreAgente || '')}</td>
-        </tr>`;
+        const rowFirma = String(r.FirmaScreener || r.FirmaBase64 || repoFirmaScreener || '').trim();
+        const screenerNameEsc = esc(r.NombreAgente || r.ScreenerName || '');
+        let screenerCellHtml = '&nbsp;';
+        if (hasRow) {
+          if (rowFirma && rowFirma !== BLANK_IMG) {
+            screenerCellHtml = `<div style='display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:6px; width:100%;'><div style='display:flex; flex-direction:column; align-items:center;'><span style='font-size:8px; font-weight:bold; color:#15803d; max-width:60px; white-space:nowrap; overflow:hidden;'>${screenerNameEsc}</span><img src='${rowFirma}' style='max-height:22px; max-width:50px; vertical-align:middle;' /></div></div>`;
+          } else {
+            screenerCellHtml = `<div style='display:flex; align-items:center; justify-content:center; gap:8px; width:100%;'><span style='font-size:9px; font-weight:bold;'>${screenerNameEsc}</span></div>`;
+          }
+        }
+        tablaPaxHtml += `<tr><td style='text-align:center; vertical-align:middle;'>${i + 1}</td><td style='text-align:center; vertical-align:middle;'>${hasRow ? esc(r.Apellido || '') : '&nbsp;'}</td><td style='text-align:center; vertical-align:middle;'>${hasRow ? esc(r.Nombre || '') : '&nbsp;'}</td><td style='text-align:center; vertical-align:middle;'>${hasRow ? esc(selLabel) : '&nbsp;'}</td><td style='text-align:center; vertical-align:middle;'>${hasRow ? esc(r.Asiento || '') : '&nbsp;'}</td><td style='text-align:center; vertical-align:middle;'>${hasRow ? esc(r.BCN ?? '') : '&nbsp;'}</td><td style='text-align:center; vertical-align:middle; padding:2px;'>${screenerCellHtml}</td></tr>`;
       }
 
+      const supSpResolved = HtmlPreviewService.resolvePersonaNombre(
+        preferPersisted ? (encSpDb.CreadoPor || spData.supervisorNombre) : (spData.supervisorNombre || encSpDb.CreadoPor),
+        preferPersisted ? (encSpDb.LoginId || spData.supervisorLoginId) : (spData.supervisorLoginId || encSpDb.LoginId),
+        hydrated
+      ) || supervisor || agente || '';
+
       return {
-        Date: HtmlPreviewService.formatMMDDYYYY(spData.fecha || hydrated?.spState?.encabezado?.Fecha || fechaRaw),
+        Date: HtmlPreviewService.formatDDMMYYYY(fechaItiVuelo || spData.fecha || encSpDb.Fecha || fechaRaw),
         Flight: vueloNo,
         TablaPaxHTML: tablaPaxHtml,
         TotalRandom: totalRandom,
         TotalSelected: totalSelected,
         TotalInterview: totalInterview,
         TotalGeneral: totalRandom + totalSelected + totalInterview,
-        NombreSupervisor: spData.supervisorNombre || supervisor || hydrated?.spState?.encabezado?.CreadoPor || agente
+        NombreSupervisor: supSpResolved
       };
     }
 
     if (formatoId === 'dl-dal') {
       const dalData = formDatos.dalPayload || formDatos || {};
       const dalDb = hydrated?.dalState?.detalle || {};
-      const evalParts = String(dalData.evaluadores || dalDb.Evaluadores || '').split(',').map(s => s.trim());
-      const revXRay = dalData.revisadoXRay !== undefined ? dalData.revisadoXRay : dalDb.RevisadoXRay;
-      const bolsasIng = dalData.bolsasIngresadas !== undefined ? dalData.bolsasIngresadas : dalDb.BolsasIngresadas;
-      const eqCoincide = dalData.eqCoincidePasajero !== undefined ? dalData.eqCoincidePasajero : dalDb.EqCoincidePasajero;
+      const evalRaw = preferPersisted
+        ? (dalDb.Evaluadores || dalData.evaluadores || '')
+        : (dalData.evaluadores || dalDb.Evaluadores || '');
+      const evalParts = String(evalRaw).split(',').map(s => s.trim());
+      const revXRay = (preferPersisted && dalDb.RevisadoXRay !== undefined)
+        ? dalDb.RevisadoXRay
+        : (dalData.revisadoXRay !== undefined ? dalData.revisadoXRay : dalDb.RevisadoXRay);
+      const bolsasIng = (preferPersisted && dalDb.BolsasIngresadas !== undefined)
+        ? dalDb.BolsasIngresadas
+        : (dalData.bolsasIngresadas !== undefined ? dalData.bolsasIngresadas : dalDb.BolsasIngresadas);
+      const eqCoincide = (preferPersisted && dalDb.EqCoincidePasajero !== undefined)
+        ? dalDb.EqCoincidePasajero
+        : (dalData.eqCoincidePasajero !== undefined ? dalData.eqCoincidePasajero : dalDb.EqCoincidePasajero);
       const isTrue = (v) => v === true || v === 1 || String(v).toUpperCase() === 'YES' || String(v).toLowerCase() === 'true';
 
-      const guard1 = dalData.nombreGuardia ?? dalDb.NombreGuardia ?? '';
-      const guard2 = dalData.nombreGuardia2 ?? dalDb.NombreGuardia2 ?? '';
-      const guard3 = dalData.nombreGuardia3 ?? dalDb.NombreGuardia3 ?? '';
-      const agentesGate = dalData.nombreAgentes ?? dalDb.NombreAgentes ?? '';
-      const guardEscolta = dalData.nombreGuardiaEscolta ?? dalDb.NombreGuardiaEscolta ?? '';
+      const pickDal = (liveVal, dbVal, fallback = '') => {
+        if (preferPersisted) return dbVal !== undefined && dbVal !== null && dbVal !== '' ? dbVal : (liveVal ?? fallback);
+        return liveVal !== undefined && liveVal !== null && liveVal !== '' ? liveVal : (dbVal ?? fallback);
+      };
+
+      const guard1 = pickDal(dalData.nombreGuardia, dalDb.NombreGuardia, '');
+      const guard2 = pickDal(dalData.nombreGuardia2, dalDb.NombreGuardia2, '');
+      const guard3 = pickDal(dalData.nombreGuardia3, dalDb.NombreGuardia3, '');
+      const agentesGate = pickDal(dalData.nombreAgentes, dalDb.NombreAgentes, '');
+      const guardEscolta = pickDal(dalData.nombreGuardiaEscolta, dalDb.NombreGuardiaEscolta, '');
+      const supDalResolved = HtmlPreviewService.resolvePersonaNombre(
+        preferPersisted ? (dalDb.CreadoPor || dalData.supervisorNombre) : (dalData.supervisorNombre || dalDb.CreadoPor),
+        preferPersisted ? (dalDb.LoginId || dalData.supervisorLoginId) : (dalData.supervisorLoginId || dalDb.LoginId),
+        hydrated
+      ) || supervisor || agente || '';
+      const missingVal = String(pickDal(dalData.pasajerosPerdieronVuelo, dalDb.PasajerosPerdieronVuelo, '0')).trim() || '0';
 
       return {
         Flight: vueloNo,
-        Route: dalData.route || `${vuelo.origen || 'GUA'} - ${vuelo.destino || ''}`,
+        Route: dalData.route || `${vuelo.origen || 'GUA'} - ${vuelo.destino || 'ATL'}`,
         AC: matricula,
-        Date: HtmlPreviewService.formatMMDDYYYY(dalData.fecha || fechaRaw),
+        Date: HtmlPreviewService.formatDDMMYYYY(fechaItiVuelo || dalData.fecha || fechaRaw),
         XRayYesNo: isTrue(revXRay) ? 'YES' : 'NO',
-        BagsSearched: dalData.cantidadEqFisicos ?? dalDb.CantidadEqFisicos ?? 0,
-        Screener1: dalData.screener1 || evalParts[0] || '',
-        Screener2: dalData.screener2 || evalParts[1] || '',
-        Screener3: dalData.screener3 || evalParts[2] || '',
-        Sup: dalData.screenerSup || evalParts[3] || dalData.supervisorNombre || '',
+        BagsSearched: pickDal(dalData.cantidadEqFisicos, dalDb.CantidadEqFisicos, 0),
+        Screener1: (preferPersisted ? (evalParts[0] || dalData.screener1) : (dalData.screener1 || evalParts[0])) || '',
+        Screener2: (preferPersisted ? (evalParts[1] || dalData.screener2) : (dalData.screener2 || evalParts[1])) || '',
+        Screener3: (preferPersisted ? (evalParts[2] || dalData.screener3) : (dalData.screener3 || evalParts[2])) || '',
+        Sup: (preferPersisted ? (evalParts[3] || supDalResolved || dalData.screenerSup) : (dalData.screenerSup || evalParts[3] || supDalResolved)) || '',
         GuardSig1: dalData.guardSig1 || guard1,
         BagsLoggedYesNo: isTrue(bolsasIng) ? 'YES' : 'NO',
-        BagsUSEntry: dalData.cantidadEq ?? dalDb.CantidadEq ?? 0,
+        BagsUSEntry: pickDal(dalData.cantidadEq, dalDb.CantidadEq, 0),
         GuardSig2: guard2,
-        BagsLoadedForward: dalData.cantidadEqGuardia ?? dalDb.CantidadEqGuardia ?? 0,
-        CargoLoadedForward: dalData.cantidadMaletas ?? dalDb.CantidadMaletas ?? 0,
+        BagsEscortedSig: dalData.bagsEscortedSig || guardEscolta || guard2,
+        BagsLoadedForward: pickDal(dalData.cantidadEqGuardia, dalDb.CantidadEqGuardia, 0),
+        CargoLoadedForward: pickDal(dalData.cantidadMaletas, dalDb.CantidadMaletas, 0),
         GuardSig3: dalData.guardSig3 || guard1,
-        CargoManifested: dalData.cantidadPiezasManifiesto ?? dalDb.CantidadPiezasManifiesto ?? 0,
+        CargoManifested: pickDal(dalData.cantidadPiezasManifiesto, dalDb.CantidadPiezasManifiesto, 0),
         CargoCheckedSig: dalData.cargoCheckedSig || guard3,
         CargoEscortedBakSig: dalData.cargoEscortedBakSig || agentesGate,
         CargoEscortedAircraftSig: dalData.cargoEscortedAircraftSig || guardEscolta,
-        ThroughPassengers: dalData.cantidadPasajerosTransito ?? dalDb.CantidadPasajerosTransito ?? 0,
-        DepartingPassengers: dalData.cantidadPasajerosSalientes ?? dalDb.CantidadPasajerosSalientes ?? 0,
-        MissingPassengers: dalData.pasajerosPerdieronVuelo ?? dalDb.PasajerosPerdieronVuelo ?? '0',
-        NamesMissingPassengers: dalData.nombresPasajerosPerdieron || '',
-        FreightAccepted: dalData.cantidadPiezasAceptadas ?? dalDb.CantidadPiezasAceptadas ?? 0,
-        FreightLoaded: dalData.cantidadPiezasCargadas ?? dalDb.CantidadPiezasCargadas ?? 0,
-        BagsCheckedIn: dalData.cantidadEqFacturados ?? dalDb.CantidadEqFacturados ?? 0,
-        BagsLoaded: dalData.cantidadEqCargadas ?? dalDb.CantidadEqCargadas ?? 0,
-        BagsOffLoaded: dalData.cantidadEqRetirados ?? dalDb.CantidadEqRetirados ?? 0,
+        ThroughPassengers: pickDal(dalData.cantidadPasajerosTransito, dalDb.CantidadPasajerosTransito, 0),
+        DepartingPassengers: pickDal(dalData.cantidadPasajerosSalientes, dalDb.CantidadPasajerosSalientes, 0),
+        MissingPassengers: missingVal,
+        NamesMissingPassengers: dalData.nombresPasajerosPerdieron || missingVal,
+        FreightAccepted: pickDal(dalData.cantidadPiezasAceptadas, dalDb.CantidadPiezasAceptadas, 0),
+        FreightLoaded: pickDal(dalData.cantidadPiezasCargadas, dalDb.CantidadPiezasCargadas, 0),
+        BagsCheckedIn: pickDal(dalData.cantidadEqFacturados, dalDb.CantidadEqFacturados, 0),
+        BagsLoaded: pickDal(dalData.cantidadEqCargadas, dalDb.CantidadEqCargadas, 0),
+        BagsOffLoaded: pickDal(dalData.cantidadEqRetirados, dalDb.CantidadEqRetirados, 0),
         MatchMissingYesNo: isTrue(eqCoincide) ? 'YES' : 'NO',
-        GuardSupSig: dalData.supervisorNombre || supervisor || agente,
-        FirmaGuardSup: dalData.firmaGuardSup || '',
-        DLAgent: dalData.nombreAgenteDelta ?? dalDb.NombreAgenteDelta ?? '',
-        FirmaDLAgent: dalData.firmaDLAgent || ''
+        GuardSupSig: supDalResolved,
+        FirmaGuardSup: pickRepoSig('firmaGuardSup', dalData.firmaGuardSup),
+        DLAgent: pickDal(dalData.nombreAgenteDelta, dalDb.NombreAgenteDelta, ''),
+        FirmaDLAgent: pickRepoSig('firmaDLAgent', dalData.firmaDLAgent)
       };
     }
 
     if (formatoId === 'dl-sel') {
       const selData = formDatos.selPayload || formDatos || {};
       const selDb = hydrated?.selState?.detalle || {};
+      const selMeta = selDb.Meta || {};
+      const pickSel = (liveVal, dbVal, fallback = '') => {
+        if (preferPersisted) return dbVal !== undefined && dbVal !== null && dbVal !== '' ? dbVal : (liveVal ?? fallback);
+        return liveVal !== undefined && liveVal !== null && liveVal !== '' ? liveVal : (dbVal ?? fallback);
+      };
+      const supSelResolved = HtmlPreviewService.resolvePersonaNombre(
+        preferPersisted ? (selDb.CreadoPor || selData.supervisorNombre) : (selData.supervisorNombre || selDb.CreadoPor),
+        preferPersisted ? (selDb.LoginId || selData.supervisorLoginId) : (selData.supervisorLoginId || selDb.LoginId),
+        hydrated
+      ) || supervisor || agente || '';
 
       return {
         Flight: vueloNo,
-        Date: HtmlPreviewService.formatMMDDYYYY(selData.fecha || fechaRaw),
-        AircraftArrived: selData.aircraftArrived || HtmlPreviewService.formatMMDDYYYY(vuelo.FechaItinerado || fechaRaw),
-        Time: HtmlPreviewService.extractHHMM(selData.aircraftArrivedTime || vuelo.ata),
-        Guard: selData.guard || selData.supervisorNombre || supervisor || agente,
-        PassengerLineClosed: HtmlPreviewService.extractHHMM(selData.horaCierreFila || selDb.HoraCierreFila),
-        NumPassengersInLine: selData.cantidadPasajerosFila ?? selDb.CantidadPasajerosFila ?? 0,
-        LastPassengerCheckedIn: HtmlPreviewService.extractHHMM(selData.horaChequeadoFila || selDb.HoraChequeadoFila),
-        FirstBagsSniffed: HtmlPreviewService.extractHHMM(selData.primerEqRevisada || selDb.PrimerEqRevisada),
-        LastBagsSniffed: HtmlPreviewService.extractHHMM(selData.ultimoEqRevisado || selDb.UltimoEqRevisado),
-        FirstBagsArriveGate: HtmlPreviewService.extractHHMM(selData.primerEqPuerta || selDb.PrimerEqPuerta),
-        LastBagsArriveGate: HtmlPreviewService.extractHHMM(selData.ultimoEqPuerta || selDb.UltimoEqPuerta),
-        PassengersArrivedGate: selData.cantidadPasajerosEmbarque ?? selDb.CantidadPasajerosEmbarque ?? 0,
-        PassengersCommenceBoarding: HtmlPreviewService.extractHHMM(selData.horaInicioEmbarque || selDb.HoraInicioEmbarque),
-        LastPassengerLeavesGate: HtmlPreviewService.extractHHMM(selData.horaUltimoAbandona || selDb.HoraUltimoAbandona),
-        UnloadingComplete: HtmlPreviewService.extractHHMM(selData.horaDescargaEqCarga || selDb.HoraDescargaEqCarga),
-        LoadingBegins: HtmlPreviewService.extractHHMM(selData.horaInicioEqCarga || selDb.HoraInicioEqCarga),
-        CargoDoorsClosed: HtmlPreviewService.extractHHMM(selData.horaPuertasCerradasCar || selDb.HoraPuertasCerradasCar),
-        CabinDoorsClosed: HtmlPreviewService.extractHHMM(selData.horaPuertasCerradasCab || selDb.HoraPuertasCerradasCab),
-        AircraftBeginsTaxi: HtmlPreviewService.extractHHMM(selData.horaInicioRodajeNave || selDb.HoraInicioRodajeNave),
-        Comments: selData.observaciones !== undefined ? selData.observaciones : (selDb.Observaciones || observaciones),
-        SupervisorName: selData.supervisorNombre || supervisor || agente,
-        FirmaSupervisor: selData.firmaSupervisor || ''
+        Date: HtmlPreviewService.formatDDMMYYYY(fechaItiVuelo || selData.fecha || fechaRaw),
+        AircraftArrived: HtmlPreviewService.formatDDMMYYYY(
+          pickSel(selData.aircraftArrived, selMeta.aircraftArrived, fechaItiVuelo || vuelo.FechaItinerado || fechaRaw)
+        ),
+        Time: HtmlPreviewService.extractHHMM(pickSel(selData.aircraftArrivedTime, selMeta.aircraftArrivedTime, vuelo.ata || '')),
+        Guard: pickSel(selData.guard, selMeta.guard, supSelResolved),
+        PassengerLineClosed: HtmlPreviewService.extractHHMM(pickSel(selData.horaCierreFila, selDb.HoraCierreFila)),
+        NumPassengersInLine: pickSel(selData.cantidadPasajerosFila, selDb.CantidadPasajerosFila, 0),
+        LastPassengerCheckedIn: HtmlPreviewService.extractHHMM(pickSel(selData.horaChequeadoFila, selDb.HoraChequeadoFila)),
+        FirstBagsSniffed: HtmlPreviewService.extractHHMM(pickSel(selData.primerEqRevisada, selDb.PrimerEqRevisada)),
+        LastBagsSniffed: HtmlPreviewService.extractHHMM(pickSel(selData.ultimoEqRevisado, selDb.UltimoEqRevisado)),
+        FirstBagsArriveGate: HtmlPreviewService.extractHHMM(pickSel(selData.primerEqPuerta, selDb.PrimerEqPuerta)),
+        LastBagsArriveGate: HtmlPreviewService.extractHHMM(pickSel(selData.ultimoEqPuerta, selDb.UltimoEqPuerta)),
+        PassengersArrivedGate: pickSel(selData.cantidadPasajerosEmbarque, selDb.CantidadPasajerosEmbarque, 0),
+        PassengersCommenceBoarding: HtmlPreviewService.extractHHMM(pickSel(selData.horaInicioEmbarque, selDb.HoraInicioEmbarque)),
+        LastPassengerLeavesGate: HtmlPreviewService.extractHHMM(pickSel(selData.horaUltimoAbandona, selDb.HoraUltimoAbandona)),
+        UnloadingComplete: HtmlPreviewService.extractHHMM(pickSel(selData.horaDescargaEqCarga, selDb.HoraDescargaEqCarga)),
+        LoadingBegins: HtmlPreviewService.extractHHMM(pickSel(selData.horaInicioEqCarga, selDb.HoraInicioEqCarga)),
+        CargoDoorsClosed: HtmlPreviewService.extractHHMM(pickSel(selData.horaPuertasCerradasCar, selDb.HoraPuertasCerradasCar)),
+        CabinDoorsClosed: HtmlPreviewService.extractHHMM(pickSel(selData.horaPuertasCerradasCab, selDb.HoraPuertasCerradasCab)),
+        AircraftBeginsTaxi: HtmlPreviewService.extractHHMM(pickSel(selData.horaInicioRodajeNave, selDb.HoraInicioRodajeNave)),
+        Comments: String(pickSel(selData.observaciones, selDb.Observaciones, observaciones) || '').trim() || 'N/A',
+        SupervisorName: supSelResolved,
+        FirmaSupervisor: pickRepoSig('firmaSupervisor', selData.firmaSupervisor)
       };
     }
 
@@ -1120,7 +1495,11 @@ class HtmlPreviewService {
       const fechaVal = ass.fecha || db.Fecha || fechaRaw;
       const tipoBusRaw = String(ass.tipoBusqueda || ass.searchType || db.TipoBusqueda || 'PHYSICAL').trim().toUpperCase();
       const searchType = tipoBusRaw === 'VISUAL' ? 'VISUAL' : 'PHYSICAL';
-      const sigVal = ass.firmaBase64 !== undefined ? ass.firmaBase64 : (ass.signature !== undefined ? ass.signature : (metaDb.signature || ''));
+      const sigVal = pickRepoSig(
+        'signature',
+        ass.firmaBase64 !== undefined ? ass.firmaBase64 : (ass.signature !== undefined ? ass.signature : ''),
+        metaDb.signature || ''
+      );
 
       return {
         Flight: String(ass.noVuelo || vueloNo || ''),
@@ -1255,9 +1634,9 @@ class HtmlPreviewService {
         IdValidationReport: pickRaw(b.idValidationReport, dm.idValidationReport, ''),
         LeadName: pickStr(b.leadName, dm.leadName, supervisor || ''),
         LeadEmployeeNumber: pickStr(b.leadEmployeeNumber, dm.leadEmployeeNumber, user.empleadoId ? String(user.empleadoId) : ''),
-        LeadSignature: pickRaw(b.leadSignature, dm.leadSignature, ''),
+        LeadSignature: pickRepoSig('leadSignature', b.leadSignature, dm.leadSignature || ''),
         CSMName: pickRaw(b.csmName, dm.csmName, ''),
-        CSMSignature: pickRaw(b.csmSignature, dm.csmSignature, '')
+        CSMSignature: pickRepoSig('csmSignature', b.csmSignature, dm.csmSignature || '')
       };
     }
 
@@ -1296,9 +1675,9 @@ class HtmlPreviewService {
         HoraTerminoInsp: HtmlPreviewService.extractHHMM(l.horaTerminoInsp || db.HoraTerminoInsp),
         ArriboVuelo: HtmlPreviewService.extractHHMM(l.arriboVuelo || metaDb.arriboVuelo || vuelo.ata),
         InspectorNombre: inspectorNombre,
-        FirmaInspector: l.firmaInspector !== undefined ? l.firmaInspector : (metaDb.firmaInspector || ''),
+        FirmaInspector: pickRepoSig('firmaInspector', l.firmaInspector, metaDb.firmaInspector || ''),
         SupervisorNombre: supervisorNombre,
-        FirmaSupervisor: l.firmaSupervisor !== undefined ? l.firmaSupervisor : (metaDb.firmaSupervisor || ''),
+        FirmaSupervisor: pickRepoSig('firmaSupervisor', l.firmaSupervisor, metaDb.firmaSupervisor || ''),
         NotificacionComandante: notifVal,
         Iniciales: inicialesVal,
         Observaciones: obsVal,
@@ -1495,7 +1874,7 @@ class HtmlPreviewService {
       const tipoAeronaveDb = det.TipoAeronave && String(det.TipoAeronave).trim().toUpperCase() !== 'NA'
         ? String(det.TipoAeronave).trim()
         : '';
-      const rawFirma = String(l.firmaInspector || l.FirmaInspector || '').trim();
+      const firmaInspectorLisa = pickRepoSig('firmaInspector', l.firmaInspector || l.FirmaInspector);
 
       return {
         Fecha: HtmlPreviewService.formatDDMMYYYY(l.fecha || det.Fecha || fechaRaw),
@@ -1519,7 +1898,7 @@ class HtmlPreviewService {
           ? String(l.observaciones || '').trim()
           : String(det.Observaciones || '').trim(),
         NombreInspector: nombreInspector,
-        FirmaInspector: rawFirma ? HtmlPreviewService.sanitizeSignatureDataUrl(rawFirma) : ''
+        FirmaInspector: firmaInspectorLisa
       };
     }
 
@@ -1772,7 +2151,7 @@ class HtmlPreviewService {
   /**
    * Renderiza el HTML controlado oficial sustituyendo expresiones de Power Automate
    */
-  static renderHtmlPreview({ formatoId, vars = {}, meta = {} }) {
+  static renderHtmlPreview({ formatoId, vars = {}, meta = {}, documentTitle = '' }) {
     const relPath = FORMAT_HTML_MAP[formatoId];
     if (!relPath) return null;
 
@@ -1782,55 +2161,25 @@ class HtmlPreviewService {
     let html = fs.readFileSync(fullPath, 'utf8');
     const esc = HtmlPreviewService.escapeHtml;
 
-    // 1. Logos corporativos (Aeroméxico, Arajet, Delta y Air Canada)
-    const logoAmxB64 = HtmlPreviewService.getLogoBase64('aeromexico.png');
-    html = html.replace(
-      /data:image\/png;base64,\s*@\{variables\('varLogoAeromexico'\)\}\s*/g,
-      `data:image/png;base64,${logoAmxB64}`
-    );
-    html = html.replace(/@\{variables\('varLogoAeromexico'\)\}\s*/g, logoAmxB64);
-
-    const logoAraB64 = HtmlPreviewService.getLogoBase64('arajet.png');
-    html = html.replace(
-      /data:image\/png;base64,\s*@\{variables\('varLogoArajet'\)\}\s*/g,
-      `data:image/png;base64,${logoAraB64}`
-    );
-    html = html.replace(/@\{variables\('varLogoArajet'\)\}\s*/g, logoAraB64);
-
-    const logoDeltaB64 = HtmlPreviewService.getLogoBase64('delta.png');
-    html = html.replace(
-      /data:image\/png;base64,\s*@\{variables\('varLogoDelta'\)\}\s*/gi,
-      `data:image/png;base64,${logoDeltaB64}`
-    );
-    html = html.replace(/@\{variables\('varLogoDelta'\)\}\s*/gi, logoDeltaB64);
-
-    const logoAirCanadaB64 = HtmlPreviewService.getLogoBase64('air-canada.png');
-    html = html.replace(
-      /data:image\/png;base64,\s*@\{variables\('varLogoAirCanada'\)\}\s*/gi,
-      `data:image/png;base64,${logoAirCanadaB64}`
-    );
-    html = html.replace(/@\{variables\('varLogoAirCanada'\)\}\s*/gi, logoAirCanadaB64);
-
-    const logoLatamB64 = HtmlPreviewService.getLogoBase64('latam-cargo.png');
-    html = html.replace(
-      /data:image\/png;base64,\s*@\{variables\('varLogoLatam'\)\}\s*/gi,
-      `data:image/png;base64,${logoLatamB64}`
-    );
-    html = html.replace(/@\{variables\('varLogoLatam'\)\}\s*/gi, logoLatamB64);
-
-    const logoFedexB64 = HtmlPreviewService.getLogoBase64('fedex.png');
-    html = html.replace(
-      /data:image\/png;base64,\s*@\{variables\('varLogoFedex'\)\}\s*/gi,
-      `data:image/png;base64,${logoFedexB64}`
-    );
-    html = html.replace(/@\{variables\('varLogoFedex'\)\}\s*/gi, logoFedexB64);
-
-    const logoAmerijetB64 = HtmlPreviewService.getLogoBase64('amerijet.png');
-    html = html.replace(
-      /data:image\/png;base64,\s*@\{variables\('varLogoAmerijet'\)\}\s*/gi,
-      `data:image/png;base64,${logoAmerijetB64}`
-    );
-    html = html.replace(/@\{variables\('varLogoAmerijet'\)\}\s*/gi, logoAmerijetB64);
+    // 1. Logos corporativos (Aeroméxico, Arajet, Delta, Air Canada, LATAM, FedEx y Amerijet)
+    const brandLogos = [
+      ['varLogoAeromexico', 'aeromexico.png'],
+      ['varLogoArajet', 'arajet.png'],
+      ['varLogoDelta', 'delta.png'],
+      ['varLogoAirCanada', 'air-canada.png'],
+      ['varLogoLatam', 'latam-cargo.png'],
+      ['varLogoFedex', 'fedex.png'],
+      ['varLogoAmerijet', 'amerijet.png']
+    ];
+    const resolvedLogos = {};
+    for (const [varName, imgFile] of brandLogos) {
+      const b64 = HtmlPreviewService.getLogoBase64(imgFile);
+      resolvedLogos[varName] = b64;
+      const imgDataRegex = new RegExp(`data:image/png;base64,\\s*@\\{\\s*variables\\(\\s*'\\s*${varName}\\s*'\\s*\\)\\s*\\}\\s*`, 'gi');
+      const bareVarRegex = new RegExp(`@\\{\\s*variables\\(\\s*'\\s*${varName}\\s*'\\s*\\)\\s*\\}\\s*`, 'gi');
+      html = html.replace(imgDataRegex, `data:image/png;base64,${b64}`);
+      html = html.replace(bareVarRegex, b64);
+    }
 
     // 2. Expresión especial de Aleros en CIEC
     html = html.replace(
@@ -1873,8 +2222,10 @@ class HtmlPreviewService {
 
     // 4. Variables escalares globales de firma como @{variables('FirmaFinal')}
     html = html.replace(/@\{\s*variables\('([^']+)'\)\s*\}/g, (_, key) => {
-      if (SIGNATURE_KEYS.has(key)) return HtmlPreviewService.sanitizeSignatureDataUrl(vars[key]);
-      return esc(vars[key] ?? '');
+      const k = String(key || '').trim();
+      if (resolvedLogos[k] !== undefined) return resolvedLogos[k];
+      if (SIGNATURE_KEYS.has(k)) return HtmlPreviewService.sanitizeSignatureDataUrl(vars[k]);
+      return esc(vars[k] ?? '');
     });
 
     // 5. Campos body('Parse_JSON...')?['Key']
@@ -1893,19 +2244,24 @@ class HtmlPreviewService {
       html = HtmlPreviewService.evalPowerAutomateTokens(html, {
         vars,
         variablesMap: {
-          varLogoAeromexico: logoAmxB64,
-          varLogoArajet: logoAraB64,
-          varLogoDelta: logoDeltaB64,
-          varLogoAirCanada: logoAirCanadaB64,
-          varLogoLatam: logoLatamB64,
-          varLogoFedex: logoFedexB64,
-          varLogoAmerijet: logoAmerijetB64,
+          ...resolvedLogos,
           FirmaFinal: vars.FirmaFinal || ''
         }
       });
     }
 
-    // 6. Regla de Oro: hoja controlada 100% limpia con esquema claro (#FFFFFF) sin barra flotante
+    // Evitar iconos de imagen rota cuando una firma opcional aún no ha sido trazada
+    html = html.replace(/<img\b[^>]*\bsrc\s*=\s*(['"])\s*\1[^>]*>/gi, '');
+
+    // 6. Título dinámico del documento HTML (<Vuelo>_<Matricula>_<NombreFormato>_<Id|PRELIMINAR>) y hoja blanca (#FFFFFF)
+    const safeTitle = String(documentTitle || '').replace(/[\r\n\x00-\x1f\x7f]/g, '').trim();
+    if (safeTitle) {
+      if (/<title>[\s\S]*?<\/title>/i.test(html)) {
+        html = html.replace(/<title>[\s\S]*?<\/title>/i, () => `<title>${esc(safeTitle)}</title>`);
+      } else {
+        html = html.replace(/<\/head>/i, `  <title>${esc(safeTitle)}</title>\n</head>`);
+      }
+    }
     html = html.replace(/<\/head>/i, `  <link rel="stylesheet" href="/css/preview-toolbar.css">\n</head>`);
 
     return html;

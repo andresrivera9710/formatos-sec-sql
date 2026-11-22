@@ -42,6 +42,7 @@ router.get('/formatos', FormatosController.renderFormatos);
 router.post('/api/formatos/verificar', apiLimiter, FormatosController.apiVerificarExistentes);
 router.get('/formatos/:formatoId/vista-preliminar', FormatosController.renderVistaPreliminarCP);
 router.get('/formatos/:formatoId', FormatosController.renderDetalleFormato);
+router.get('/api/offline/plantilla/:formatoId', apiLimiter, FormatosController.apiObtenerPlantillaOffline);
 router.post('/api/formatos/procesar', apiLimiter, FormatosController.apiProcesarGuardado);
 router.post('/api/formatos/guardar', apiLimiter, FormatosController.apiProcesarGuardado);
 

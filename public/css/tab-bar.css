@@ -104,6 +104,12 @@
   box-shadow: 0 4px 14px rgba(220, 38, 38, 0.22);
 }
 
+.nav-pill-indicator.is-warning-pill {
+  background: linear-gradient(135deg, #B45309 0%, #D97706 100%);
+  border-color: #F59E0B;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.28);
+}
+
 /* ============================================================================
    4. ÍTEMS DEL TAB BAR (4 ELEMENTOS ORDENADOS)
    ============================================================================ */
@@ -202,6 +208,147 @@ body.dark-mode .tab-theme-icon-wrap .icon-moon {
 body.dark-mode .tab-theme-icon-wrap .icon-sun {
   display: block;
   color: var(--gold);
+}
+
+/* 2b. Indicador de Señal / Conectividad en Tiempo Real (Online / Offline Caché) */
+.tab-network-icon-wrap {
+  position: relative;
+}
+
+.tab-network-icon-wrap .icon-wifi-offline {
+  display: none;
+}
+
+.tab-network-icon-wrap .icon-wifi-online {
+  display: block;
+  color: var(--success, #16A34A);
+}
+
+.tab-bar-item-network.is-online .tab-bar-icon {
+  color: var(--success, #16A34A);
+}
+
+.tab-bar-item-network.is-online.is-pill-target .icon-wifi-online {
+  color: #4ADE80;
+}
+
+.tab-bar-item-network.is-offline .icon-wifi-online {
+  display: none;
+}
+
+.tab-bar-item-network.is-offline .icon-wifi-offline {
+  display: block;
+  color: #F59E0B;
+}
+
+.tab-bar-item-network.is-offline {
+  color: #D97706;
+  font-weight: 700;
+}
+
+[data-theme="dark"] .tab-bar-item-network.is-offline,
+body.dark-mode .tab-bar-item-network.is-offline {
+  color: #FBBF24;
+}
+
+.tab-bar-item-network.is-offline.is-pill-target {
+  color: #FFFFFF;
+}
+
+.tab-bar-item-network.is-offline.is-pill-target .icon-wifi-offline {
+  color: #FEF3C7;
+}
+
+.tab-net-dot {
+  position: absolute;
+  top: -1px;
+  right: -2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--success, #16A34A);
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.25);
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tab-net-dot.is-offline {
+  background-color: #DC2626;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.35);
+}
+
+.tab-net-pending-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background-color: #F59E0B;
+  color: #0F172A;
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 2px 5px rgba(245, 158, 11, 0.35);
+}
+
+.tab-net-pending-badge[hidden] {
+  display: none !important;
+}
+
+.tab-bar-item-network.is-offline .tab-net-pending-badge {
+  background-color: #DC2626;
+  color: #FFFFFF;
+}
+
+/* Banner Discreto de Restauración de Borrador / Estado Offline en Formatos */
+.sio-offline-draft-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  border-radius: var(--radius-md, 10px);
+  background-color: #FEF3C7;
+  border: 1px solid #F59E0B;
+  border-left: 5px solid #D97706;
+  color: #92400E;
+  font-size: 12.5px;
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+.sio-offline-draft-banner[hidden] {
+  display: none !important;
+}
+
+.sio-offline-draft-banner.is-queued {
+  background-color: #EFF6FF;
+  border-color: #3B82F6;
+  border-left-color: #1D4ED8;
+  color: #1E3A8A;
+}
+
+[data-theme="dark"] .sio-offline-draft-banner,
+body.dark-mode .sio-offline-draft-banner {
+  background-color: rgba(217, 119, 6, 0.16);
+  border-color: rgba(245, 158, 11, 0.45);
+  color: #FDE68A;
+}
+
+[data-theme="dark"] .sio-offline-draft-banner.is-queued,
+body.dark-mode .sio-offline-draft-banner.is-queued {
+  background-color: rgba(37, 99, 235, 0.18);
+  border-color: rgba(96, 165, 250, 0.45);
+  color: #BFDBFE;
+}
+
+.sio-offline-banner-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* 3. Perfil de Usuario (Avatar + Nombre Login + Puesto Compacto) */
@@ -500,12 +647,12 @@ body.dark-mode .op-hero-eyebrow {
   .sio-tab-bar {
     position: fixed;
     bottom: 12px;
-    left: 12px;
-    right: 12px;
+    left: 10px;
+    right: 10px;
     z-index: 1000;
     width: auto;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 2px;
     padding: 6px;
     border-radius: 22px;

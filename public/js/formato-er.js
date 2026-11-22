@@ -151,10 +151,16 @@
   /**
    * Renderiza todas las filas activas en la cuadrícula fluida (#erTbodyRegistros)
    */
+  function isDeltaERFormat() {
+    const id = (_state && _state.formatoId) || document.getElementById('erFormatoId')?.value || '';
+    return String(id).trim().toLowerCase() === 'dl-er';
+  }
+
   function renderizarCuadricula() {
     const tbody = document.getElementById('erTbodyRegistros');
     const recuentoEl = document.getElementById('erRecuentoTotal');
     const gridWrapper = document.getElementById('erGridWrapper');
+    const isDeltaER = isDeltaERFormat();
 
     if (recuentoEl) {
       recuentoEl.textContent = String(_erRows.length);
@@ -168,7 +174,7 @@
     if (_erRows.length === 0) {
       tbody.innerHTML = `
         <tr class="er-empty-row">
-          <td colspan="10">
+          <td colspan="${isDeltaER ? 9 : 10}">
             <div class="cp-empty-dashed" style="margin: 8px 0;">
               <i class="fas fa-luggage-cart fa-2x" style="color: var(--brand); margin-bottom: 8px; display: block;"></i>
               No hay equipajes registrados en la lista de pasajeros para este vuelo.
@@ -187,6 +193,21 @@
       const persistedBadge = r.DetalleControlERId > 0
         ? `<span class="er-persisted-dot" title="Sincronizado en SQL (#${escapeHtml(r.DetalleControlERId)})"></span>`
         : '';
+      const secTdHtml = isDeltaER
+        ? ''
+        : `<td>
+            <input
+              type="number"
+              class="form-control er-cell-input er-cell-center"
+              data-field="Secuencia"
+              min="1"
+              step="1"
+              inputmode="numeric"
+              placeholder="Sec. *"
+              value="${escapeHtml(r.Secuencia)}"
+              aria-label="Fila ${num} Secuencia"
+            >
+          </td>`;
 
       return `
         <tr data-row-index="${idx}" data-uid="${r.uid}" class="er-grid-row">
@@ -207,19 +228,7 @@
               aria-label="Fila ${num} Nombre del Pasajero"
             >
           </td>
-          <td>
-            <input
-              type="number"
-              class="form-control er-cell-input er-cell-center"
-              data-field="Secuencia"
-              min="1"
-              step="1"
-              inputmode="numeric"
-              placeholder="Sec. *"
-              value="${escapeHtml(r.Secuencia)}"
-              aria-label="Fila ${num} Secuencia"
-            >
-          </td>
+          ${secTdHtml}
           <td>
             <input
               type="number"
@@ -291,9 +300,9 @@
               class="form-control er-cell-input"
               data-field="AgenteSeguridad"
               maxlength="150"
-              placeholder="Agente Seguridad AMX *"
+              placeholder="Agente Seguridad ${escapeHtml(_state.siglaAgenteSeguridad || 'AMX')} *"
               value="${escapeHtml(r.AgenteSeguridad)}"
-              aria-label="Fila ${num} Agente de Seguridad AMX"
+              aria-label="Fila ${num} Agente de Seguridad"
             >
           </td>
           <td style="text-align: center;">
@@ -375,14 +384,15 @@
     const elSeguridad = document.getElementById('erInputAgenteSeguridad');
 
     const validator = window.SioFormatValidator;
+    const isDeltaER = isDeltaERFormat();
     const quickRules = [
       { field: 'Pasajero', label: 'Nombre del Pasajero', el: elPasajero, required: true, type: 'string', maxLength: 200 },
-      { field: 'Secuencia', label: 'Secuencia', el: elSecuencia, required: true, type: 'integer', min: 1 },
+      ...(isDeltaER ? [] : [{ field: 'Secuencia', label: 'Secuencia', el: elSecuencia, required: true, type: 'integer', min: 1 }]),
       { field: 'Colilla', label: 'No. de Colilla / Marbete', el: elColilla, required: true, type: 'integer', min: 1 },
       { field: 'Destino', label: 'Destino', el: elDestino, required: false, type: 'string', maxLength: 100 },
       { field: 'HoraRevision', label: 'Hora de Revisión', el: elHora, required: true, type: 'time' },
       { field: 'AgenteAVSEC', label: 'Nombre Agente AVSEC que realiza inspección', el: elAvsec, required: true, type: 'string', maxLength: 150 },
-      { field: 'AgenteSeguridad', label: 'Agente de Seguridad AMX', el: elSeguridad, required: true, type: 'string', maxLength: 150 }
+      { field: 'AgenteSeguridad', label: `Agente de Seguridad ${_state?.siglaAgenteSeguridad || 'AMX'}`, el: elSeguridad, required: true, type: 'string', maxLength: 150 }
     ];
 
     const panelErrors = [];
@@ -415,7 +425,7 @@
       uid: _nextUid++,
       DetalleControlERId: 0,
       Pasajero: String(elPasajero.value || '').trim(),
-      Secuencia: String(elSecuencia.value || '').trim(),
+      Secuencia: isDeltaER ? String(_erRows.length + 1) : String(elSecuencia?.value || '').trim(),
       Colilla: String(elColilla.value || '').trim(),
       Vuelo: String(_state.noVuelo || '').trim(),
       Destino: String(elDestino?.value || '').trim(),
@@ -424,9 +434,9 @@
       AgenteSeguridad: String(elSeguridad?.value || '').trim()
     });
 
-    // 4. Limpiamos los campos igual que en Power Apps (Reset de los 7 inputs de captura)
+    // 4. Limpiamos los campos igual que en Power Apps (Reset de los inputs de captura)
     elPasajero.value = '';
-    elSecuencia.value = '';
+    if (elSecuencia) elSecuencia.value = '';
     elColilla.value = '';
     if (elDestino) elDestino.value = '';
     elHora.value = '';
@@ -618,6 +628,7 @@
         });
       }
 
+      const isDeltaER = isDeltaERFormat();
       const rowRules = [
         {
           field: 'Pasajero',
@@ -626,13 +637,13 @@
           type: 'string',
           maxLength: 200
         },
-        {
+        ...(isDeltaER ? [] : [{
           field: 'Secuencia',
           label: 'Secuencia',
           required: true,
           type: 'integer',
           min: 1
-        },
+        }]),
         {
           field: 'Colilla',
           label: 'No. de Colilla / Marbete',
@@ -717,10 +728,10 @@
           observaciones: obsEl ? obsEl.value.trim() : '',
           firmaBase64,
           agente: _state.agenteActual || '',
-          registros: _erRows.map((r) => ({
+          registros: _erRows.map((r, idx) => ({
             DetalleControlERId: parseInt(r.DetalleControlERId, 10) || 0,
             Pasajero: String(r.Pasajero || '').trim(),
-            Secuencia: String(r.Secuencia || '').trim(),
+            Secuencia: String(r.Secuencia || (isDeltaERFormat() ? (idx + 1) : '')).trim(),
             Colilla: String(r.Colilla || '').trim(),
             Vuelo: String(_state.noVuelo || r.Vuelo || '').trim(),
             Destino: String(r.Destino || '').trim() || 'N/A',
@@ -806,6 +817,9 @@
         if (badgeEl) {
           badgeEl.textContent = `REGISTRO CARGADO #${result.encabezadoId}`;
         }
+      }
+      if (result.firmasRepo) {
+        window.SioSignatureRepoClient?.applyRepoState?.(result.firmasRepo);
       }
 
       if (Array.isArray(result.detalles)) {

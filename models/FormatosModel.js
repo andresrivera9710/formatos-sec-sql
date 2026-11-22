@@ -502,7 +502,9 @@ class FormatosModel {
     const query = `
       SELECT
         PosicionesPOId,
-        Posiciones
+        Posiciones,
+        PosicionesPOId AS PosicionId,
+        Posiciones AS Posicion
       FROM dbo.PosicionesPO
       ORDER BY PosicionesPOId ASC
     `;
@@ -1014,7 +1016,7 @@ class FormatosModel {
           UPDATE dbo.EmbarqueDelta
           SET Carga = @CargaEmbarqueDelta, EquipajeMostrador = @EquipajeMostrador, EquipajePuerta = @EquipajePuerta
           WHERE EncabezadoCECId = @EncabezadoId AND ISNULL(EstaEliminado, 0) = 0;
-        ELSE IF (@CargaEmbarqueDelta > 0 OR @EquipajeMostrador > 0 OR @EquipajePuerta > 0)
+        ELSE
           INSERT INTO dbo.EmbarqueDelta (EncabezadoCECId, Carga, EquipajeMostrador, EquipajePuerta, EstaEliminado)
           VALUES (@EncabezadoId, @CargaEmbarqueDelta, @EquipajeMostrador, @EquipajePuerta, 0);
 
@@ -2812,6 +2814,7 @@ class FormatosModel {
   static async consultarDetalleSEL(encabezadoId, itinerarioId) {
     const encId = parseInt(encabezadoId, 10) || 0;
     const itiId = parseInt(itinerarioId, 10) || 0;
+    let row = null;
     if (encId > 0) {
       const res = await executeQuery(`
         SELECT TOP 1 *
@@ -2823,9 +2826,9 @@ class FormatosModel {
         { name: 'DetalleSELId', type: sql.Int, value: encId },
         { name: 'ItinerarioId', type: sql.Int, value: itiId }
       ]);
-      if (res.recordset?.[0]) return res.recordset[0];
+      if (res.recordset?.[0]) row = res.recordset[0];
     }
-    if (itiId > 0) {
+    if (!row && itiId > 0) {
       const res = await executeQuery(`
         SELECT TOP 1 *
         FROM dbo.DetalleSEL
@@ -2833,9 +2836,15 @@ class FormatosModel {
           AND ISNULL(EstaEliminado, 0) = 0
         ORDER BY DetalleSELId DESC
       `, [{ name: 'ItinerarioId', type: sql.Int, value: itiId }]);
-      return res.recordset?.[0] || null;
+      row = res.recordset?.[0] || null;
     }
-    return null;
+    if (!row) return null;
+    const { cleanText, meta } = FormatosModel._splitMetaTag(row.Observaciones, 'SEL_META');
+    return {
+      ...row,
+      Observaciones: cleanText,
+      Meta: meta
+    };
   }
 
   static async guardarControlSELTransaccional({
@@ -2858,7 +2867,8 @@ class FormatosModel {
     horaPuertasCerradasCar = '',
     horaPuertasCerradasCab = '',
     horaInicioRodajeNave = '',
-    observaciones = ''
+    observaciones = '',
+    meta = null
   }) {
     const pool = await getConnection();
     const transaction = new sql.Transaction(pool);
@@ -2905,7 +2915,8 @@ class FormatosModel {
       req.input('HoraPuertasCerradasCar', sql.NVarChar(10), String(horaPuertasCerradasCar || '').substring(0, 10));
       req.input('HoraPuertasCerradasCab', sql.NVarChar(10), String(horaPuertasCerradasCab || '').substring(0, 10));
       req.input('HoraInicioRodajeNave', sql.NVarChar(10), String(horaInicioRodajeNave || '').substring(0, 10));
-      req.input('Observaciones', sql.NVarChar(sql.MAX), String(observaciones || '').trim());
+      const obsSerialized = FormatosModel._joinMetaTag(observaciones, meta, 'SEL_META');
+      req.input('Observaciones', sql.NVarChar(sql.MAX), obsSerialized);
       req.input('Usuario', sql.NVarChar(sql.MAX), usuarioAuditoria);
 
       if (targetId > 0) {

@@ -9,7 +9,7 @@
         body { display: flex; justify-content: center; background-color: #525659; padding: 20px; }
         .page { width: 210mm; min-height: 297mm; background: white; padding: 10mm; display: flex; flex-direction: column; }
         
-        .main-table { width: 100%; border-collapse: collapse; border: 2px solid black; }
+        .main-table { width: 100%; table-layout: fixed; border-collapse: collapse; border: 2px solid black; }
         .main-table td, .main-table th { border: 1px solid black; }
         
         /* ENCABEZADO LOGO AEROMEXICO */
@@ -33,21 +33,22 @@
         .gray-title { background-color: #e0e0e0; text-align: center; font-weight: 900; font-style: italic; font-size: 18px; padding: 6px; border-bottom: 1px solid black !important; letter-spacing: 0.5px;}
         
         .info-td { padding: 10px 15px; border-bottom: 2px solid black !important; }
-        .solid-line { border-bottom: 1px solid black; flex-grow: 1; margin-left: 8px; height: 16px;}
+        .solid-line { border-bottom: 1px solid black; flex-grow: 1; min-width: 0; margin-left: 8px; min-height: 16px; padding: 0 4px; word-break: break-word; }
         
         .col-headers th { background-color: #e0e0e0; font-size: 11px; padding: 4px; text-align: center; border-bottom: 1px solid black;}
         
-        .grid-row td { height: 18px; text-align: center; font-size: 11px; }
+        .grid-row td { min-height: 18px; height: 18px; text-align: center; font-size: 11px; padding: 2px 3px; word-break: break-word; }
         
-        .bottom-sec td { font-size: 11px; height: 18px; padding-left: 4px;}
+        .bottom-sec td { font-size: 11px; min-height: 18px; height: 18px; padding: 2px 4px; word-break: break-word; }
         .bottom-sec .bold-center { font-weight: bold; text-align: center; padding-left: 0; }
         .bottom-sec .bold-left { font-weight: bold; }
         
-        .obs-td td { height: 19px; padding-left: 4px; font-size: 11px; vertical-align: top; padding-top: 2px;}
+        .obs-td td { min-height: 19px; height: 19px; padding: 2px 4px; font-size: 11px; vertical-align: top; word-break: break-word; line-height: 1.35; }
         
         .thick-bottom { border-bottom: 2px solid black !important; }
         
-        @media print { body { background: none; padding: 0; } .page { padding: 10mm; width: 100%; height: 100vh;} }
+        @page { size: A4 portrait; margin: 5mm; }
+        @media print { body { background: none; padding: 0; } .page { padding: 8mm; width: 100%; min-height: auto; height: auto; } }
     </style>
 </head>
 <body>
@@ -56,7 +57,7 @@
     <!-- ENCABEZADO LOGO AEROMEXICO -->
     <div class="header">
         <div class="logo-placeholder">
-            <img src="data:image/png;base64,@{variables('varLogoAeromexico')} " alt="Logo" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
+            <img src="data:image/png;base64,@{variables('varLogoAeromexico')}" alt="Logo" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
         </div>
     </div>
 
@@ -141,7 +142,7 @@
         </tr>
         
         <!-- SECCIÓN DE OBSERVACIONES CON SECUENCIAS INCLUIDAS -->
-        <tr class="obs-td"><td colspan="7"><strong>OBSERVACIONES:</strong> @{body('Parse_JSON_8')?['Observaciones']}</td></tr>
+        <tr class="obs-td"><td colspan="7"><strong>OBSERVACIONES:</strong> <span style="white-space: pre-line;">@{body('Parse_JSON_8')?['Observaciones']}</span></td></tr>
         <tr class="obs-td"><td colspan="7"><strong>SECUENCIAS EQ. PUERTA:</strong> @{body('Parse_JSON_8')?['EquipajePuertaHTML']}</td></tr>
         <tr class="obs-td"><td colspan="7"></td></tr>
         

@@ -10,11 +10,11 @@
   };
 
   let fechaVal = new Date().toISOString().substring(0, 10);
-  if (det.Fecha) {
+  if (vuelo && vuelo.FechaItinerado) {
+    fechaVal = String(vuelo.FechaItinerado instanceof Date ? vuelo.FechaItinerado.toISOString() : vuelo.FechaItinerado).substring(0, 10);
+  } else if (det.Fecha) {
     const d = new Date(det.Fecha);
     if (!Number.isNaN(d.getTime())) fechaVal = d.toISOString().substring(0, 10);
-  } else if (vuelo && vuelo.FechaItinerado) {
-    fechaVal = String(vuelo.FechaItinerado).substring(0, 10);
   }
 
   const supCatalogo = (usuariosLogin && usuariosLogin.length > 0)
@@ -23,7 +23,10 @@
 
   const supLoginIdVal = det.LoginId ? String(det.LoginId) : (user && user.loginId ? String(user.loginId) : '');
   const agenteActual = (user && (user.usuario || user.nombreCompleto)) ? String(user.usuario || user.nombreCompleto).trim() : '';
-  const ataVal = extractHHMM(vuelo && vuelo.ata);
+  const metaSel = (det && det.Meta) ? det.Meta : {};
+  const arrivedDateVal = metaSel.aircraftArrived || fechaVal;
+  const ataVal = extractHHMM(metaSel.aircraftArrivedTime || (vuelo && vuelo.ata));
+  const guardVal = metaSel.guard || det.CreadoPor || agenteActual;
 
   const initialSelPayload = {
     formatoId: formato.id,
@@ -58,16 +61,16 @@
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
       <div class="form-group">
-        <label><i class="fas fa-plane"></i> Flight #</label>
-        <input type="text" class="form-control" value="<%= vuelo.novuelo || '--' %>" readonly style="background: var(--bg); font-weight: 700;">
+        <label><i class="fas fa-plane"></i> Flight # <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <input type="text" class="form-control input-locked" value="<%= vuelo.novuelo || '--' %>" readonly tabindex="-1">
       </div>
       <div class="form-group">
-        <label for="selFecha"><i class="far fa-calendar-alt"></i> Date</label>
-        <input type="date" id="selFecha" class="form-control" value="<%= fechaVal %>">
+        <label for="selFecha"><i class="far fa-calendar-alt"></i> Date <i class="fas fa-lock input-lock-icon" title="Fecha vinculada al itinerario (Solo lectura)"></i></label>
+        <input type="date" id="selFecha" class="form-control input-locked" value="<%= fechaVal %>" readonly tabindex="-1">
       </div>
       <div class="form-group">
-        <label for="selAircraftArrived"><i class="fas fa-plane-arrival"></i> Aircraft Arrived (Date/Status)</label>
-        <input type="text" id="selAircraftArrived" class="form-control" value="<%= fechaVal %>">
+        <label for="selAircraftArrived"><i class="fas fa-plane-arrival"></i> Aircraft Arrived (Date/Status) <i class="fas fa-lock input-lock-icon" title="Fecha vinculada al itinerario (Solo lectura)"></i></label>
+        <input type="text" id="selAircraftArrived" class="form-control input-locked" value="<%= arrivedDateVal %>" readonly tabindex="-1">
       </div>
       <div class="form-group">
         <label for="selAircraftArrivedTime"><i class="far fa-clock"></i> Arrival Time</label>
@@ -77,8 +80,8 @@
         </div>
       </div>
       <div class="form-group">
-        <label for="selGuard"><i class="fas fa-user-shield"></i> Guard</label>
-        <input type="text" id="selGuard" class="form-control" maxlength="150" value="<%= det.CreadoPor || agenteActual %>" placeholder="Guard name">
+        <label for="selGuard"><i class="fas fa-user-shield"></i> Guard <i class="fas fa-lock input-lock-icon" title="Agente autenticado en sesión (Solo lectura)"></i></label>
+        <input type="text" id="selGuard" class="form-control input-locked" maxlength="150" value="<%= guardVal %>" readonly tabindex="-1">
       </div>
       <div class="form-group">
         <label for="selSupervisor"><i class="fas fa-user-tie"></i> Supervisor (LoginSEC) <span style="color: var(--danger);">*</span></label>

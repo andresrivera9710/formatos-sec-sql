@@ -3,11 +3,11 @@
   const detalles = (spState && Array.isArray(spState.detalles)) ? spState.detalles : [];
 
   let fechaVal = new Date().toISOString().substring(0, 10);
-  if (enc.Fecha) {
+  if (vuelo && vuelo.FechaItinerado) {
+    fechaVal = String(vuelo.FechaItinerado instanceof Date ? vuelo.FechaItinerado.toISOString() : vuelo.FechaItinerado).substring(0, 10);
+  } else if (enc.Fecha) {
     const d = new Date(enc.Fecha);
     if (!Number.isNaN(d.getTime())) fechaVal = d.toISOString().substring(0, 10);
-  } else if (vuelo && vuelo.FechaItinerado) {
-    fechaVal = String(vuelo.FechaItinerado).substring(0, 10);
   }
 
   const supCatalogo = (usuariosLogin && usuariosLogin.length > 0)
@@ -54,13 +54,13 @@
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
       <div class="form-group">
-        <label><i class="fas fa-plane"></i> Flight #</label>
-        <input type="text" class="form-control" value="<%= vuelo.novuelo || '--' %>" readonly style="background: var(--bg); font-weight: 700;">
+        <label><i class="fas fa-plane"></i> Flight # <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <input type="text" class="form-control input-locked" value="<%= vuelo.novuelo || '--' %>" readonly tabindex="-1">
       </div>
 
       <div class="form-group">
-        <label for="spFecha"><i class="far fa-calendar-alt"></i> Date <span style="color: var(--danger);">*</span></label>
-        <input type="date" id="spFecha" class="form-control" value="<%= fechaVal %>" required>
+        <label for="spFecha"><i class="far fa-calendar-alt"></i> Date <i class="fas fa-lock input-lock-icon" title="Fecha vinculada al itinerario (Solo lectura)"></i></label>
+        <input type="date" id="spFecha" class="form-control input-locked" value="<%= fechaVal %>" readonly tabindex="-1" required>
       </div>
 
       <div class="form-group">
@@ -117,13 +117,29 @@
       </div>
     </div>
 
-    <div style="margin-top: 14px; display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;">
-      <button type="button" id="btnAgregarFilaVaciaSP" class="btn btn-secondary">
-        <i class="fas fa-table"></i> + Insertar Fila en Blanco
-      </button>
-      <button type="button" id="btnAgregarRegistroSP" class="btn btn-primary">
-        <i class="fas fa-plus-circle"></i> Agregar Pasajero a Cuadrícula
-      </button>
+    <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-2); display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px;">
+      <div style="flex: 1; min-width: 280px; max-width: 440px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <label style="font-size: 12px; font-weight: 700; color: var(--brand-deep); margin: 0;">
+            <i class="fas fa-signature"></i> Screener Signature (Firma Digital):
+          </label>
+          <button type="button" id="btnLimpiarFirmaScreenerSP" class="btn btn-secondary" style="padding: 3px 10px; font-size: 11px;">
+            <i class="fas fa-eraser"></i> Limpiar Firma
+          </button>
+        </div>
+        <div class="signature-box" id="spSignatureBoxScreener" style="height: 110px;">
+          <canvas id="spCanvasFirmaScreener"></canvas>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;">
+        <button type="button" id="btnAgregarFilaVaciaSP" class="btn btn-secondary">
+          <i class="fas fa-table"></i> + Insertar Fila en Blanco
+        </button>
+        <button type="button" id="btnAgregarRegistroSP" class="btn btn-primary">
+          <i class="fas fa-plus-circle"></i> Agregar Pasajero a Cuadrícula
+        </button>
+      </div>
     </div>
   </div>
 

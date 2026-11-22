@@ -99,7 +99,9 @@
       pill.classList.add('is-ready');
 
       const isLogout = targetEl.dataset.tab === 'logout';
+      const isOfflineNetwork = targetEl.dataset.tab === 'network' && targetEl.classList.contains('is-offline');
       pill.classList.toggle('is-danger-pill', isLogout);
+      pill.classList.toggle('is-warning-pill', isOfflineNetwork);
 
       items.forEach((item) => {
         item.classList.toggle('is-pill-target', item === targetEl);
@@ -181,6 +183,85 @@
         });
       });
     }
+
+    // 2b. Indicador de Señal / Conectividad en Tiempo Real + Cola Offline IndexedDB
+    const btnNetwork = document.getElementById('btnTabNetworkStatus');
+    const netTextEl = document.getElementById('tabNetworkText');
+    const netDotEl = document.getElementById('tabNetworkPulseDot');
+    const netBadgeEl = document.getElementById('tabNetworkPendingBadge');
+    const tooltipNetState = document.getElementById('tabTooltipNetState');
+    const tooltipNetDot = document.getElementById('tabTooltipNetDot');
+    const tooltipNetLabel = document.getElementById('tabTooltipNetLabel');
+
+    function updateNetworkUI(state = {}) {
+      const isOnline = state.online !== undefined ? Boolean(state.online) : navigator.onLine;
+      const pendingCount = Math.max(0, parseInt(state.pendingCount, 10) || 0);
+      const syncing = Boolean(state.syncing);
+
+      if (btnNetwork) {
+        btnNetwork.classList.toggle('is-online', isOnline);
+        btnNetwork.classList.toggle('is-offline', !isOnline);
+        const labelStr = syncing
+          ? 'Sincronizando...'
+          : (isOnline ? 'En línea' : 'Sin conexión (Modo Caché)');
+        if (netTextEl) {
+          netTextEl.textContent = labelStr;
+        }
+        const tooltipStr = isOnline
+          ? (pendingCount > 0
+            ? `En línea — ${pendingCount} formato(s) pendiente(s) por sincronizar`
+            : 'En línea — Conectado con servidor SIO y Azure SQL')
+          : `Sin conexión (Modo Caché) — ${pendingCount} formato(s) en cola local IndexedDB`;
+        btnNetwork.setAttribute('title', tooltipStr);
+        btnNetwork.setAttribute('aria-label', tooltipStr);
+      }
+
+      if (netDotEl) {
+        netDotEl.classList.toggle('is-online', isOnline);
+        netDotEl.classList.toggle('is-offline', !isOnline);
+      }
+
+      if (netBadgeEl) {
+        if (pendingCount > 0) {
+          netBadgeEl.textContent = String(pendingCount);
+          netBadgeEl.hidden = false;
+        } else {
+          netBadgeEl.textContent = '0';
+          netBadgeEl.hidden = true;
+        }
+      }
+
+      if (tooltipNetState && tooltipNetDot && tooltipNetLabel) {
+        tooltipNetState.style.color = isOnline ? 'var(--success)' : '#D97706';
+        tooltipNetDot.style.backgroundColor = isOnline ? 'var(--success)' : '#DC2626';
+        tooltipNetLabel.textContent = isOnline
+          ? (pendingCount > 0 ? `En línea (${pendingCount} en cola)` : 'En línea (Sesión Activa)')
+          : 'Sin conexión (Modo Caché)';
+      }
+
+      requestAnimationFrame(() => {
+        movePillToItem(currentTargetItem || activeDefaultItem);
+      });
+    }
+
+    if (btnNetwork) {
+      btnNetwork.addEventListener('click', (e) => {
+        e.preventDefault();
+        movePillToItem(btnNetwork);
+        if (window.SioOfflineManager && typeof window.SioOfflineManager.openStatusModal === 'function') {
+          window.SioOfflineManager.openStatusModal();
+        }
+      });
+    }
+
+    window.addEventListener('sio:network-status', (e) => {
+      updateNetworkUI(e.detail || {});
+    });
+
+    window.SioTabBar = {
+      updateNetworkUI,
+      resetPillToActive
+    };
 
     // 3. Interacción del Perfil de Usuario (Tooltip / Resumen de sesión)
     const btnProfile = document.getElementById('btnTabUserProfile');

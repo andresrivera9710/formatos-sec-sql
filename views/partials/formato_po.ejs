@@ -1,7 +1,7 @@
 <%
   const comp = (poState && poState.complemento) ? poState.complemento : {};
   const detalles = (poState && Array.isArray(poState.detalles)) ? poState.detalles : [];
-  const posicionesCatalog = (posicionesPO && posicionesPO.length > 0) ? posicionesPO : [
+  const rawPos = (posicionesPO && posicionesPO.length > 0) ? posicionesPO : [
     { PosicionId: 1, Posicion: 'CUSTODIO EQ. MOSTRADOR' },
     { PosicionId: 2, Posicion: 'PERIMETRIA' },
     { PosicionId: 3, Posicion: 'SERVICIOS ESPECIALES' },
@@ -14,6 +14,12 @@
     { PosicionId: 10, Posicion: 'COMP. 1' },
     { PosicionId: 11, Posicion: 'COMP. 2' }
   ];
+  const posicionesCatalog = rawPos.map(p => ({
+    PosicionId: Number(p.PosicionId ?? p.PosicionesPOId) || 0,
+    Posicion: String(p.Posicion ?? p.Posiciones ?? '').trim(),
+    PosicionesPOId: Number(p.PosicionesPOId ?? p.PosicionId) || 0,
+    Posiciones: String(p.Posiciones ?? p.Posicion ?? '').trim()
+  })).filter(p => p.PosicionId > 0);
 
   let fechaInicial = new Date().toISOString().substring(0, 10);
   if (vuelo && vuelo.FechaItinerado) {
@@ -22,7 +28,7 @@
     fechaInicial = String(comp.Fecha instanceof Date ? comp.Fecha.toISOString() : comp.Fecha).substring(0, 10);
   }
 
-  const supLoginSecIdVal = comp.SupervisorLoginSECId ? String(comp.SupervisorLoginSECId) : '';
+  const supLoginSecIdVal = (comp.SupervisorLoginSECId ?? comp.LoginId) ? String(comp.SupervisorLoginSECId ?? comp.LoginId) : '';
   const leadAgentVal = (user && user.usuario) ? String(user.usuario).trim() : '';
   const observacionVal = comp.Observaciones ? String(comp.Observaciones).trim() : '';
 
@@ -182,7 +188,7 @@
           <i class="fas fa-eraser"></i> Limpiar Firma
         </button>
       </div>
-      <div class="signature-box">
+      <div class="signature-box" id="poSignatureBox">
         <canvas id="poCanvasFirmaSupervisor"></canvas>
       </div>
       <p style="font-size: 11px; color: var(--text-3); text-align: center; margin-top: 4px;">

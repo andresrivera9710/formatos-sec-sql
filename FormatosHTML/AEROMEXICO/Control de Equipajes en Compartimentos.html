@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang='es'>
+
 <head>
     <meta charset='UTF-8'>
     <title>CONTROL DE EQUIPAJES EN COMPARTIMENTOS</title>
@@ -22,7 +23,7 @@
         .page {
             background-color: white;
             width: 210mm;
-            min-height: 297mm
+            min-height: 297mm;
             height: auto;
             padding: 5mm;
             margin: 10mm auto;
@@ -46,7 +47,7 @@
 
         /* LOGO GIGANTE */
         .logo {
-            height: 50mm; 
+            height: 50mm;
             width: auto;
         }
 
@@ -81,7 +82,7 @@
             display: flex;
             align-items: flex-end;
             font-size: 9.5pt;
-            height: 4.5mm;
+            min-height: 4.5mm;
         }
 
         .info-label {
@@ -96,7 +97,8 @@
             padding-left: 5px;
             font-weight: bold;
             font-size: 9.5pt;
-            height: 100%;
+            min-height: 4.5mm;
+            word-break: break-word;
         }
 
         .section-header {
@@ -107,7 +109,7 @@
             display: flex;
             align-items: flex-end;
         }
-        
+
         .section-header .line {
             border-bottom: 1px solid black;
             width: 50mm;
@@ -126,10 +128,12 @@
             font-size: 8.5pt;
         }
 
-        th, td {
+        th,
+        td {
             border: 1px solid black;
             text-align: center;
-            height: 5mm; /* Altura optimizada para que todo quepa en la hoja */
+            height: 5mm;
+            /* Altura optimizada para que todo quepa en la hoja */
         }
 
         .bottom-section {
@@ -160,10 +164,28 @@
             margin-left: 2mm;
             font-weight: normal;
         }
-        
+
+        @page {
+            size: A4 portrait;
+            margin: 5mm;
+        }
+
         @media print {
-            body { background: none; }
-            .page { margin: 0; box-shadow: none; }
+            body {
+                background: none;
+            }
+
+            .page {
+                margin: 0;
+                padding: 0;
+                width: 100%;
+                min-height: auto;
+                box-shadow: none;
+            }
+
+            .inner-frame {
+                min-height: 277mm;
+            }
         }
     </style>
 </head>
@@ -171,7 +193,7 @@
 <body>
     <div class='page'>
         <div class='inner-frame'>
-            
+
             <div class='header'>
                 <img src='data:image/png;base64, @{variables('varLogoAeromexico')}' alt='Logo' class='logo'>
             </div>
@@ -181,22 +203,44 @@
             </div>
 
             <div class='info-section'>
-                <div class='info-item'><span class='info-label'>HORA (INICIA PUESTO):</span><div class='info-line'>@{body('Parse_JSON_4')?['HoraIniciaPuesto']}</div></div>
-                <div class='info-item'><span class='info-label'>SUPERVISOR:</span><div class='info-line'>@{body('Parse_JSON_4')?['Supervisor']}</div></div>
-                
-                <div class='info-item'><span class='info-label'>FECHA:</span><div class='info-line'>@{body('Parse_JSON_4')?['Fecha']}</div></div>
-                <div class='info-item'><span class='info-label'>AGENTE:</span><div class='info-line'>@{body('Parse_JSON_4')?['Agente']}</div></div>
-                
-                <div class='info-item'><span class='info-label'>VUELO:</span><div class='info-line'>@{body('Parse_JSON_4')?['Vuelo']}</div></div>
-                <div class='info-item'><span class='info-label'>MATRICULA:</span><div class='info-line'>@{body('Parse_JSON_4')?['Matricula']}</div></div>
-                
-                <div class='info-item'><span class='info-label'>COMPARTIMENTO No.</span><div class='info-line'>@{body('Parse_JSON_4')?['CompartimentoNo']}</div></div>
-                <div class='info-item'><span class='info-label'>PUERTA No.:</span><div class='info-line'>@{body('Parse_JSON_4')?['PuertaNo']}</div></div>
-                
-                <div class='info-item' style='margin-top:1.5mm;'><span class='info-label' style='margin-left: 10mm;'>COMP. ABIERTO</span><div class='info-line'>@{body('Parse_JSON_4')?['CompAbierto']}</div></div>
-                <div class='info-item' style='margin-top:1.5mm;'><span class='info-label' style='margin-left: 10mm;'>COMP. CERRADO:</span><div class='info-line'>@{body('Parse_JSON_4')?['CompCerrado']}</div></div>
+                <div class='info-item'><span class='info-label'>HORA (INICIA PUESTO):</span>
+                    <div class='info-line'>@{body('Parse_JSON_4')?['HoraIniciaPuesto']}</div>
+                </div>
+                <div class='info-item'><span class='info-label'>SUPERVISOR:</span>
+                    <div class='info-line'>@{body('Parse_JSON_4')?['Supervisor']}</div>
+                </div>
+
+                <div class='info-item'><span class='info-label'>FECHA:</span>
+                    <div class='info-line'>@{body('Parse_JSON_4')?['Fecha']}</div>
+                </div>
+                <div class='info-item'><span class='info-label'>AGENTE:</span>
+                    <div class='info-line'>@{body('Parse_JSON_4')?['Agente']}</div>
+                </div>
+
+                <div class='info-item'><span class='info-label'>VUELO:</span>
+                    <div class='info-line'>@{body('Parse_JSON_4')?['Vuelo']}</div>
+                </div>
+                <div class='info-item'><span class='info-label'>MATRICULA:</span>
+                    <div class='info-line'>@{body('Parse_JSON_4')?['Matricula']}</div>
+                </div>
+
+                <div class='info-item'><span class='info-label'>COMPARTIMENTO No.</span>
+                    <div class='info-line'>@{body('Parse_JSON_4')?['CompartimentoNo']}</div>
+                </div>
+                <div class='info-item'><span class='info-label'>PUERTA No.:</span>
+                    <div class='info-line'>@{body('Parse_JSON_4')?['PuertaNo']}</div>
+                </div>
+
+                <div class='info-item' style='margin-top:1.5mm;'><span class='info-label'
+                        style='margin-left: 10mm;'>COMP. ABIERTO</span>
+                    <div class='info-line'>@{body('Parse_JSON_4')?['CompAbierto']}</div>
+                </div>
+                <div class='info-item' style='margin-top:1.5mm;'><span class='info-label'
+                        style='margin-left: 10mm;'>COMP. CERRADO:</span>
+                    <div class='info-line'>@{body('Parse_JSON_4')?['CompCerrado']}</div>
+                </div>
             </div>
-            
+
             <!-- SECCION EMBARQUE -->
             <div class='section-header'>
                 EMBARQUE, No. VUELO: <div class='line'>@{body('Parse_JSON_4')?['VueloEmbarque']}</div>
@@ -217,7 +261,7 @@
 
             <!-- SECCION PERSONAL EN PLATAFORMA Y TIEMPOS -->
             <div class='bottom-section'>
-                
+
                 <div class='personal-section'>
                     <!-- Inyectamos Tabla Personal -->
                     @{body('Parse_JSON_4')?['TablaPersonalHTML']}
@@ -225,25 +269,36 @@
 
                 <div class='tiempos-box'>
                     <div>DESEMBARQUE</div>
-                    <div class='tiempos-row'><span class='info-label' style='font-weight:normal;'>INICIO:</span><div class='tiempos-line'>@{body('Parse_JSON_4')?['DesembarqueInicio']}</div></div>
-                    <div class='tiempos-row'><span class='info-label' style='font-weight:normal;'>FIN:</span><div class='tiempos-line'>@{body('Parse_JSON_4')?['DesembarqueFin']}</div></div>
-                    
+                    <div class='tiempos-row'><span class='info-label' style='font-weight:normal;'>INICIO:</span>
+                        <div class='tiempos-line'>@{body('Parse_JSON_4')?['DesembarqueInicio']}</div>
+                    </div>
+                    <div class='tiempos-row'><span class='info-label' style='font-weight:normal;'>FIN:</span>
+                        <div class='tiempos-line'>@{body('Parse_JSON_4')?['DesembarqueFin']}</div>
+                    </div>
+
                     <div style='margin-top: 1mm;'>EMBARQUE</div>
-                    <div class='tiempos-row'><span class='info-label' style='font-weight:normal;'>INICIO:</span><div class='tiempos-line'>@{body('Parse_JSON_4')?['EmbarqueInicio']}</div></div>
-                    <div class='tiempos-row'><span class='info-label' style='font-weight:normal;'>FIN:</span><div class='tiempos-line'>@{body('Parse_JSON_4')?['EmbarqueFin']}</div></div>
+                    <div class='tiempos-row'><span class='info-label' style='font-weight:normal;'>INICIO:</span>
+                        <div class='tiempos-line'>@{body('Parse_JSON_4')?['EmbarqueInicio']}</div>
+                    </div>
+                    <div class='tiempos-row'><span class='info-label' style='font-weight:normal;'>FIN:</span>
+                        <div class='tiempos-line'>@{body('Parse_JSON_4')?['EmbarqueFin']}</div>
+                    </div>
                 </div>
 
             </div>
 
-                        <!-- OBSERVACIONES DINÁMICAS -->
+            <!-- OBSERVACIONES DINÁMICAS -->
             <div style="margin-top: 2mm;">
                 <div style="font-weight: bold; font-size: 10pt; margin-bottom: 2mm;">OBSERVACIONES:</div>
-                <div style="font-size: 9.5pt; border-bottom: 1px solid black; min-height: 5mm; margin-bottom: 3mm; padding-bottom: 2px;">@{body('Parse_JSON_4')?['Observaciones']}</div>
+                <div
+                    style="font-size: 9.5pt; border-bottom: 1px solid black; min-height: 5mm; margin-bottom: 3mm; padding-bottom: 2px; line-height: 1.35; white-space: pre-line; word-break: break-word;">
+                    @{body('Parse_JSON_4')?['Observaciones']}</div>
                 <div style="border-bottom: 1px solid black; height: 5mm;"></div>
             </div>
 
-            
+
         </div>
     </div>
 </body>
+
 </html>

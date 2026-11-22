@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CONTROL COMPARTIMENTOS DELTA</title>
     <style>
+        @page { size: letter portrait; margin: 0; }
         * { box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; }
-        body { background-color: #525659; display: flex; justify-content: center; padding: 20px; }
+        body { background-color: #ffffff; display: flex; justify-content: center; padding: 20px; }
         
         .page { 
             width: 8.5in; 

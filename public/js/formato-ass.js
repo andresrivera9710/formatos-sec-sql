@@ -52,6 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('btnLimpiarFirmaASS')?.addEventListener('click', () => {
+    if (sigPad?.isLocked?.()) return;
     if (sigPad) sigPad.clear();
     savedSignature = '';
     if (noticeFirma) noticeFirma.style.display = 'none';
@@ -254,6 +255,9 @@ document.addEventListener('DOMContentLoaded', () => {
         encabezadoId = parseInt(json.encabezadoId, 10) || encabezadoId;
         const encEl = document.getElementById('assEncabezadoId');
         if (encEl) encEl.value = String(encabezadoId);
+      }
+      if (json.firmasRepo) {
+        window.SioSignatureRepoClient?.applyRepoState?.(json.firmasRepo);
       }
 
       await Swal.fire({

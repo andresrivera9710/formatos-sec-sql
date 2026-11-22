@@ -3,16 +3,19 @@
   const detalles = (cllState && Array.isArray(cllState.detalles)) ? cllState.detalles : [];
 
   let fechaVal = new Date().toISOString().substring(0, 10);
-  if (comp.Fecha) {
+  if (vuelo && vuelo.FechaItinerado) {
+    fechaVal = String(vuelo.FechaItinerado instanceof Date ? vuelo.FechaItinerado.toISOString() : vuelo.FechaItinerado).substring(0, 10);
+  } else if (comp.Fecha) {
     const d = new Date(comp.Fecha);
     if (!Number.isNaN(d.getTime())) fechaVal = d.toISOString().substring(0, 10);
-  } else if (vuelo && vuelo.FechaItinerado) {
-    fechaVal = String(vuelo.FechaItinerado).substring(0, 10);
   }
 
   const agenteActual = (user && (user.usuario || user.nombreCompleto)) ? String(user.usuario || user.nombreCompleto).trim() : '';
   const agenteSegVal = comp.AgenteSeguridad ? String(comp.AgenteSeguridad).trim() : agenteActual;
-  const agenteDeltaVal = comp.AgenteDelta ? String(comp.AgenteDelta).trim() : '';
+  const rawAgenteDelta = comp.AgenteDelta ? String(comp.AgenteDelta).trim() : '';
+  const agDeltaParts = rawAgenteDelta.split(',').map(s => s.trim());
+  const agenteDeltaVal = agDeltaParts[0] || '';
+  const tiaLdVal = agDeltaParts.slice(1).join(', ').trim();
   const agenteTiaVal = comp.AgenteTIA ? String(comp.AgenteTIA).trim() : '';
 
   const initialCllPayload = {
@@ -54,23 +57,23 @@
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px;">
       <div class="form-group">
-        <label><i class="fas fa-plane"></i> Flight #</label>
-        <input type="text" class="form-control" value="<%= vuelo.novuelo || '--' %>" readonly style="background: var(--bg); font-weight: 700;">
+        <label><i class="fas fa-plane"></i> Flight # <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <input type="text" class="form-control input-locked" value="<%= vuelo.novuelo || '--' %>" readonly tabindex="-1">
       </div>
 
       <div class="form-group">
-        <label for="cllFecha"><i class="far fa-calendar-alt"></i> Date <span style="color: var(--danger);">*</span></label>
-        <input type="date" id="cllFecha" class="form-control" value="<%= fechaVal %>" required>
+        <label for="cllFecha"><i class="far fa-calendar-alt"></i> Date <i class="fas fa-lock input-lock-icon" title="Fecha vinculada al itinerario (Solo lectura)"></i></label>
+        <input type="date" id="cllFecha" class="form-control input-locked" value="<%= fechaVal %>" readonly tabindex="-1" required>
       </div>
 
       <div class="form-group">
-        <label for="cllStation"><i class="fas fa-map-marker-alt"></i> Station</label>
-        <input type="text" id="cllStation" class="form-control" maxlength="10" value="GUA" placeholder="GUA">
+        <label for="cllStation"><i class="fas fa-map-marker-alt"></i> Station <i class="fas fa-lock input-lock-icon" title="Estación GUA (Solo lectura)"></i></label>
+        <input type="text" id="cllStation" class="form-control input-locked" maxlength="10" value="GUA" readonly tabindex="-1">
       </div>
 
       <div class="form-group">
-        <label for="cllAgenteSeguridad"><i class="fas fa-user-shield"></i> Security Agent <span style="color: var(--danger);">*</span></label>
-        <input type="text" id="cllAgenteSeguridad" class="form-control" maxlength="150" value="<%= agenteSegVal %>" placeholder="Nombre agente de seguridad" required>
+        <label for="cllAgenteSeguridad"><i class="fas fa-user-shield"></i> Security Agent <i class="fas fa-lock input-lock-icon" title="Agente autenticado en sesión (Solo lectura)"></i></label>
+        <input type="text" id="cllAgenteSeguridad" class="form-control input-locked" maxlength="150" value="<%= agenteSegVal %>" readonly tabindex="-1" required>
       </div>
 
       <div class="form-group">
@@ -84,8 +87,8 @@
       </div>
 
       <div class="form-group">
-        <label for="cllTiaLD"><i class="fas fa-id-card"></i> TIA # (DL Agent) <span style="font-size: 11px; color: var(--text-3);">(Opcional preview)</span></label>
-        <input type="text" id="cllTiaLD" class="form-control" maxlength="100" value="" placeholder="TIA # agente DL">
+        <label for="cllTiaLD"><i class="fas fa-id-card"></i> TIA # (DL Agent)</label>
+        <input type="text" id="cllTiaLD" class="form-control" maxlength="100" value="<%= tiaLdVal %>" placeholder="TIA # agente DL">
       </div>
     </div>
   </div>

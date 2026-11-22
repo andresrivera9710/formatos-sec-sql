@@ -206,25 +206,40 @@
     </div>
   </div>
 
-  <!-- 2. EMBARQUE (Matriz de Secuencias en Compartimento) -->
+  <%
+    const isDeltaCEC = Boolean(formato && formato.id === 'dl-cec');
+    const vueloPartsCec = String((vuelo && vuelo.novuelo) || '').split('/').map(s => s.trim()).filter(Boolean);
+    const vueloDesembarqueVal = comp.VueloDesembarque || vueloPartsCec[0] || (vuelo && vuelo.novuelo) || '--';
+    const vueloEmbarqueVal = comp.VueloEmbarque || vueloPartsCec[vueloPartsCec.length - 1] || (vuelo && vuelo.novuelo) || '--';
+    const eqMostradorVal = comp.EquipajeMostrador ?? 0;
+    const eqPuertaDeltaVal = comp.EquipajePuerta ?? 0;
+    const cargaEmbarqueDeltaVal = comp.CargaEmbarqueDelta ?? comp.CargaDelta ?? 0;
+  %>
+  <!-- 2. EMBARQUE -->
   <div class="card" style="border-top: 3px solid var(--brand);" id="cecCardMatriz">
     <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
       <div>
         <h3 class="cp-section-title">
-          <i class="fas fa-th"></i> 1. Embarque — Matriz de Equipajes en Compartimento
+          <i class="fas fa-th"></i> 1. Embarque — <%= isDeltaCEC ? 'Control de Equipaje y Carga Embarcada (DELTA)' : 'Matriz de Equipajes en Compartimento' %>
         </h3>
         <small style="color: var(--text-3); font-size: 11px;">
-          Ingrese la secuencia del equipaje embarcado. Puede anular una maleta con tache (<strong>✗</strong>).
+          <%= isDeltaCEC ? 'Registre los horarios y totales de Equipaje Mostrador, Equipaje por Puerta y Carga de Embarque.' : 'Ingrese la secuencia del equipaje embarcado. Puede anular una maleta con tache (✗).' %>
         </small>
       </div>
 
       <div class="er-total-counter-badge">
         <span>Total Equipaje Embarcado:</span>
-        <strong id="cecTotalEmbarqueCount">0</strong>
+        <strong id="cecTotalEmbarqueCount"><%= isDeltaCEC ? ((Number(eqMostradorVal) || 0) + (Number(eqPuertaDeltaVal) || 0)) : 0 %></strong>
       </div>
     </div>
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 14px;">
+      <% if (isDeltaCEC) { %>
+      <div class="form-group">
+        <label for="cecVueloEmbarque"><i class="fas fa-plane-departure"></i> Embarque, No. Vuelo <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <input type="text" id="cecVueloEmbarque" class="form-control input-locked" value="<%= vueloEmbarqueVal %>" readonly tabindex="-1">
+      </div>
+      <% } %>
       <div class="form-group">
         <label for="cecEmbarqueInicio"><i class="far fa-clock"></i> Hora Inicio Embarque</label>
         <div class="cp-time-row">
@@ -246,6 +261,7 @@
       </div>
     </div>
 
+    <% if (!isDeltaCEC) { %>
     <!-- Barra de captura de secuencia -->
     <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-bottom: 16px; background: var(--bg); padding: 14px; border-radius: 8px; border: 1px solid var(--border-2);">
       <div class="form-group" style="margin-bottom: 0; min-width: 220px; flex: 1;">
@@ -289,37 +305,39 @@
         </tbody>
       </table>
     </div>
-
-    <% if (formato && formato.id === 'dl-cec') { %>
-      <div style="margin-top: 16px; padding: 14px; background: var(--bg); border: 1px solid var(--border-2); border-radius: 8px;">
-        <h4 style="font-size: 12px; color: var(--brand-deep); margin: 0 0 10px 0; text-transform: uppercase;">
-          <i class="fas fa-boxes"></i> Totales de Embarque Adicionales (DELTA)
-        </h4>
+    <% } else { %>
+      <div style="margin-top: 8px; padding: 14px; background: var(--bg); border: 1px solid var(--border-2); border-radius: 8px;">
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px;">
           <div class="form-group" style="margin-bottom: 0;">
-            <label for="cecCargaEmbarqueDelta">Carga (Embarque)</label>
-            <input type="number" id="cecCargaEmbarqueDelta" class="form-control" min="0" step="1" value="<%= comp.CargaEmbarqueDelta ?? comp.CargaDelta ?? 0 %>" placeholder="0">
-          </div>
-          <div class="form-group" style="margin-bottom: 0;">
             <label for="cecEquipajeMostrador">Equipaje Mostrador</label>
-            <input type="number" id="cecEquipajeMostrador" class="form-control" min="0" step="1" value="<%= comp.EquipajeMostrador ?? 0 %>" placeholder="0">
+            <input type="number" id="cecEquipajeMostrador" class="form-control" min="0" step="1" value="<%= eqMostradorVal %>" placeholder="0">
           </div>
           <div class="form-group" style="margin-bottom: 0;">
-            <label for="cecEquipajePuerta">Equipaje en Puerta</label>
-            <input type="number" id="cecEquipajePuerta" class="form-control" min="0" step="1" value="<%= comp.EquipajePuerta ?? 0 %>" placeholder="0">
+            <label for="cecEquipajePuerta">Equipaje por Puerta</label>
+            <input type="number" id="cecEquipajePuerta" class="form-control" min="0" step="1" value="<%= eqPuertaDeltaVal %>" placeholder="0">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="cecCargaEmbarqueDelta">Carga (Embarque)</label>
+            <input type="number" id="cecCargaEmbarqueDelta" class="form-control" min="0" step="1" value="<%= cargaEmbarqueDeltaVal %>" placeholder="0">
           </div>
         </div>
       </div>
     <% } %>
   </div>
 
-  <!-- 3. DESEMBARQUE Y EQUIPAJE MALTRATADO -->
+  <!-- 3. DESEMBARQUE -->
   <div class="card">
     <div class="card-header">
-      <h3 class="cp-section-title"><i class="fas fa-dolly-flatbed"></i> 2. Desembarque y Equipaje Maltratado</h3>
+      <h3 class="cp-section-title"><i class="fas fa-dolly-flatbed"></i> 2. <%= isDeltaCEC ? 'Desembarque (DELTA)' : 'Desembarque y Equipaje Maltratado' %></h3>
     </div>
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+      <% if (isDeltaCEC) { %>
+      <div class="form-group">
+        <label for="cecVueloDesembarque"><i class="fas fa-plane-arrival"></i> Desembarque, No. Vuelo <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <input type="text" id="cecVueloDesembarque" class="form-control input-locked" value="<%= vueloDesembarqueVal %>" readonly tabindex="-1">
+      </div>
+      <% } %>
       <div class="form-group">
         <label for="cecDesembarqueInicio"><i class="far fa-clock"></i> Hora Inicio Desembarque</label>
         <div class="cp-time-row">
@@ -350,16 +368,19 @@
         <input type="number" id="cecCarruajes" class="form-control" min="0" step="1" value="<%= carruajesVal %>" placeholder="0">
       </div>
 
+      <% if (!isDeltaCEC) { %>
       <div class="form-group">
         <label for="cecCorreos">Correos</label>
         <input type="number" id="cecCorreos" class="form-control" min="0" step="1" value="<%= correosVal %>" placeholder="0">
       </div>
+      <% } %>
 
       <div class="form-group">
         <label for="cecCarga">Carga</label>
         <input type="number" id="cecCarga" class="form-control" min="0" step="1" value="<%= cargaVal %>" placeholder="0">
       </div>
 
+      <% if (!isDeltaCEC) { %>
       <div class="form-group">
         <label for="cecCantidadSinEtiqueta">Maltratado SIN Etiqueta Limited Release</label>
         <input type="number" id="cecCantidadSinEtiqueta" class="form-control" min="0" step="1" value="<%= cantSinEtiqVal %>" placeholder="0">
@@ -369,6 +390,7 @@
         <label for="cecCantidadConEtiqueta">Maltratado CON Etiqueta Limited Release</label>
         <input type="number" id="cecCantidadConEtiqueta" class="form-control" min="0" step="1" value="<%= cantConEtiqVal %>" placeholder="0">
       </div>
+      <% } %>
     </div>
   </div>
 

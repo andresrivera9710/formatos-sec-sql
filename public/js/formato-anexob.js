@@ -102,11 +102,13 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('btnLimpiarLeadFirmaAnexoB')?.addEventListener('click', () => {
+    if (leadPad?.isLocked?.()) return;
     if (leadPad) leadPad.clear();
     savedLeadSig = '';
     if (noticeLeadSig) noticeLeadSig.style.display = 'none';
   });
   document.getElementById('btnLimpiarCsmFirmaAnexoB')?.addEventListener('click', () => {
+    if (csmPad?.isLocked?.()) return;
     if (csmPad) csmPad.clear();
     savedCsmSig = '';
     if (noticeCsmSig) noticeCsmSig.style.display = 'none';
@@ -447,6 +449,9 @@ document.addEventListener('DOMContentLoaded', () => {
         encabezadoId = parseInt(json.encabezadoId, 10) || encabezadoId;
         const encEl = document.getElementById('axBEncabezadoId');
         if (encEl) encEl.value = String(encabezadoId);
+      }
+      if (json.firmasRepo) {
+        window.SioSignatureRepoClient?.applyRepoState?.(json.firmasRepo);
       }
 
       await Swal.fire({

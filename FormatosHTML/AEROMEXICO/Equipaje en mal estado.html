@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EQUIPAJES EN MAL ESTADO</title>
     <style>
-        @page { margin: 0; }
+        @page { size: A4 portrait; margin: 5mm; }
         * { box-sizing: border-box; font-family: Arial, sans-serif; margin: 0; padding: 0; }
-        body { display: flex; justify-content: center; background-color: #525659; padding: 20px; }
+        body { display: flex; justify-content: center; background-color: #ffffff; padding: 20px; }
         .page {
             width: 210mm; 
             min-height: 297mm; 
@@ -45,7 +45,7 @@
         }
 
         table { width: 100%; border-collapse: collapse; }
-        td, th { border: 1px solid black; padding: 4px; font-size: 12px; }
+        td, th { border: 1px solid black; padding: 4px; font-size: 12px; word-break: break-word; }
         
         .section-title { text-align: center; font-weight: bold; font-size: 15px; letter-spacing: 0.5px; padding: 6px !important; background-color: #f0f0f0; }
         .sub-title { text-align: center; font-weight: bold; font-size: 13px; padding: 4px !important; background-color: #f9f9f9; }
@@ -57,11 +57,11 @@
         .sign-table { width: 100%; border: none; table-layout: fixed; }
         .sign-table td { border: none; padding: 0; }
         .sign-box { text-align: center; padding: 0 30px; }
-        .sign-img { width: 100%; max-height: 60px; object-fit: contain; margin-bottom: 2px; }
-        .sign-line { border-top: 1.5px solid black; font-weight: bold; font-size: 11px; padding-top: 4px; text-transform: uppercase; }
+        .sign-img { height: 55px; width: auto; max-width: 100%; object-fit: contain; margin-bottom: 2px; display: block; margin-left: auto; margin-right: auto; }
+        .sign-line { border-top: 1.5px solid black; font-weight: bold; font-size: 11px; padding-top: 4px; min-height: 18px; text-transform: uppercase; }
         .sign-title { font-size: 10px; font-weight: normal; margin-top: 2px; color: #333; }
         
-        @media print { body { background: none; padding: 0; } .page { box-shadow: none; min-height: auto; padding-top: 0; } }
+        @media print { body { background: white; padding: 0; } .page { box-shadow: none; min-height: auto; padding: 10mm; } }
     </style>
 </head>
 <body>
@@ -70,7 +70,7 @@
     <!-- ENCABEZADO LOGO AEROMEXICO -->
     <div class="header">
         <div class="logo-placeholder">
-            <img src="data:image/png;base64,@{variables('varLogoAeromexico')} " alt="Logo" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
+            <img src="data:image/png;base64,@{variables('varLogoAeromexico')}" alt="Logo" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
         </div>
     </div>
 

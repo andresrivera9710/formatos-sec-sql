@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SEQUENCE OF EVENTS LOG - DELTA</title>
     <style>
+        @page { size: A4 portrait; margin: 0; }
         * { 
             box-sizing: border-box; 
             font-family: Arial, Helvetica, sans-serif; 
@@ -17,7 +18,7 @@
         body { 
             display: flex; 
             justify-content: center; 
-            background-color: #525659; 
+            background-color: #ffffff; 
             padding: 0; 
         }
         .page { 

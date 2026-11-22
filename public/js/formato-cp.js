@@ -6,6 +6,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('formControlPerimetrica');
   if (!form) return;
 
+  const Validator = window.SioFormatValidator;
+
   const esc = (str) => {
     if (typeof window.escapeHtml === 'function') return window.escapeHtml(str);
     return String(str ?? '')
@@ -196,7 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
         : '<span class="cp-badge-pending"><i class="fas fa-exclamation-circle"></i> Pendiente</span>';
 
       return `
-        <div class="cp-reg-card">
+        <div class="cp-reg-card" data-record-json="${esc(JSON.stringify(item))}">
           <div class="cp-reg-topbar ${statusClass}"></div>
           <div class="cp-reg-body">
             <div class="cp-reg-header">
@@ -457,7 +459,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fecha = String(inputFecha?.value || '').trim().substring(0, 10);
     const horaInicio = extractHHMM(inputHoraRevision?.value || '');
     const supervisorEmpleadoId = parseInt(selSupervisor?.value || '0', 10) || 0;
-    const supervisorNombre = selSupervisor && selSupervisor.selectedIndex >= 0
+    const supervisorNombre = (supervisorEmpleadoId > 0 && selSupervisor && selSupervisor.selectedIndex >= 0)
       ? String(selSupervisor.options[selSupervisor.selectedIndex]?.textContent || '').trim()
       : '';
 
@@ -477,52 +479,72 @@ document.addEventListener('DOMContentLoaded', () => {
       : '');
     const maquinariaEquipoId = parseInt(selNoUnidad?.value || '0', 10) || 0;
     const noUnidadLabel = tractoristaDelta || (maquinariaEquipoId > 0 && selNoUnidad && selNoUnidad.selectedIndex >= 0
-      ? String(selNoUnidad.options[selNoUnidad.selectedIndex]?.textContent || '').trim()
+      ? String(selNoUnidad.options[selNoUnidad.selectedIndex]?.textContent || '').split('—')[0].trim()
       : '');
     const observaciones = String(inputObservaciones?.value || '').trim();
 
     if (guardar) {
+      Validator?.clearValidationErrors(form);
+      if (comboSupervisor) comboSupervisor.setInvalid(false);
+      if (comboTractorista) comboTractorista.setInvalid(false);
+
+      const errors = [];
+
+      if (!fecha) {
+        Validator?.markElementInvalid(inputFecha);
+        errors.push({ label: 'Fecha de Operación', message: 'La fecha de operación es obligatoria.', element: inputFecha });
+      }
+
       if (!horaInicio) {
-        Swal.fire({
-          icon: 'warning',
-          title: 'Hora de Revisión Requerida',
-          text: 'Debe ingresar una Hora de Revisión válida (HH:mm).',
-          confirmButtonColor: '#275B88'
-        });
-        inputHoraRevision?.focus();
-        return;
+        Validator?.markElementInvalid(inputHoraRevision);
+        errors.push({ label: 'Hora de Revisión', message: 'Debe ingresar una Hora de Revisión válida (HH:mm).', element: inputHoraRevision });
       }
 
       if (supervisorEmpleadoId <= 0) {
+        Validator?.markElementInvalid(selSupervisor);
         if (comboSupervisor) comboSupervisor.setInvalid(true);
-        Swal.fire({
-          icon: 'warning',
-          title: 'Supervisor Requerido',
-          text: 'Debe seleccionar un Supervisor de Turno del cuadro combinado.',
-          confirmButtonColor: '#275B88'
+        errors.push({
+          label: 'Supervisor de Turno',
+          message: 'Debe seleccionar un Supervisor de Turno del cuadro combinado.',
+          element: selSupervisor?.closest('.sio-combo-wrapper')?.querySelector('button') || selSupervisor
         });
-        return;
       }
 
       const pendientes = registros.filter((r) => !r.HoraSalida || r.HoraSalida.trim() === '');
       if (pendientes.length > 0) {
-        Swal.fire({
-          icon: 'error',
-          title: '¡ALERTA DE SEGURIDAD!',
-          text: 'Hay una o más personas que aún NO han salido de la aeronave. Por favor, registra su hora de salida antes de guardar.',
-          confirmButtonColor: '#275B88'
+        const firstPendIdx = registros.findIndex((r) => !r.HoraSalida || r.HoraSalida.trim() === '');
+        const pendNombre = pendientes[0]?.Nombre || `#${firstPendIdx + 1}`;
+        errors.push({
+          label: '¡ALERTA DE SEGURIDAD!',
+          message: `Hay personas que aún NO han salido de la aeronave (ej. "${pendNombre}"). Por favor, registra su hora de salida antes de guardar.`,
+          element: listaRegistrosEl
         });
-        return;
       }
 
       if (maquinariaEquipoId > 0 && tractoristaEmpleadoId <= 0) {
+        Validator?.markElementInvalid(selTractorista);
         if (comboTractorista) comboTractorista.setInvalid(true);
-        Swal.fire({
-          icon: 'warning',
-          title: 'Tractorista Requerido',
-          text: 'Debe seleccionar al Tractorista cuando asigna un No. Unidad.',
-          confirmButtonColor: '#275B88'
+        errors.push({
+          label: 'Tractorista',
+          message: 'Debe seleccionar al Tractorista cuando asigna un No. Unidad.',
+          element: selTractorista?.closest('.sio-combo-wrapper')?.querySelector('button') || selTractorista
         });
+      }
+
+      if (errors.length > 0) {
+        if (Validator && typeof Validator.focusAndAlert === 'function') {
+          Validator.focusAndAlert({
+            title: 'Validación de Control de Perimétrica',
+            errors
+          });
+        } else {
+          Swal.fire({
+            icon: 'warning',
+            title: 'Validación de Control de Perimétrica',
+            text: errors[0].message,
+            confirmButtonColor: '#275B88'
+          });
+        }
         return;
       }
     }
@@ -633,6 +655,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } else {
         if (previewWin && !previewWin.closed) previewWin.close();
+        if (Validator && Array.isArray(res.errors) && res.errors.length > 0) {
+          Validator.applyBackendErrors(res.errors, {
+            root: form,
+            headerElementMap: {
+              fecha: inputFecha,
+              horaInicio: inputHoraRevision,
+              supervisorEmpleadoId: selSupervisor,
+              tractoristaEmpleadoId: selTractorista,
+              maquinariaEquipoId: selNoUnidad
+            }
+          });
+          return;
+        }
         Swal.fire({
           icon: 'error',
           title: 'Error de Validación',

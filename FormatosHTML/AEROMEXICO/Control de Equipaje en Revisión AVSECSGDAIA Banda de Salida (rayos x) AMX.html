@@ -66,6 +66,7 @@
         table {
             width: 100%;
             border-collapse: collapse;
+            table-layout: fixed;
             font-size: 9px;
             text-align: center;
             margin-bottom: 20px;
@@ -74,7 +75,8 @@
         th, td {
             border: 1px solid black;
             padding: 4px;
-            height: 25px; 
+            height: 25px;
+            word-break: break-word;
         }
         th {
             font-weight: bold;
@@ -127,8 +129,13 @@
             margin-bottom: 3px;
         }
         
+        @page {
+            size: A4 landscape;
+            margin: 5mm;
+        }
         @media print {
-            body { padding: 0; }
+            body { padding: 0; background-color: white; }
+            .page { padding: 8mm 10mm; min-height: auto; }
         }
     </style>
 </head>
@@ -138,7 +145,7 @@
         <!-- ENCABEZADO -->
         <div class='header'>
             <div class='logo-placeholder'>
-                <img src='data:image/png;base64, @{variables('varLogoAeromexico')}' alt='Logo' style='max-width: 100%; max-height: 100%; object-fit: contain;' />
+                <img src='data:image/png;base64,@{variables('varLogoAeromexico')}' alt='Logo' style='max-width: 100%; max-height: 100%; object-fit: contain;' />
             </div>
             <div class='fecha-box'>
                 FECHA: <div class='line-input'>@{formatDateTime(body('Parse_JSON')?['Fecha'], 'dd/MM/yyyy')}</div>
@@ -159,7 +166,7 @@
                     <th style='width: 8%;'>DESTINO</th>
                     <th style='width: 8%;'>HORA DE REVISIÓN</th>
                     <th style='width: 20%;'>NOMBRE DE AGENTE AVSEC QUE REALIZA LA INSPECCIÓN</th>
-                    <th style='width: 20%;'>AGENTE DE SEGURIDAD DL DURANTE LA INSPECCIÓN</th>
+                    <th style='width: 20%;'>AGENTE DE SEGURIDAD AMX DURANTE LA INSPECCIÓN</th>
                 </tr>
             </thead>
             <tbody>
@@ -172,7 +179,7 @@
         <div class='observaciones-container'>
             <div style='display: flex; align-items: flex-end;'>
                 <span>OBSERVACIONES:</span>
-                <div style='border-bottom: 1px solid black; flex-grow: 1; margin-left: 10px; font-weight: normal; font-size: 13px; padding-bottom: 2px;'>@{body('Parse_JSON')?['Observaciones']}</div>
+                <div style='border-bottom: 1px solid black; flex-grow: 1; margin-left: 10px; font-weight: normal; font-size: 13px; padding-bottom: 2px; min-height: 18px; white-space: pre-line; word-break: break-word;'>@{body('Parse_JSON')?['Observaciones']}</div>
             </div>
             <div class='obs-line-full'></div>
             <div class='obs-line-full'></div>

@@ -121,6 +121,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderMatriz() {
     reindexDetalles();
+    const isDeltaCEC = String(inputFormatoId?.value || '').trim().toLowerCase() === 'dl-cec';
+    if (isDeltaCEC) {
+      const eqM = parseInt(document.getElementById('cecEquipajeMostrador')?.value || '0', 10) || 0;
+      const eqP = parseInt(document.getElementById('cecEquipajePuerta')?.value || '0', 10) || 0;
+      if (totalEmbarqueEl) totalEmbarqueEl.textContent = String(eqM + eqP);
+      return;
+    }
     const activeCount = detalles.filter((d) => d.Secuencia > 0 && d.Valor !== 'X').length;
     if (totalEmbarqueEl) totalEmbarqueEl.textContent = String(activeCount);
 
@@ -359,7 +366,9 @@ document.addEventListener('DOMContentLoaded', () => {
       errors.push({ rowNumber: null, label: 'Nombre del Agente', message: 'Debe seleccionar el Agente.', element: selectAgente });
     }
 
+    const isDeltaCEC = String(inputFormatoId?.value || '').trim().toLowerCase() === 'dl-cec';
     const tieneDesembarque =
+      isDeltaCEC ||
       parseOptionalInt(inputEquipaje) > 0 ||
       parseOptionalInt(inputCarruajes) > 0 ||
       parseOptionalInt(inputCorreos) > 0 ||
@@ -490,6 +499,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnGuardarDefinitivo) {
     btnGuardarDefinitivo.addEventListener('click', () => enviarFormato(true));
   }
+
+  document.getElementById('cecEquipajeMostrador')?.addEventListener('input', renderMatriz);
+  document.getElementById('cecEquipajePuerta')?.addEventListener('input', renderMatriz);
 
   renderMatriz();
 });

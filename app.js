@@ -32,7 +32,9 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
+      workerSrc: ["'self'", "blob:"],
+      frameSrc: ["'self'", "blob:"],
       frameAncestors: ["'self'"],
       objectSrc: ["'none'"]
     }
@@ -46,11 +48,18 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000')
   .map(o => o.trim())
   .filter(Boolean);
 
-// Compatibilidad automática con Azure App Service (WEBSITE_HOSTNAME)
+// Compatibilidad nativa con dominios productivos de Azure App Service (sio-prod / sio.laats.net)
+const defaultAzureOrigins = [
+  'https://sio.laats.net',
+  'http://sio.laats.net',
+  'https://sio-prod.azurewebsites.net'
+];
 if (process.env.WEBSITE_HOSTNAME) {
-  const azureOrigin = `https://${process.env.WEBSITE_HOSTNAME.trim()}`;
-  if (!allowedOrigins.includes(azureOrigin)) {
-    allowedOrigins.push(azureOrigin);
+  defaultAzureOrigins.push(`https://${process.env.WEBSITE_HOSTNAME.trim()}`);
+}
+for (const originUrl of defaultAzureOrigins) {
+  if (!allowedOrigins.includes(originUrl)) {
+    allowedOrigins.push(originUrl);
   }
 }
 
@@ -95,13 +104,23 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(express.static(path.join(__dirname, 'public'), {
   index: false,
   maxAge: isProduction ? '7d' : 0,
-  etag: true
+  etag: true,
+  setHeaders: (res, filePath) => {
+    if (path.basename(filePath) === 'sw.js') {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Service-Worker-Allowed', '/');
+    }
+  }
 }));
 
-// 8. Healthcheck Ligero (Previo a la barrera de autenticación)
+// 8. Healthcheck Ligero / Heartbeat Real (Previo a la barrera de autenticación)
 app.get('/api/health', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.json({
     status: 'ok',
+    online: true,
     app: 'SIO-LAATS-FORMATOS-SEC',
     uptime: Math.floor(process.uptime()),
     timestamp: new Date().toISOString()

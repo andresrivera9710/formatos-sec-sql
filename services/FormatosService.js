@@ -10,9 +10,14 @@ const LoginModel = require('../models/LoginModel');
 const OperacionesModel = require('../models/OperacionesModel');
 const OperacionesService = require('./OperacionesService');
 const FormatoValidationService = require('./FormatoValidationService');
+const SignatureRepositoryService = require('./SignatureRepositoryService');
 
 const EMPRESAS_CP = [
   'LAATS',
+  'DELTA',
+  'SAG',
+  'ODA',
+  'GODARD',
   'GODARD(Cocinas)',
   'ODA (Combustible)',
   'OIRSA',
@@ -20,7 +25,6 @@ const EMPRESAS_CP = [
   'AEROEXPRESS',
   'AEROMEXICO',
   'ARAJET',
-  'DELTA',
   'AIR CANADA',
   'LAN CARGO',
   'FEDEX',
@@ -339,14 +343,43 @@ class FormatosService {
           console.error('[CONSULTA MECD ERROR]', mErr.message);
         }
       }
+
+      const encMecd = mecdRaw.encabezado || null;
+      const resolverPersonaMecd = (rawId, catalogList = []) => {
+        const n = parseInt(rawId, 10) || 0;
+        if (!n) return { loginId: '', nombre: '' };
+        const byLogin = catalogList.find(u => Number(u.LoginId) === n);
+        const byEmp = byLogin ? null : catalogList.find(u => Number(u.EmpleadoId) === n);
+        const match = byLogin || byEmp;
+        if (!match) return { loginId: '', nombre: '' };
+        return {
+          loginId: match.LoginId ? String(match.LoginId) : '',
+          nombre: String(match.Usuario || match.NombreCompleto || match.Nombre || '').trim()
+        };
+      };
+
+      const ccoInfo = resolverPersonaMecd(encMecd?.EmpleadoId ?? encMecd?.LoginId, usuariosLogin);
+      const agenteInfo = resolverPersonaMecd(encMecd?.AgenteId ?? encMecd?.AgenteLoginSECId, usuariosSEC);
+      const supInfo = resolverPersonaMecd(encMecd?.SupervisorId ?? encMecd?.SupervisorLoginSECId, supervisores);
+
+      const revisionesMapeadas = (mecdRaw.revisiones || []).map((r, i) => ({
+        Numero: i + 1,
+        DetalleEquipMECDId: parseInt(r.DetalleEquipMECDId, 10) || 0,
+        Control: String(r.Control ?? '').trim(),
+        Colilla: String(r.Colilla ?? '').trim()
+      }));
+
       mecdState = {
-        encabezado: mecdRaw.encabezado,
-        revisiones: (mecdRaw.revisiones || []).map((r, i) => ({
-          Numero: i + 1,
-          DetalleEquipMECDId: parseInt(r.DetalleEquipMECDId, 10) || 0,
-          Control: String(r.Control ?? '').trim(),
-          Colilla: String(r.Colilla ?? '').trim()
-        })),
+        encabezado: encMecd,
+        complemento: encMecd,
+        ccoLoginId: ccoInfo.loginId,
+        ccoNombre: ccoInfo.nombre,
+        agenteLoginSecId: agenteInfo.loginId,
+        agenteNombre: agenteInfo.nombre || String(encMecd?.CreadoPor || '').trim(),
+        supervisorLoginSecId: supInfo.loginId,
+        supervisorNombre: supInfo.nombre,
+        revision: revisionesMapeadas,
+        revisiones: revisionesMapeadas,
         conFirma: (mecdRaw.conFirma || []).map((r, i) => ({
           Numero: i + 1,
           EquipajeMEId: parseInt(r.EquipajeMEId, 10) || 0,
@@ -679,10 +712,50 @@ class FormatosService {
       };
     }
 
+    if (isPO && poState && poState.complemento) {
+      const supLoginId = parseInt(poState.complemento.SupervisorLoginSECId ?? poState.complemento.LoginId, 10) || 0;
+      const supMatch = supervisores.find(s => Number(s.LoginId) === supLoginId || Number(s.EmpleadoId) === supLoginId)
+        || usuariosLogin.find(u => Number(u.LoginId) === supLoginId)
+        || usuariosSEC.find(u => Number(u.LoginId) === supLoginId || Number(u.EmpleadoId) === supLoginId);
+      poState.supervisorNombre = supMatch?.Usuario || supMatch?.NombreCompleto || '';
+    }
+
+    const legacySignatures = {};
+    if (isASS && assState?.detalle?.Meta?.signature) {
+      legacySignatures.signature = assState.detalle.Meta.signature;
+    }
+    if (isANEXOB && anexoBState?.encabezado?.DocMeta) {
+      if (anexoBState.encabezado.DocMeta.leadSignature) {
+        legacySignatures.leadSignature = anexoBState.encabezado.DocMeta.leadSignature;
+      }
+      if (anexoBState.encabezado.DocMeta.csmSignature) {
+        legacySignatures.csmSignature = anexoBState.encabezado.DocMeta.csmSignature;
+      }
+    }
+    if (isLIADC && liadcState?.detalle?.Meta) {
+      if (liadcState.detalle.Meta.firmaInspector) {
+        legacySignatures.firmaInspector = liadcState.detalle.Meta.firmaInspector;
+      }
+      if (liadcState.detalle.Meta.firmaSupervisor) {
+        legacySignatures.firmaSupervisor = liadcState.detalle.Meta.firmaSupervisor;
+      }
+    }
+
+    const firmasRepo = await SignatureRepositoryService.cargarFirmasParaFormato({
+      formatoId,
+      encabezadoId: encIdNum,
+      legacySignatures
+    });
+
+    if (isPO && poState) {
+      poState.firmaSupervisor = firmasRepo?.firmas?.firmaSupervisor?.dataUrl || '';
+    }
+
     return {
       meta: formatoMeta,
       esNuevo: !encIdNum,
       encabezadoId: encIdNum || null,
+      firmasRepo: SignatureRepositoryService.toClientSummary(firmasRepo),
       datos: datosExistentes,
       complementos,
       supervisores,
@@ -713,6 +786,31 @@ class FormatosService {
     };
   }
 
+  static async _cargarFirmasLegadasParaValidacion(formatoId, encabezadoId, itinerarioId) {
+    const encIdNum = parseInt(encabezadoId, 10) || 0;
+    const itiIdNum = parseInt(itinerarioId, 10) || 0;
+    if (!encIdNum) return {};
+    const fam = SignatureRepositoryService.resolveFamily(formatoId);
+    const legacy = {};
+    try {
+      if (fam === 'ass') {
+        const assRow = await FormatosModel.consultarDetalleASS(encIdNum, itiIdNum);
+        if (assRow?.Meta?.signature) legacy.signature = assRow.Meta.signature;
+      } else if (fam === 'anexob') {
+        const bDoc = await FormatosModel.consultarDetalleAnexoB(encIdNum, itiIdNum);
+        const dm = bDoc?.encabezado?.DocMeta || {};
+        if (dm.leadSignature) legacy.leadSignature = dm.leadSignature;
+        if (dm.csmSignature) legacy.csmSignature = dm.csmSignature;
+      } else if (fam === 'liadc') {
+        const lRow = await FormatosModel.consultarDetalleLIADC(encIdNum, itiIdNum);
+        const lm = lRow?.Meta || {};
+        if (lm.firmaInspector) legacy.firmaInspector = lm.firmaInspector;
+        if (lm.firmaSupervisor) legacy.firmaSupervisor = lm.firmaSupervisor;
+      }
+    } catch (_) {}
+    return legacy;
+  }
+
   /**
    * Procesa la persistencia o validación preliminar de un formato
    * @param {Object} payload
@@ -720,13 +818,63 @@ class FormatosService {
    * @param {Object} user
    */
   static async procesarGuardado(payload, user, vueloSesion = null) {
-    const { formatoId, itinerarioId, encabezadoId, datos, guardar = true } = payload;
+    const { formatoId, itinerarioId, encabezadoId, guardar = true } = payload;
     const catalogo = OperacionesService.getCatalogoFormatosPorAerolinea();
     const formatoMeta = catalogo.find(f => f.id === formatoId);
 
     if (!formatoMeta) {
       throw new Error(`Formato no reconocido: ${formatoId}`);
     }
+
+    const sigFamily = SignatureRepositoryService.resolveFamily(formatoId);
+    let payloadEfectivo = payload;
+    let legacySignatures = {};
+    let lockResolved = null;
+
+    if (sigFamily) {
+      const encIdNum = parseInt(encabezadoId, 10) || 0;
+      if (encIdNum > 0) {
+        legacySignatures = await FormatosService._cargarFirmasLegadasParaValidacion(
+          formatoId,
+          encIdNum,
+          itinerarioId || vueloSesion?.itinerarioId
+        );
+      }
+      lockResolved = await SignatureRepositoryService.resolverFirmasConBloqueo({
+        formatoId,
+        encabezadoId: encIdNum,
+        payload,
+        legacySignatures
+      });
+      payloadEfectivo = lockResolved.payloadEfectivo || payload;
+    }
+
+    const resultado = await FormatosService._dispatchGuardado(payloadEfectivo, formatoMeta, user, vueloSesion);
+
+    if (sigFamily && resultado && resultado.success && guardar && resultado.modo === 'persistido' && resultado.encabezadoId) {
+      const dRaw = payloadEfectivo?.datos || {};
+      const fechaParaRepo = (vueloSesion && vueloSesion.FechaItinerado)
+        ? String(vueloSesion.FechaItinerado instanceof Date ? vueloSesion.FechaItinerado.toISOString() : vueloSesion.FechaItinerado).substring(0, 10)
+        : String(dRaw.fecha || dRaw.poPayload?.fecha || dRaw.erPayload?.fecha || dRaw.lisaPayload?.fecha || '').substring(0, 10);
+
+      const repoSaved = await SignatureRepositoryService.sincronizarFirmasGuardado({
+        formatoId,
+        encabezadoId: resultado.encabezadoId,
+        itinerarioId: itinerarioId || vueloSesion?.itinerarioId,
+        vuelo: vueloSesion,
+        fecha: fechaParaRepo,
+        usuario: user?.usuario || '',
+        effectiveSignatures: lockResolved?.effectiveSignatures || {},
+        legacySignatures
+      });
+      resultado.firmasRepo = SignatureRepositoryService.toClientSummary(repoSaved);
+    }
+
+    return resultado;
+  }
+
+  static async _dispatchGuardado(payload, formatoMeta, user, vueloSesion = null) {
+    const { formatoId, itinerarioId, encabezadoId, datos, guardar = true } = payload;
 
     if (formatoId.endsWith('-cp')) {
       return await FormatosService.procesarGuardadoCP(payload, formatoMeta, user, vueloSesion);
@@ -874,8 +1022,10 @@ class FormatosService {
     const fechaFormatoUS = yyyy && mm && dd ? `${mm}/${dd}/${yyyy}` : fechaRaw;
 
     const supEmpId = parseInt(comp.EncabezadoEmpleadoId ?? fallbackPayload.supervisorEmpleadoId, 10) || 0;
-    const supObj = sups.find(s => Number(s.EmpleadoId) === supEmpId);
-    const supervisorNombre = supObj?.Usuario || String(fallbackPayload.supervisorNombre || '').trim();
+    const supObj = sups.find(s => Number(s.EmpleadoId) === supEmpId)
+      || emps.find(e => Number(e.EmpleadoId) === supEmpId);
+    const fbSup = String(fallbackPayload.supervisorNombre || '').trim();
+    const supervisorNombre = supObj?.Usuario || supObj?.Nombre || (!/^--\s*Seleccione/i.test(fbSup) ? fbSup : '');
 
     const trEmpId = parseInt(comp.MaquinariaEmpleadoId ?? fallbackPayload.tractoristaEmpleadoId, 10) || 0;
     const trObj = emps.find(e => Number(e.EmpleadoId) === trEmpId);
@@ -948,7 +1098,16 @@ class FormatosService {
       fechaFormatoUS,
       horaInicio: FormatosService.normalizarHora5(comp.HoraInicio || fallbackPayload.horaInicio, ''),
       supervisor: supervisorNombre,
-      agente: comp.CreadoPor || user?.usuario || user?.nombreCompleto || '',
+      agente: (() => {
+        const rawAg = String(comp.CreadoPor || user?.usuario || user?.nombreCompleto || '').trim();
+        if (/^\d+$/.test(rawAg)) {
+          const agId = parseInt(rawAg, 10);
+          const agObj = sups.find(s => Number(s.EmpleadoId) === agId || Number(s.LoginId) === agId)
+            || emps.find(e => Number(e.EmpleadoId) === agId);
+          return agObj?.Usuario || agObj?.Nombre || rawAg;
+        }
+        return rawAg;
+      })(),
       arriboVuelo: FormatosService.normalizarHora5(comp.ArriboDelVuelo || fallbackPayload.arriboDelVuelo || vuelo?.ata, ''),
       aeronaveAsegurada: FormatosService.normalizarHora5(comp.HoraAsegurado || fallbackPayload.horaAsegurado, ''),
       tractoristaNombre,
@@ -979,8 +1138,8 @@ class FormatosService {
     const horaInicio = FormatosService.normalizarHora5(cp.horaInicio);
     const supervisorId = parseInt(cp.supervisorEmpleadoId, 10);
     const supervisorNombre = String(cp.supervisorNombre || '').trim();
-    const arriboDelVuelo = FormatosService.normalizarHora5(cp.arriboDelVuelo, '00:00');
-    const horaAsegurado = FormatosService.normalizarHora5(cp.horaAsegurado, '');
+    const arriboDelVuelo = FormatosService.normalizarHora5(cp.arriboDelVuelo || cp.arriboVuelo, '00:00');
+    const horaAsegurado = FormatosService.normalizarHora5(cp.horaAsegurado || cp.aeronaveAsegurada, '');
     const tractoristaId = parseInt(cp.tractoristaEmpleadoId, 10) || 0;
     const maquinariaEquipoId = parseInt(cp.maquinariaEquipoId, 10) || 0;
     const observaciones = String(cp.observaciones || '').trim();
@@ -1084,31 +1243,14 @@ class FormatosService {
       };
     }
 
-    // Validaciones de negocio estrictas para guardado definitivo
-    if (!fechaIso || !/^\d{4}-\d{2}-\d{2}$/.test(fechaIso)) {
-      return { success: false, statusCode: 400, message: 'La fecha de operación es obligatoria.' };
-    }
-    if (!horaInicio || !/^\d{2}:\d{2}$/.test(horaInicio)) {
-      return { success: false, statusCode: 400, message: 'Debe ingresar una Hora de Revisión válida (HH:mm).' };
-    }
-    if (!Number.isFinite(supervisorId) || supervisorId <= 0) {
-      return { success: false, statusCode: 400, message: 'Debe seleccionar un Supervisor de Turno en el cuadro combinado.' };
-    }
-
-    // Regla estricta: bloquear guardado si alguna persona aún no tiene hora de salida
-    if (pendientesSalida.length > 0) {
+    // Validaciones de negocio estrictas para guardado definitivo (Capa 2 en Backend)
+    const validacion = FormatoValidationService.validarControlCP(payload, user, vueloSesion);
+    if (!validacion.valido) {
       return {
         success: false,
-        statusCode: 400,
-        message: '¡ALERTA DE SEGURIDAD! Hay una o más personas que aún NO han salido de la aeronave. Por favor, registra su hora de salida antes de guardar.'
-      };
-    }
-
-    if (maquinariaEquipoId > 0 && tractoristaId <= 0) {
-      return {
-        success: false,
-        statusCode: 400,
-        message: 'Debe seleccionar al Tractorista cuando asigna un No. Unidad.'
+        statusCode: validacion.statusCode || 400,
+        message: validacion.message,
+        errors: validacion.errors || []
       };
     }
 
@@ -1169,8 +1311,8 @@ class FormatosService {
         { name: 'AlerosId', type: sql.NVarChar(sql.MAX), value: alerosIds.length > 0 ? alerosIds.join(',') : null },
         { name: 'MaquinariaEquipoId', type: sql.Int, value: maquinariaEquipoId > 0 ? maquinariaEquipoId : null },
         { name: 'MaqEmpleadoId', type: sql.Int, value: tractoristaId > 0 ? tractoristaId : null },
-        { name: 'ArriboDelVuelo', type: sql.VarChar(8), value: arriboDelVuelo || null },
-        { name: 'HoraAsegurado', type: sql.VarChar(8), value: horaAsegurado || null },
+        { name: 'ArriboDelVuelo', type: sql.VarChar(8), value: arriboDelVuelo || '00:00' },
+        { name: 'HoraAsegurado', type: sql.VarChar(8), value: horaAsegurado || '' },
         { name: 'AgenteId', type: sql.Int, value: parseInt(user.empleadoId, 10) || null },
         { name: 'Observaciones', type: sql.NVarChar(sql.MAX), value: observaciones || null },
         { name: 'NombresAleros', type: sql.NVarChar(sql.MAX), value: nombreAlerosDelta || ((nombreTractoristaDelta || tractoristaDelta) ? 'N/A' : null) },
@@ -1663,7 +1805,7 @@ class FormatosService {
     }
 
     const validacion = FormatoValidationService.validarPuestosOperacion(payload, user, vueloSesion, {
-      requerirFirma: false
+      requerirFirma: true
     });
     if (!validacion.valido) {
       return {
@@ -2085,7 +2227,12 @@ class FormatosService {
       horaPuertasCerradasCar: norm.horaPuertasCerradasCar,
       horaPuertasCerradasCab: norm.horaPuertasCerradasCab,
       horaInicioRodajeNave: norm.horaInicioRodajeNave,
-      observaciones: norm.observaciones
+      observaciones: norm.observaciones,
+      meta: {
+        aircraftArrived: norm.aircraftArrived,
+        aircraftArrivedTime: norm.aircraftArrivedTime,
+        guard: norm.guard
+      }
     });
 
     return {

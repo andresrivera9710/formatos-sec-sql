@@ -19,13 +19,13 @@ dist/
 build/
 release/
 coverage/
-.netlify/
-**/.netlify/
 
 # Logs y archivos temporales del sistema
 logs/
 *.log
 npm-debug.log*
+.firmas-cache/
+**/.firmas-cache/
 .DS_Store
 Thumbs.db
 .vscode/

@@ -57,56 +57,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const tbodyMatriz = document.getElementById('poTbodyMatriz');
   const totalAgentesEl = document.getElementById('poTotalAgentesCount');
   const inputObservaciones = document.getElementById('poObservaciones');
+  const sigBox = document.getElementById('poSignatureBox');
   const canvasFirmaSup = document.getElementById('poCanvasFirmaSupervisor');
   const btnLimpiarFirma = document.getElementById('btnLimpiarFirmaPO');
   const btnVistaPreliminar = document.getElementById('btnVistaPreliminarPO');
   const btnGuardarDefinitivo = document.getElementById('btnGuardarDefinitivoPO');
 
-  // Lienzo de firma del Supervisor
-  let hasSignatureInk = false;
-  if (canvasFirmaSup) {
-    const ctx = canvasFirmaSup.getContext('2d');
-    let drawing = false;
-    const resize = () => {
-      const rect = canvasFirmaSup.getBoundingClientRect();
-      canvasFirmaSup.width = rect.width || 320;
-      canvasFirmaSup.height = rect.height || 130;
-      ctx.strokeStyle = '#0F2744';
-      ctx.lineWidth = 2;
-      ctx.lineCap = 'round';
-    };
-    resize();
-
-    const getPos = (e) => {
-      const rect = canvasFirmaSup.getBoundingClientRect();
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      return { x: clientX - rect.left, y: clientY - rect.top };
-    };
-
-    canvasFirmaSup.addEventListener('mousedown', (e) => {
-      drawing = true;
-      hasSignatureInk = true;
-      const p = getPos(e);
-      ctx.beginPath();
-      ctx.moveTo(p.x, p.y);
+  // Lienzo de firma del Supervisor (con bloqueo inmutable desde Repositorio GitHub)
+  const sigPadSup = canvasFirmaSup && typeof window.SioSignaturePad === 'function'
+    ? new window.SioSignaturePad(canvasFirmaSup)
+    : null;
+  if (btnLimpiarFirma && sigPadSup) {
+    btnLimpiarFirma.addEventListener('click', () => {
+      if (sigPadSup.isLocked()) return;
+      sigPadSup.clear();
     });
-    canvasFirmaSup.addEventListener('mousemove', (e) => {
-      if (!drawing) return;
-      const p = getPos(e);
-      ctx.lineTo(p.x, p.y);
-      ctx.stroke();
-    });
-    window.addEventListener('mouseup', () => {
-      drawing = false;
-    });
-
-    if (btnLimpiarFirma) {
-      btnLimpiarFirma.addEventListener('click', () => {
-        ctx.clearRect(0, 0, canvasFirmaSup.width, canvasFirmaSup.height);
-        hasSignatureInk = false;
-      });
-    }
   }
 
   function renderMatriz() {
@@ -140,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         return `
-          <tr data-row-index="${rowIdx}">
+          <tr data-row-index="${rowIdx}" data-record-json="${esc(JSON.stringify(item))}">
             <td style="text-align:center; font-weight:700;">${rowIdx + 1}</td>
             <td style="font-weight:700; color:var(--brand-deep);">${esc(item.Usuario)}</td>
             ${posCells}
@@ -226,7 +191,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function recopilarPayload(guardarDefinitivo) {
     const supOpt = selectSupervisor?.options?.[selectSupervisor.selectedIndex];
-    const supervisorNombre = supOpt ? (supOpt.getAttribute('data-usuario') || supOpt.textContent || '').trim() : '';
+    const supervisorNombre = (selectSupervisor?.value && supOpt)
+      ? (supOpt.getAttribute('data-usuario') || supOpt.textContent || '').trim()
+      : '';
 
     return {
       formatoId: inputFormatoId?.value || 'amx-po',
@@ -239,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
         supervisorLoginSecId: selectSupervisor?.value ? parseInt(selectSupervisor.value, 10) : null,
         supervisorNombre,
         observaciones: String(inputObservaciones?.value || '').trim(),
-        firmaSupervisor: hasSignatureInk && canvasFirmaSup ? canvasFirmaSup.toDataURL('image/png') : '',
+        firmaSupervisor: (sigPadSup && !sigPadSup.isEmpty()) ? sigPadSup.toDataURL('image/png') : '',
         detalles
       }
     };
@@ -263,6 +230,14 @@ document.addEventListener('DOMContentLoaded', () => {
         label: 'Matriz de Agentes',
         message: 'Debe asignar al menos 1 Agente y su Puesto Operativo en la matriz.',
         element: selectAgente
+      });
+    }
+    if (!sigPadSup || sigPadSup.isEmpty()) {
+      Validator?.markElementInvalid(sigBox || canvasFirmaSup);
+      errors.push({
+        label: 'Firma Digital del Supervisor',
+        message: 'Debe trazar la Firma Digital del Supervisor antes de guardar Puestos por Operación.',
+        element: sigBox || canvasFirmaSup
       });
     }
 
@@ -311,10 +286,14 @@ document.addEventListener('DOMContentLoaded', () => {
         Swal.close();
         if (Validator && Array.isArray(json.errors) && json.errors.length > 0) {
           Validator.applyBackendErrors(json.errors, {
-            headerMap: {
+            root: form,
+            headerElementMap: {
               fecha: inputFecha,
+              supervisorLoginId: selectSupervisor,
               supervisorLoginSecId: selectSupervisor,
-              detalles: selectAgente
+              firmaSupervisor: sigBox || canvasFirmaSup,
+              detalles: selectAgente,
+              registros: selectAgente
             }
           });
           return;
@@ -345,6 +324,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (json.encabezadoId && inputEncabezadoId) {
         inputEncabezadoId.value = String(json.encabezadoId);
+      }
+      if (json.firmasRepo) {
+        window.SioSignatureRepoClient?.applyRepoState?.(json.firmasRepo);
       }
 
       await Swal.fire({

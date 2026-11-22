@@ -387,12 +387,29 @@
     notifyValidationErrors(mappedErrors, 'Validación de Seguridad (Servidor)');
   }
 
+  /**
+   * Adaptador compatible para llamadas legacy/cortas `focusAndAlert({ title, errors })`
+   * @param {Object|Array<Object>} configOrErrors
+   * @param {string} [maybeTitle]
+   */
+  function focusAndAlert(configOrErrors = [], maybeTitle) {
+    const isConfigObj = configOrErrors && !Array.isArray(configOrErrors) && typeof configOrErrors === 'object';
+    const rawErrors = isConfigObj ? (configOrErrors.errors || []) : (Array.isArray(configOrErrors) ? configOrErrors : []);
+    const title = (isConfigObj ? configOrErrors.title : maybeTitle) || 'Campos Obligatorios Incompletos';
+    const normalized = rawErrors.map((err) => ({
+      ...err,
+      row: err?.row ?? err?.rowNumber ?? null
+    }));
+    return notifyValidationErrors(normalized, title);
+  }
+
   window.SioFormatValidator = {
     clearValidationErrors,
     markElementInvalid,
     validateSingleValue,
     validateFluidGridFormat,
     notifyValidationErrors,
+    focusAndAlert,
     applyBackendErrors,
     focusAndScrollToElement
   };

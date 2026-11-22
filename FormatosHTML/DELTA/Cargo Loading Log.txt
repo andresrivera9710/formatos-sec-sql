@@ -17,7 +17,7 @@
             min-height: 100vh;
             margin: 0;
             padding: 0;
-            background-color: #525659; /* Fondo gris tipo visor PDF */
+            background-color: #ffffff;
             display: flex;
             justify-content: center;
         }
@@ -30,7 +30,7 @@
             background-color: #ffffff;
             padding: 30px 40px;
             margin: 20px auto;
-            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            box-shadow: none;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -253,7 +253,7 @@
                         <!-- SECURITY AGENT -->
                         <td style="width: 48%;">
                             <div class="sig-image-area">
-                                <img src="@{body('Parse_JSON_11')?['FirmaSecurity']}" class="sig-image" onerror="this.style.display='none';" />
+                                <img src="@{body('Parse_JSON_11')?['FirmaSecurity']}" class="sig-image" />
                             </div>
                             <div class="sig-line-container">
                                 <span class="agent-name">@{body('Parse_JSON_11')?['SecurityAgent']}</span>
@@ -273,7 +273,7 @@
                         <!-- LD AGENT -->
                         <td style="width: 48%;">
                             <div class="sig-image-area">
-                                <img src="@{body('Parse_JSON_11')?['FirmaLD']}" class="sig-image" onerror="this.style.display='none';" />
+                                <img src="@{body('Parse_JSON_11')?['FirmaLD']}" class="sig-image" />
                             </div>
                             <div class="sig-line-container">
                                 <span class="agent-name">@{body('Parse_JSON_11')?['AgenteLD']}</span>

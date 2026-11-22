@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CONTROL DE INGRESO Y EGRESO A CABINA - DELTA</title>
     <style>
+        @page { size: A4 portrait; margin: 0; }
         * { box-sizing: border-box; font-family: Arial, sans-serif; margin: 0; padding: 0; }
-        body { display: flex; justify-content: center; background-color: #525659; padding: 20px; }
+        body { display: flex; justify-content: center; background-color: #ffffff; padding: 20px; }
         .page { width: 210mm; min-height: 297mm; background: white; padding: 10mm; display: flex; flex-direction: column; }
         
         .main-table { width: 100%; border-collapse: collapse; border: 2px solid black; }

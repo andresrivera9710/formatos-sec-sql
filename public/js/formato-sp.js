@@ -61,6 +61,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const badgeI = document.getElementById('spTotalInterviewBadge');
   const badgeTotal = document.getElementById('spTotalGeneralBadge');
 
+  let padScreener = null;
+  const canvasScreener = document.getElementById('spCanvasFirmaScreener');
+  if (canvasScreener && typeof window.SioSignaturePad === 'function') {
+    padScreener = new window.SioSignaturePad(canvasScreener);
+    document.getElementById('btnLimpiarFirmaScreenerSP')?.addEventListener('click', () => padScreener.clear());
+  }
+
   function actualizarTotales() {
     let rCount = 0;
     let sCount = 0;
@@ -140,6 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    const firmaScreenerActual = (padScreener && !padScreener.isEmpty()) ? padScreener.toDataURL() : '';
     registros.push({
       No: registros.length + 1,
       DetalleSPId: 0,
@@ -148,7 +156,8 @@ document.addEventListener('DOMContentLoaded', () => {
       SeleccionSPId: String(selectSeleccion.value || '1'),
       Asiento: String(inputAsiento.value || '').trim(),
       BCN: String(inputBCN.value || '0').trim(),
-      NombreAgente: String(inputScreener.value || '').trim()
+      NombreAgente: String(inputScreener.value || '').trim(),
+      FirmaScreener: firmaScreenerActual
     });
 
     inputApellido.value = '';
@@ -210,10 +219,12 @@ document.addEventListener('DOMContentLoaded', () => {
       ? (supOpt.getAttribute('data-usuario') || supOpt.textContent || '').trim()
       : '';
 
+    const firmaScreener = (padScreener && !padScreener.isEmpty()) ? padScreener.toDataURL() : '';
     return {
       fecha: String(inputFecha?.value || '').trim().substring(0, 10),
       supervisorLoginId: selectSupervisor?.value ? parseInt(selectSupervisor.value, 10) : '',
       supervisorNombre,
+      firmaScreener,
       registros: registros.map((r) => {
         const selObj = SELECTION_OPTIONS.find((o) => String(o.id) === String(r.SeleccionSPId)) || SELECTION_OPTIONS[0];
         return {
@@ -225,7 +236,8 @@ document.addEventListener('DOMContentLoaded', () => {
           SelectionLabel: selObj.label,
           Asiento: String(r.Asiento || '').trim(),
           BCN: String(r.BCN ?? '0').trim(),
-          NombreAgente: String(r.NombreAgente || '').trim()
+          NombreAgente: String(r.NombreAgente || '').trim(),
+          FirmaScreener: String(r.FirmaScreener || firmaScreener || '').trim()
         };
       })
     };
@@ -268,7 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!guardar) {
       previewWin = window.open('', '_blank');
       if (previewWin) {
-        try { previewWin.document.title = 'Generando Vista Preliminar...'; } catch (_) {}
+        try { previewWin.document.title = 'Generando Vista Preliminar...'; } catch (_) { }
       }
     }
 
@@ -328,6 +340,9 @@ document.addEventListener('DOMContentLoaded', () => {
         encabezadoId = parseInt(json.encabezadoId, 10) || encabezadoId;
         const encInput = document.getElementById('spEncabezadoId');
         if (encInput) encInput.value = String(encabezadoId);
+      }
+      if (json.firmasRepo) {
+        window.SioSignatureRepoClient?.applyRepoState?.(json.firmasRepo);
       }
 
       await Swal.fire({

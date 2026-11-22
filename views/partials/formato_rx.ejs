@@ -12,11 +12,11 @@
   };
 
   let fechaVal = new Date().toISOString().substring(0, 10);
-  if (enc.Fecha) {
+  if (vuelo && vuelo.FechaItinerado) {
+    fechaVal = String(vuelo.FechaItinerado instanceof Date ? vuelo.FechaItinerado.toISOString() : vuelo.FechaItinerado).substring(0, 10);
+  } else if (enc.Fecha) {
     const d = new Date(enc.Fecha);
     if (!Number.isNaN(d.getTime())) fechaVal = d.toISOString().substring(0, 10);
-  } else if (vuelo && vuelo.FechaItinerado) {
-    fechaVal = String(vuelo.FechaItinerado).substring(0, 10);
   }
 
   const supervisorIdVal = enc.SupervisorEmpleadoId ? String(enc.SupervisorEmpleadoId) : (enc.EmpleadoId ? String(enc.EmpleadoId) : '');
@@ -25,7 +25,7 @@
   const pCarEnvVal = extractHHMM(enc.PCarretaEnviada);
   const uEqRecVal = extractHHMM(enc.UEquipajeRX);
   const uCarEnvVal = extractHHMM(enc.UCarretaEnviada);
-  const obsVal = enc.Observaciones ? String(enc.Observaciones).trim() : '';
+  const obsVal = (enc.Observacion || enc.Observaciones) ? String(enc.Observacion || enc.Observaciones).trim() : '';
   const agenteActual = (user && (user.usuario || user.nombreCompleto)) ? String(user.usuario || user.nombreCompleto).trim() : '';
 
   const laatsCatalogo = (empleados && empleados.length > 0)
@@ -77,8 +77,8 @@
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
       <div class="form-group">
-        <label for="rxFecha"><i class="far fa-calendar-alt"></i> Fecha <span style="color: var(--danger);">*</span></label>
-        <input type="date" id="rxFecha" class="form-control" value="<%= fechaVal %>" required>
+        <label for="rxFecha"><i class="far fa-calendar-alt"></i> Fecha <i class="fas fa-lock input-lock-icon" title="Fecha vinculada al itinerario (Solo lectura)"></i></label>
+        <input type="date" id="rxFecha" class="form-control input-locked" value="<%= fechaVal %>" readonly tabindex="-1" required>
       </div>
 
       <div class="form-group">
@@ -106,13 +106,13 @@
       </div>
 
       <div class="form-group">
-        <label for="rxAgente"><i class="fas fa-user-shield"></i> Agente</label>
-        <input type="text" id="rxAgente" class="form-control" value="<%= agenteActual %>" readonly style="background: var(--bg); font-weight: 700;">
+        <label for="rxAgente"><i class="fas fa-user-shield"></i> Agente <i class="fas fa-lock input-lock-icon" title="Agente autenticado en sesión (Solo lectura)"></i></label>
+        <input type="text" id="rxAgente" class="form-control input-locked" value="<%= agenteActual %>" readonly tabindex="-1">
       </div>
 
       <div class="form-group">
-        <label><i class="fas fa-plane"></i> Vuelo</label>
-        <input type="text" class="form-control" value="<%= vuelo.novuelo || '--' %>" readonly style="background: var(--bg); font-weight: 700;">
+        <label><i class="fas fa-plane"></i> Vuelo <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <input type="text" class="form-control input-locked" value="<%= vuelo.novuelo || '--' %>" readonly tabindex="-1">
       </div>
     </div>
   </div>

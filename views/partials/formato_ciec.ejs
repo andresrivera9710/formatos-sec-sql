@@ -6,18 +6,18 @@
   const observacionCiecVal = (ciecState && ciecState.observacionesLimpia !== undefined)
     ? ciecState.observacionesLimpia
     : String(comp.Observaciones || comp.Observacion || '').trim();
-  const empresasCIEC = [
-    'LAATS', 'GODARD(Cocinas)', 'ODA (Combustible)', 'OIRSA',
-    'DGAC (Operaciones)', 'AEROEXPRESS',
-    (formato && formato.id === 'dl-ciec')
-      ? 'DELTA'
-      : ((formato && formato.id === 'ara-ciec')
-        ? 'ARAJET'
-        : ((formato && formato.id === 'latam-ciec')
-          ? 'LAN CARGO'
-          : ((formato && formato.id === 'ajt-ciec') ? 'AMERIJET' : 'AEROMEXICO'))),
-    'OTROS...'
-  ];
+  const empresasCIEC = (formato && formato.id === 'dl-ciec')
+    ? ['LAATS', 'DELTA', 'SAG', 'ODA', 'GODARD', 'GODARD(Cocinas)', 'ODA (Combustible)', 'OIRSA', 'DGAC (Operaciones)', 'OTROS...']
+    : [
+        'LAATS', 'GODARD(Cocinas)', 'ODA (Combustible)', 'OIRSA',
+        'DGAC (Operaciones)', 'AEROEXPRESS',
+        (formato && formato.id === 'ara-ciec')
+          ? 'ARAJET'
+          : ((formato && formato.id === 'latam-ciec')
+            ? 'LAN CARGO'
+            : ((formato && formato.id === 'ajt-ciec') ? 'AMERIJET' : 'AEROMEXICO')),
+        'OTROS...'
+      ];
 
   const extractHHMM = (val) => {
     if (!val) return '';

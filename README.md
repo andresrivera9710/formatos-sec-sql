@@ -64,7 +64,64 @@ Aplicación web corporativa construida sobre **Node.js + Express 5 + EJS + Vanil
    ```
    El servidor quedará disponible en `http://localhost:3000`.
 
-   > **Regla Obligatoria de Pruebas:** Para cualquier prueba de inicio de sesión o verificación funcional en el sistema, utilizar siempre el login/PIN **`9710`** (`ANDRES RIVERA`, rol `SUPERVISOR`).
+   > **Regla Obligatoria de Pruebas:** Para cualquier prueba de inicio de sesión, navegación en Chrome o verificación funcional en el sistema:
+   > - Utilizar siempre el login/PIN **`9710`** (**`ANDRES RIVERA`**, rol `SUPERVISOR`).
+   > - Seleccionar siempre las **tarjetas de operaciones del 1 de enero de 2026 (`2026-01-01`)** en `/operaciones`.
+
+---
+
+## Cliente AEROMEXICO — Estado de Formatos Trabajados (7/7 Completados)
+
+Todos los formatos de **AEROMEXICO** fueron auditados de extremo a extremo (SQL / Stored Procedures -> `FormatosModel` -> `FormatoValidationService` -> `FormatosService` -> `HtmlPreviewService` -> EJS/JS -> Vista Preliminar / PDF oficial -> Repositorio de Firmas GitHub) tomando como guía las plantillas reales exportadas desde Power Automate:
+
+| ID | Nombre Oficial del Formato | Plantilla HTML Controlada (`FormatosHTML/AEROMEXICO/`) | Nomenclatura de Documento Generado (`<Vuelo>_<Matrícula>_<Formato>_<Id\|PRELIMINAR>.html`) | Fecha en Plantilla | Ajustes Clave y Correcciones Aplicadas |
+| :--- | :--- | :--- | :--- | :---: | :--- |
+| **`amx-cp`** | Control de Perimétrica (unificado) | `Control de Perimétrica (unificado).html` | `672_673_NA_Control de Perimétrica (unificado)_<Id\|PRELIMINAR>.html` | `MM/dd/yyyy` | Sincronización de Aleros 1/2 (`AlerosCP`), Tractorista/Unidad, fila mínima de `25` renglones, `Observaciones` multilínea (`white-space: pre-line`) y estado `Pendiente` en rojo si falta hora de salida. |
+| **`amx-ciec`** | Control de ingreso y egreso cabina aeronave | `Control Ingreso y Egreso Cabina.html` | `672_673_NA_Control de ingreso y egreso cabina aeronave_<Id\|PRELIMINAR>.html` | `MM/dd/yyyy` | Separación de vista en vivo vs persistida para `Equipaje en Puerta` (`TOTAL EQ. 0` cuando está vacío), Aleros + Tractorista/Unidad, `32` filas mínimas `.grid-row`, ajuste de `@media print` sin `height: 100vh`. |
+| **`amx-eb`** | Control de Equipajes en Banda de Salida (Rayos X) | `Control de Equipajes en Banda de Salida (rayos x).html` | `678_679_NA_Control de Equipajes en Banda de Salida (Rayos X)_<Id\|PRELIMINAR>.html` | `dd/MM/yyyy` | Corrección de matriz inline (`1..10` x `15` filas), tache rojo `✗` en anulaciones, contadores nulos mostrados en `0` (`stat-box`) y resolución de Supervisor/Operador desde `LoginSEC`. |
+| **`amx-cec`** | Control de Equipajes en Compartimentos | `Control de Equipajes en Compartimentos.html` | `672_673_NA_Control de Equipajes en Compartimentos_<Id\|PRELIMINAR>.html` | `MM/dd/yyyy` | Corrección CSS de `.page`, separación automática de vuelos Desembarque/Embarque en vuelos combinados (`672/673` -> `672` y `673`), `Compartimiento No.`, personal y `Observaciones` multilínea. |
+| **`amx-po`** | Puestos por Operación | `Puestos por Operación.html` | `672_673_NA_Puestos por Operación_<Id\|PRELIMINAR>.html` | `yyyy-MM-dd` | Alias SQL `PosicionesPOId AS PosicionId` / `Posiciones AS Posicion` en `FormatosModel`, preselección de Supervisor (`LoginId`), validación obligatoria de **Firma Digital del Supervisor**, `@page A4 landscape`, `table-layout: fixed` y firma persistente/bloqueada en GitHub. |
+| **`amx-er`** | Control de Equipaje en Revisión AVSEC/SGDAIA Banda de Salida (rayos x) | `Control de Equipaje en Revisión AVSECSGDAIA Banda de Salida (rayos x) AMX.html` | `671_NA_Control de Equipaje en Revisión AVSEC_SGDAIA Banda de Salida (rayos x)_<Id\|PRELIMINAR>.html` | `dd/MM/yyyy` | `@page A4 landscape`, `table-layout: fixed`, encabezado columna 9 corregido a `AMX`, `Observaciones` multilínea, preservación de `CreadoPor` histórico al reanudar y firma bloqueada en GitHub (`firmaBase64`). |
+| **`amx-mecd`** | Equipajes en mal estado y carga dañada | `Equipaje en mal estado.html` | `671_NA_Equipajes en mal estado y carga dañada_<Id\|PRELIMINAR>.html` | `yyyy-MM-dd` | Hidratación corregida en `FormatosService` (`encabezado`/`complemento`, `revision`/`revisiones` y mapeo de `CCO`/`Agente`/`Supervisor` por `LoginId` o `EmpleadoId`), fecha ISO `yyyy-MM-dd`, fondo blanco `#ffffff` y captura/bloqueo independiente de las **3 firmas** (`firmaCCO`, `firmaAgente`, `firmaSupervisor`) en GitHub. |
+
+### Repositorio Permanente de Firmas Digitales (GitHub + Bloqueo Inmutable)
+Dado que las tablas históricas de los formatos en Azure SQL (`EncabezadoPO`, `EncabezadoControlER`, `EncabezadoEquipMECD`, etc.) no almacenan binarios de firmas digitales, se implementó `services/SignatureRepositoryService.js` y `public/js/signature-pad.js` cubriendo las **10 familias con firma del sistema** (`po`, `er`, `mecd`, `cll`, `dal`, `sel`, `ass`, `anexob`, `liadc`, `lisa`):
+- **Persistencia atómica en GitHub**: al guardar por primera vez cada firma, se sube como PNG binario + `manifest.json` a `firmas/<familia>/<encabezadoId>/<firmaKey>.png` en `andresrivera9710/formatos-sec-sql` (`main`, con commit `[skip ci]`), usando `.firmas-cache/` local (excluida en `.gitignore`).
+- **Bloqueo permanente**: al consultar, reanudar o generar Vista Preliminar/PDF, el sistema recupera la firma desde GitHub/caché (con respaldo de registros legados SQL), reemplaza el lienzo `<canvas>` por la vista bloqueada con enlace a GitHub y rechaza en Backend cualquier intento de sobrescritura o borrado, permitiendo completar en sesiones posteriores únicamente las firmas opcionales que aún permanezcan vacías.
+
+### Cliente DELTA AIR LINES — Estado de Formatos Trabajados (9/9 Completados)
+
+Todos los formatos de **DELTA AIR LINES (`dl-*`)** fueron auditados 1:1 contra Power Apps (`FORMAT SEC - SQL/Src/scrDELTA.pa.yaml`) y los documentos controlados oficiales exportados de Power Automate (`FormatosHTML/DELTA/`), respetando sus variaciones específicas frente a AEROMEXICO sin alterar el funcionamiento existente:
+
+| ID | Nombre Oficial del Formato | Plantilla HTML Controlada (`FormatosHTML/DELTA/`) | Nomenclatura de Documento Generado (`<Vuelo>_<Matrícula>_<Formato>_<Id\|PRELIMINAR>.html`) | Fecha en Plantilla | Ajustes Clave y Variaciones DELTA Aplicadas |
+| :--- | :--- | :--- | :--- | :---: | :--- |
+| **`dl-cp`** | Control de Perimétrica (unificado) | `Control de Perimétrica (unificado) DL.txt` | `1830_1831_N695DL_Control de Perimétrica (unificado)_<Id\|PRELIMINAR>.html` | `MM/dd/yyyy` | Fondo oficial `#ffffff`, catálogo de empresas DELTA (`LAATS`, `DELTA`, `SAG`, `ODA`, `GODARD`, `OIRSA`, `DGAC (Operaciones)`, `OTROS...`), `Aleros` unificados (`Alero 1, Alero 2`), `Tractorista / Unidad` y `25` filas mínimas. |
+| **`dl-ciec`** | Control de ingreso y egreso cabina aeronave | `Control Ingreso y Egreso Cabina DL.txt` | `1830_1831_N695DL_Control de ingreso y egreso cabina aeronave_<Id\|PRELIMINAR>.html` | `dd/MM/yyyy` | Fondo oficial `#ffffff`, `EquipajePuertaHTML` renderizado como lista de secuencias separadas por coma (`_secuenciasTexto` de `scrDELTA.pa.yaml`), `Aleros`, `Tractorista / Unidad`, `32` filas mínimas `.grid-row` y bloqueo `.input-locked` de fecha/vuelo/matrícula. |
+| **`dl-er`** | Control de Equipaje en Revisión AVSEC/SGDAIA Banda de Salida (rayos x) | `Control de Equipaje en Revisión AVSEC SGDAIA Banda de Salida (rayos x) DL.txt` | `1830_1831_N695DL_Control de Equipaje en Revisión AVSEC_SGDAIA Banda de Salida (rayos x)_<Id\|PRELIMINAR>.html` | `dd/MM/yyyy` | **Variación DELTA (8 columnas sin `Secuencia`)**: ocultación de `Secuencia` en UI y tabla HTML para `dl-er` (auto-asignando índice correlativo interno para SQL), `N/A` en columna `DESTINO` de filas vacías (`1..15`) y firma bloqueada en GitHub (`firmaBase64`). |
+| **`dl-cec`** | Control de Equipajes en Compartimentos | `Control de Equipajes en Compartimentos DL.txt` | `1830_1831_N695DL_Control de Equipajes en Compartimentos_<Id\|PRELIMINAR>.html` | `MM/dd/yyyy` | **Variación DELTA (Sin matriz de secuencias)**: tabla `TablaEmbarqueHTML` de 8 filas (`EQUIPAJE MOSTRADOR`, `EQUIPAJE POR PUERTA`, `CARGA:`, `TOTAL EQ.`, `TOTAL CARGA`) persistida en `dbo.EmbarqueDelta`, y `TablaDesembarqueHTML` de 6 filas (`EQUIPAJES`, `CARRUAJES`, `CARGA`, `TOTAL EQ.`, `TOTAL CARGA`) sin `Correos` ni `Maltratado`. |
+| **`dl-rx`** | Control de Equipajes en Rayos X | `Control de Equipaje en Rayos X DELTA.txt` | `1830_1831_N695DL_Control de Equipaje en Rayos X DELTA_<Id\|PRELIMINAR>.html` | `dd/MM/yyyy` | Fondo `#ffffff` sin sombra gris, fecha bloqueada `.input-locked`, tablas paralelas `PERSONAL SAG` y `PERSONAL LAATS` (mínimo `6` filas cada una), hidratación de `Observacion` desde `dbo.ObservacionDRayosX` y resolución de Supervisor/Agente desde `LoginSEC`. |
+| **`dl-cll`** | Cargo Loading Log | `Cargo Loading Log.txt` | `1830_1831_N695DL_Cargo Loading Log_<Id\|PRELIMINAR>.html` | `dd/MM/yyyy` | Fondo `#ffffff`, eliminación de atributos inline `onerror` para cumplimiento estricto de Helmet CSP, `21` filas proporcionales, separación/unión automática de `AgenteDelta, TiaLD` en `dbo.EncabezadoCLL.AgenteDelta` y bloqueo en GitHub de `firmaSecurity` + `firmaLD`. |
+| **`dl-sp`** | Selected Passenger | `Selected Passenger.txt` | `1830_1831_N695DL_Selected Passenger_<Id\|PRELIMINAR>.html` | `dd/MM/yyyy` | Fondo `#ffffff` en formato Carta horizontal (`15` filas), contadores automáticos `R Random`, `S Selected`, `I Interview` y `TOTAL`, captura y bloqueo en GitHub de `firmaScreener` (`SCREENER NAME AND SIGNATURE`) y nombre de `SUPERVISOR LAATS`. |
+| **`dl-dal`** | Daily Activity Log | `Daily Activity Log.txt` | `1830_1831_N695DL_Daily Activity Log_<Id\|PRELIMINAR>.html` | `dd/MM/yyyy` | Fondo `#ffffff`, token `BagsEscortedSig` en fila `BAGS ESCORTED TO AIRCRAFT - GUARD SIGNATURE`, hidratación completa de `dbo.DetalleDAL` (`Evaluadores`, guardias, conteos de equipaje/carga/pasajeros) y bloqueo en GitHub de `firmaGuardSup` + `firmaDLAgent`. |
+| **`dl-sel`** | Sequence of Events Log | `Sequence of Events Log.txt` | `1830_1831_N695DL_Sequence of Events Log_<Id\|PRELIMINAR>.html` | `dd/MM/yyyy` | Fondo `#ffffff`, bloqueo `.input-locked` de `Date`, `Flight #`, `Aircraft Arrived` y `Guard`, preservación de metadatos de arribo (`SEL_META`) en `dbo.DetalleSEL` y bloqueo en GitHub de `firmaSupervisor`. |
+
+---
+
+## Arquitectura Offline-First, Caché IndexedDB y Sincronización Automática
+
+El sistema cuenta con resiliencia nativa ante pérdida de señal en rampa o terminal para **AEROMEXICO, los 7 clientes actuales y cualquier integración futura**:
+
+1. **Detección Real de Señal + Indicador en el Tab Bar (*Sliding Pill*)**:
+   - `public/js/offline-manager.js` combina eventos `online`/`offline` con un **Heartbeat real** contra `GET /api/health` (`timeout` de `3s`, `cache: 'no-store'`).
+   - El **Tab Bar** (`views/partials/tab-bar.ejs`, `public/css/tab-bar.css`, `public/js/tab-bar.js`) incorpora el ítem `#btnTabNetworkStatus` en Web y Móvil:
+     - **En línea**: Ícono Wi-Fi verde (`--success` `#16A34A`) y etiqueta `"En línea"`.
+     - **Sin conexión**: Ícono Wi-Fi tachado en ámbar/rojo (`#F59E0B` / `#DC2626`), etiqueta `"Sin conexión (Modo Caché)"` y contador `#tabNetworkPendingBadge` de formatos pendientes por sincronizar.
+2. **Almacenamiento Persistente en IndexedDB (`sio_laats_offline_db`) + Service Worker (`public/sw.js`)**:
+   - **`drafts`**: Autoguardado continuo en tiempo real indexado por `correlativo::cliente::codigoFormato::encabezadoId` (campos, selectores, cuadrículas dinámicas y firmas trazadas en `<canvas>`). Si el operador cierra o recarga la página, el borrador se restaura automáticamente mostrando el banner `#sioOfflineDraftBanner`.
+   - **`pending_sync_queue`**: Cuando el operador presiona **Guardar / Crear Formato** sin conexión, se ejecuta primero la validación estricta de campos obligatorios en Frontend, se encola el payload con `clientMutationId` idempotente, se confirma con **SweetAlert2** y se habilita la **Vista Preliminar limpia Offline** sobre hoja blanca `#FFFFFF` usando la plantilla controlada almacenada en **`templates`** (`GET /api/offline/plantilla/:formatoId`).
+   - **`Auto-Sync`**: Al recuperar conectividad real (`GET /api/health` -> `HTTP 200`), `offline-manager.js` envía automáticamente la cola pendiente en orden cronológico a `/api/formatos/guardar` o `/api/formatos/procesar`, limpia la cola y el borrador tras confirmar la persistencia en Azure SQL, bloquea las firmas registradas en GitHub y notifica discretamente al usuario.
+3. **Herencia Automática para Nuevos Módulos**:
+   - Todo formulario renderizado en `views/formato_detalle.ejs` recibe `#sioOfflineContextJson` y canaliza sus peticiones por el interceptor `window.fetch` de `offline-manager.js`, heredando autoguardado, cola offline, vista preliminar local y sincronización automática sin duplicar lógica.
 
 ---
 
@@ -105,7 +162,7 @@ Configura estas claves en **Azure Portal -> App Service -> Settings -> Environme
 | `DB_ENCRYPT` | `true` | Sí | Cifrado TLS obligatorio hacia Azure SQL. |
 | `DB_TRUST_SERVER_CERT` | `false` | Sí | Validación estricta del certificado TLS de Azure SQL en producción. |
 | `SESSION_SECRET` | `<cadena_aleatoria_>=32_chars>` | Sí | Clave criptográfica para firmar `sio_session` (mínimo 32 caracteres; `validateEnv.js` bloquea arranque si es débil). |
-| `ALLOWED_ORIGINS` | `https://<tu-app>.azurewebsites.net` | Sí | Lista blanca CORS separada por comas (`app.js` agrega también `https://${WEBSITE_HOSTNAME}` automáticamente). |
+| `ALLOWED_ORIGINS` | `https://sio.laats.net,https://sio-prod.azurewebsites.net` | Sí | Lista blanca CORS separada por comas (`app.js` incluye automáticamente `https://sio.laats.net`, `https://sio-prod.azurewebsites.net` y `https://${WEBSITE_HOSTNAME}`). |
 
 > **Nota de Seguridad:** Nunca subas `.env`, `GEMINI.md` ni `readmegithub.md` al repositorio ni dentro del paquete ZIP de despliegue.
 
@@ -198,6 +255,6 @@ Los workflows se encuentran en `.github/workflows/`:
   - `dependency-audit`: ejecuta `npm audit --omit=dev --audit-level=high`.
 
 - **CD Release (`.github/workflows/cd.yml`):** Se ejecuta automáticamente cuando `CI` termina en éxito sobre `main` (o manualmente desde *Actions*):
-  - Valida el arranque productivo (`config/validateEnv.js`), empaqueta un artefacto portable (`formatos-sec-sql-release`) descargable desde GitHub Actions y, si están configurados `NETLIFY_AUTH_TOKEN` y `NETLIFY_SITE_ID` en *Repository Secrets*, publica `public/` en Netlify.
+  - Valida el arranque productivo (`config/validateEnv.js`) y empaqueta un artefacto portable (`formatos-sec-sql-release`) descargable desde GitHub Actions listo para Azure App Service (`sio-prod` / `https://sio.laats.net`).
 
-- **Deploy Azure App Service (`.github/workflows/deploy-azure-app-service.yml`):** Workflow manual (`workflow_dispatch`) listo para desplegar a producción o slot en Azure App Service con validación previa y smoke test en `/api/health`.
+- **Deploy Azure App Service (`.github/workflows/deploy-azure-app-service.yml`):** Workflow manual (`workflow_dispatch`) listo para desplegar a producción (`sio-prod` / `https://sio.laats.net`) o slot en Azure App Service con validación previa y smoke test en `/api/health`.

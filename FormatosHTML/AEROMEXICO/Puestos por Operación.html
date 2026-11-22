@@ -69,6 +69,7 @@
         /* ESTILOS PARA LA TABLA DE 13 COLUMNAS */
         table {
             width: 100%;
+            table-layout: fixed;
             border-collapse: collapse;
             font-size: 9px;
             text-align: center;
@@ -79,6 +80,7 @@
             border: 1px solid black;
             padding: 3px 2px;
             height: 22px; 
+            word-break: break-word;
         }
         th {
             font-weight: bold;
@@ -130,8 +132,14 @@
             margin-bottom: 3px;
         }
         
+        @page {
+            size: A4 landscape;
+            margin: 5mm;
+        }
+
         @media print {
-            body { padding: 0; }
+            body { padding: 0; background: none; }
+            .page { width: 100%; min-height: auto; padding: 8mm 10mm; }
         }
     </style>
 </head>
@@ -141,7 +149,7 @@
         <!-- ENCABEZADO IDÉNTICO A TU OTRO FORMATO -->
         <div class='header'>
             <div class='logo-placeholder'>
-                <img src='data:image/png;base64,@{variables('varLogoAeromexico')} ' alt='Logo' style='max-width: 100%; max-height: 100%; object-fit: contain;' />
+                <img src='data:image/png;base64,@{variables('varLogoAeromexico')}' alt='Logo' style='max-width: 100%; max-height: 100%; object-fit: contain;' />
             </div>
             <div class='fecha-box'>
                 <div>FECHA: <div class='line-input'>@{body('Parse_JSON_7')?['Fecha']}</div></div>
@@ -181,7 +189,7 @@
         <div class='observaciones-container'>
             <div style='display: flex; align-items: flex-end;'>
                 <span>OBSERVACIONES:</span>
-                <div style='border-bottom: 1px solid black; flex-grow: 1; margin-left: 10px; font-weight: normal; font-size: 12px; padding-bottom: 2px;'>@{body('Parse_JSON_7')?['Observaciones']}</div>
+                <div style='border-bottom: 1px solid black; flex-grow: 1; margin-left: 10px; font-weight: normal; font-size: 12px; padding-bottom: 2px; white-space: pre-line; word-break: break-word; min-height: 18px;'>@{body('Parse_JSON_7')?['Observaciones']}</div>
             </div>
             <div class='obs-line-full'></div>
             <div class='obs-line-full'></div>

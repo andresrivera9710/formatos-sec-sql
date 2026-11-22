@@ -188,7 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tieneSalida = Boolean(r.HoraSalida);
         const barColor = tieneSalida ? '#16A34A' : '#DC2626';
         return `
-          <div class="cp-registro-card" data-reg-idx="${r._idx}" style="border-left: 5px solid ${barColor}; background: var(--surface); border-radius: 8px; padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border-top: 1px solid var(--border-2); border-right: 1px solid var(--border-2); border-bottom: 1px solid var(--border-2);">
+          <div class="cp-registro-card" data-reg-idx="${r._idx}" data-record-json="${esc(JSON.stringify(r))}" style="border-left: 5px solid ${barColor}; background: var(--surface); border-radius: 8px; padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border-top: 1px solid var(--border-2); border-right: 1px solid var(--border-2); border-bottom: 1px solid var(--border-2);">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:8px;">
               <div>
                 <strong style="font-size:14px; color:var(--brand-deep); display:block;">#${r._idx + 1} — ${esc(r.Nombre)}</strong>
@@ -467,7 +467,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function recopilarPayload(guardarDefinitivo) {
     const supOpt = selectSupervisor?.options?.[selectSupervisor.selectedIndex];
-    const supervisorNombre = supOpt ? (supOpt.getAttribute('data-usuario') || supOpt.textContent || '').trim() : '';
+    const supervisorNombre = (selectSupervisor?.value && supOpt)
+      ? (supOpt.getAttribute('data-usuario') || supOpt.textContent || '').trim()
+      : '';
 
     const elTrDelta = document.getElementById('ciecTractoristaDelta');
     const elMaqDelta = document.getElementById('ciecMaquinariaDelta');
@@ -603,10 +605,13 @@ document.addEventListener('DOMContentLoaded', () => {
         Swal.close();
         if (Validator && Array.isArray(json.errors) && json.errors.length > 0) {
           Validator.applyBackendErrors(json.errors, {
-            headerMap: {
+            root: form,
+            headerElementMap: {
               fecha: inputFecha,
               horaInicio: inputHoraInicio,
               supervisorEmpleadoId: selectSupervisor,
+              tractoristaEmpleadoId: selectTractorista,
+              maquinariaEquipoId: selectNoUnidad,
               registros: inputRegNombre
             }
           });

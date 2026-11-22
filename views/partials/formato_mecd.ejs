@@ -1,6 +1,8 @@
 <%
-  const comp = (mecdState && mecdState.complemento) ? mecdState.complemento : {};
-  const revisionList = (mecdState && Array.isArray(mecdState.revision)) ? mecdState.revision : [];
+  const comp = (mecdState && (mecdState.complemento || mecdState.encabezado)) ? (mecdState.complemento || mecdState.encabezado) : {};
+  const revisionList = (mecdState && Array.isArray(mecdState.revision))
+    ? mecdState.revision
+    : ((mecdState && Array.isArray(mecdState.revisiones)) ? mecdState.revisiones : []);
   const conFirmaList = (mecdState && Array.isArray(mecdState.conFirma)) ? mecdState.conFirma : [];
   const sinFirmaList = (mecdState && Array.isArray(mecdState.sinFirma)) ? mecdState.sinFirma : [];
 
@@ -11,11 +13,19 @@
     fechaInicial = String(comp.Fecha instanceof Date ? comp.Fecha.toISOString() : comp.Fecha).substring(0, 10);
   }
 
-  const ccoLoginIdVal = comp.LoginId ? String(comp.LoginId) : '';
-  const agenteLoginSecIdVal = comp.AgenteLoginSECId
-    ? String(comp.AgenteLoginSECId)
-    : (user && user.loginSecId ? String(user.loginSecId) : '');
-  const supLoginSecIdVal = comp.SupervisorLoginSECId ? String(comp.SupervisorLoginSECId) : '';
+  const ccoLoginIdVal = (mecdState && mecdState.ccoLoginId)
+    ? String(mecdState.ccoLoginId)
+    : (comp.LoginId ? String(comp.LoginId) : (comp.EmpleadoId ? String(comp.EmpleadoId) : ''));
+  const agenteLoginSecIdVal = (mecdState && mecdState.agenteLoginSecId)
+    ? String(mecdState.agenteLoginSecId)
+    : (comp.AgenteLoginSECId
+      ? String(comp.AgenteLoginSECId)
+      : (comp.AgenteId ? String(comp.AgenteId) : (user && user.loginSecId ? String(user.loginSecId) : '')));
+  const supLoginSecIdVal = (mecdState && mecdState.supervisorLoginSecId)
+    ? String(mecdState.supervisorLoginSecId)
+    : (comp.SupervisorLoginSECId
+      ? String(comp.SupervisorLoginSECId)
+      : (comp.SupervisorId ? String(comp.SupervisorId) : ''));
   const destinoDefault = (vuelo && (vuelo.Destino || vuelo.destino)) ? String(vuelo.Destino || vuelo.destino).trim() : 'MEX';
 
   const initialMecdPayload = {
@@ -40,7 +50,7 @@
   <div class="card">
     <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
       <h3 class="cp-section-title">
-        <i class="fas fa-Suitcase-rolling fa-exclamation-triangle"></i> Datos Generales — Equipajes en Mal Estado y Carga Dañada
+        <i class="fas fa-suitcase-rolling"></i> Datos Generales — Equipajes en Mal Estado y Carga Dañada
       </h3>
       <div style="display: flex; align-items: center; gap: 10px;">
         <% if (!esNuevo && encabezadoId) { %>
@@ -199,7 +209,7 @@
   <div class="card">
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
       <h3 class="cp-section-title">
-        <i class="fas fa-Suitcase"></i> 3. Maleta Dañada en Tobogán SIN Firma
+        <i class="fas fa-suitcase"></i> 3. Maleta Dañada en Tobogán SIN Firma
       </h3>
       <span class="badge badge-gold" id="mecdCountSFBadge">0 registros</span>
     </div>

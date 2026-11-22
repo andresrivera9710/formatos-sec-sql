@@ -13,7 +13,8 @@
   }
 
   const observacionInicial = comp.Observacion ? String(comp.Observacion).trim() : '';
-  const agenteActual = (user && user.usuario) ? String(user.usuario).trim() : '';
+  const agenteSesion = (user && user.usuario) ? String(user.usuario).trim() : '';
+  const agenteActual = (!esNuevo && comp.CreadoPor) ? String(comp.CreadoPor).trim() : agenteSesion;
   const noVueloActivo = (vuelo && vuelo.novuelo) ? String(vuelo.novuelo).trim() : '';
   const destinoActivo = (vuelo && (vuelo.Destino || vuelo.destino)) ? String(vuelo.Destino || vuelo.destino).trim() : '';
 
@@ -65,12 +66,12 @@
 
     <div style="max-width: 340px;">
       <div class="form-group">
-        <label for="erFecha"><i class="far fa-calendar-alt"></i> Fecha:</label>
+        <label for="erFecha"><i class="far fa-calendar-alt"></i> Fecha: <i class="fas fa-lock input-lock-icon" title="Fecha vinculada al itinerario (Solo lectura)"></i></label>
         <input
           type="date"
           id="erFecha"
           name="fecha"
-          class="form-control er-cell-readonly"
+          class="form-control input-locked er-cell-readonly"
           value="<%= fechaItinerario %>"
           readonly
           disabled
@@ -104,8 +105,9 @@
         >
       </div>
 
+      <% if (!formato || formato.id !== 'dl-er') { %>
       <!-- 2. Secuencia: (txtSecuenciaCP) -->
-      <div class="form-group">
+      <div class="form-group" id="erGrupoInputSecuencia">
         <label for="erInputSecuencia">Secuencia: <span style="color: var(--danger);">*</span></label>
         <input
           type="number"
@@ -117,6 +119,7 @@
           placeholder="Ingrese la secuencia"
         >
       </div>
+      <% } %>
 
       <!-- 3. Colilla: (txtSecuenciaCP_1) -->
       <div class="form-group">
@@ -249,7 +252,9 @@
           <tr>
             <th style="width: 52px; text-align: center;">No.</th>
             <th style="min-width: 200px;">NOMBRE DEL PASAJERO <span class="er-req-star">*</span></th>
+            <% if (!formato || formato.id !== 'dl-er') { %>
             <th style="width: 115px; text-align: center;">SECUENCIA <span class="er-req-star">*</span></th>
+            <% } %>
             <th style="width: 145px; text-align: center;">NO. DE COLILLA <span class="er-req-star">*</span></th>
             <th style="width: 95px; text-align: center;">No. VUELO</th>
             <th style="width: 110px; text-align: center;">DESTINO</th>
