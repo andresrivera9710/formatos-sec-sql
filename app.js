@@ -48,11 +48,13 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000')
   .map(o => o.trim())
   .filter(Boolean);
 
-// Compatibilidad nativa con dominios productivos de Azure App Service (sio-prod / sio.laats.net)
+// Compatibilidad nativa con dominios productivos de Azure App Service (sio-prod / laats-prod / sio.laats.net)
 const defaultAzureOrigins = [
   'https://sio.laats.net',
   'http://sio.laats.net',
-  'https://sio-prod.azurewebsites.net'
+  'https://sio-prod.azurewebsites.net',
+  'https://laats-prod.azurewebsites.net',
+  'https://laats-prod-ekfbekf6bmada5en.eastus-01.azurewebsites.net'
 ];
 if (process.env.WEBSITE_HOSTNAME) {
   defaultAzureOrigins.push(`https://${process.env.WEBSITE_HOSTNAME.trim()}`);
