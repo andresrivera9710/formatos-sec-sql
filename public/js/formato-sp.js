@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
     { id: 3, label: 'I Interview', code: 'I' }
   ];
 
-  let registros = (Array.isArray(initialState.registros) ? initialState.registros : []).map((r, idx) => ({
+  const normalizeSpRegistros = (list) => (Array.isArray(list) ? list : []).map((r, idx) => ({
     No: idx + 1,
     DetalleSPId: parseInt(r.DetalleSPId, 10) || 0,
     Apellido: String(r.Apellido || '').trim(),
@@ -43,8 +43,12 @@ document.addEventListener('DOMContentLoaded', () => {
     SeleccionSPId: String(parseInt(r.SeleccionSPId, 10) || 1),
     Asiento: String(r.Asiento || '').trim(),
     BCN: r.BCN !== undefined && r.BCN !== null ? String(r.BCN) : '0',
-    NombreAgente: String(r.NombreAgente || initialState.agenteActual || '').trim()
+    NombreAgente: String(r.NombreAgente || initialState.agenteActual || '').trim(),
+    ...(r.FirmaScreener ? { FirmaScreener: String(r.FirmaScreener) } : {})
   }));
+
+  let registros = normalizeSpRegistros(initialState.registros);
+  const initialRegistrosBaseline = registros.map((r) => ({ ...r }));
 
   const inputFecha = document.getElementById('spFecha');
   const selectSupervisor = document.getElementById('spSupervisor');
@@ -368,4 +372,21 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnGuardarDefinitivoSP')?.addEventListener('click', () => enviarFormato(true));
 
   renderTabla();
+
+  window.SioOfflineManager?.registerStateAdapter?.('format:sp', {
+    capture: () => ({
+      registros: registros.map((r) => ({ ...r }))
+    }),
+    restore: (saved) => {
+      const list = Array.isArray(saved) ? saved : (Array.isArray(saved?.registros) ? saved.registros : null);
+      if (!list) return;
+      registros = normalizeSpRegistros(list);
+      renderTabla();
+    },
+    reset: () => {
+      registros = initialRegistrosBaseline.map((r) => ({ ...r }));
+      renderTabla();
+    },
+    mapLegacyPatch: (patch) => (Array.isArray(patch?.registros) ? { registros: patch.registros } : undefined)
+  });
 });

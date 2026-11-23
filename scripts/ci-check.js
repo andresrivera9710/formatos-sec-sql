@@ -1768,18 +1768,137 @@ async function runSignatureRepositoryChecks() {
       offlineMgrSrc.includes('promptDraftDecision') &&
         offlineMgrSrc.includes('Continuar donde lo dejé') &&
         offlineMgrSrc.includes('Empezar uno de nuevo') &&
+        offlineMgrSrc.includes('registerStateAdapter') &&
+        offlineMgrSrc.includes('applyDraftInPlace') &&
+        offlineMgrSrc.includes('discardActiveDraftInPlace') &&
         offlineMgrSrc.includes('GENERIC_ROW_GRIDS'),
-      'offline-manager.js debe ofrecer el modal "Continuar donde lo dejé" / "Empezar uno de nuevo" y restaurar tablas dinámicas'
+      'offline-manager.js debe ofrecer el modal "Continuar donde lo dejé" / "Empezar uno de nuevo" y restauración profunda en sitio'
     );
     assert(!/sioOfflineDraftBanner|btnOfflinePreviewBanner|btnOfflineDiscardDraft/.test(offlineMgrSrc), 'offline-manager.js no debe referenciar el antiguo banner de borrador');
+    assert(!offlineMgrSrc.includes('#cpListaRegistros'), 'offline-manager.js debe usar el selector real #cpRegistrosLista');
     const formatoDetalleEjs = fs.readFileSync(path.join(ROOT_DIR, 'views', 'formato_detalle.ejs'), 'utf8');
     assert(!/sioOfflineDraftBanner|btnOfflinePreviewBanner|btnOfflineDiscardDraft|sio-offline-draft-banner/.test(formatoDetalleEjs), 'formato_detalle.ejs no debe incluir el antiguo banner amarillo de borrador local');
+
+    // 5.2 Verificar adaptadores transversales de hidratación en matrices y tablas dinámicas + protección en navigation-manager.js
+    const baggageMatrixSrc = fs.readFileSync(path.join(ROOT_DIR, 'public', 'js', 'baggage-matrix.js'), 'utf8');
+    assert(baggageMatrixSrc.includes('registerStateAdapter'), 'baggage-matrix.js debe auto-registrar su adaptador con SioOfflineManager');
+    const navMgrSrc = fs.readFileSync(path.join(ROOT_DIR, 'public', 'js', 'navigation-manager.js'), 'utf8');
+    assert(navMgrSrc.includes('sio-draft-swal-container'), 'navigation-manager.js debe proteger el modal de decisión de borrador frente a barridos de pageshow');
+    for (const adapterFile of [
+      'formato-cp.js', 'formato-ciec.js', 'formato-er.js', 'formato-mecd.js', 'formato-po.js',
+      'formato-cfr.js', 'formato-rx.js', 'formato-cll.js', 'formato-sp.js',
+      'formato-anexoa.js', 'formato-anexob.js', 'formato-ccda.js', 'formato-lisa.js'
+    ]) {
+      const src = fs.readFileSync(path.join(ROOT_DIR, 'public', 'js', adapterFile), 'utf8');
+      assert(src.includes('registerStateAdapter'), `${adapterFile} debe registrar su adaptador de estado con SioOfflineManager`);
+    }
 
     const tabBarEjs = fs.readFileSync(path.join(ROOT_DIR, 'views', 'partials', 'tab-bar.ejs'), 'utf8');
     assert(tabBarEjs.includes('btnTabNetworkStatus') && tabBarEjs.includes('tabNetworkPendingBadge'), 'tab-bar.ejs debe incluir el indicador de señal y contador de cola offline');
 
     const rawErTpl = HtmlPreviewService.readRawTemplate('amx-er');
     assert(rawErTpl && rawErTpl.includes('CONTROL DE EQUIPAJE EN REVISIÓN'), 'HtmlPreviewService.readRawTemplate debe retornar plantilla controlada para modo offline');
+
+    // 5.3 Auditoría de inicialización limpia de matrices, tarjetas móviles y ordenamiento 1:1 en amx-er
+    const formatoErEjs = fs.readFileSync(path.join(ROOT_DIR, 'views', 'partials', 'formato_er.ejs'), 'utf8');
+    assert(!/\sstyle\s*=/i.test(formatoErEjs), 'views/partials/formato_er.ejs no debe contener estilos inline (Helmet CSP)');
+    assert(formatoErEjs.includes('er-pasajeros-table') && formatoErEjs.includes('input-locked'), 'formato_er.ejs debe incluir clase er-pasajeros-table y bloqueo .input-locked');
+    const erOrderIds = [
+      'erFecha',
+      'erInputPasajero',
+      'erInputSecuencia',
+      'erInputColilla',
+      'erNoVuelo',
+      'erInputDestino',
+      'erInputHoraRevision',
+      'erInputAgenteAVSEC',
+      'erInputAgenteSeguridad',
+      'btnAgregarEquipajeER',
+      'btnVerDatosAgregadosER',
+      'erBuscarPasajero',
+      'erTablaCuadricula',
+      'erCanvasFirma',
+      'erAgenteSeguridadHeader',
+      'erRecuentoTotal',
+      'erObservaciones',
+      'btnVistaPreliminarER',
+      'btnGuardarDefinitivoER'
+    ];
+    let prevPos = -1;
+    for (const id of erOrderIds) {
+      const pos = formatoErEjs.indexOf(`id="${id}"`);
+      assert(pos > prevPos, `Ordenamiento 1:1 Power Apps roto en formato_er.ejs para #${id}`);
+      prevPos = pos;
+    }
+
+    const formatoErJs = fs.readFileSync(path.join(ROOT_DIR, 'public', 'js', 'formato-er.js'), 'utf8');
+    assert(!/\sstyle\s*=/i.test(formatoErJs), 'public/js/formato-er.js no debe inyectar atributos style inline');
+    for (const lbl of ['data-label="No."', 'data-label="Nombre del Pasajero *"', 'data-label="Secuencia *"', 'data-label="Colilla *"', 'data-label="No. Vuelo"', 'data-label="Destino"', 'data-label="Hora de Revisión *"', 'data-label="Agente AVSEC *"']) {
+      assert(formatoErJs.includes(lbl), `formato-er.js debe incluir ${lbl} para tarjetas móviles legibles`);
+    }
+
+    const appJsSrc = fs.readFileSync(path.join(ROOT_DIR, 'public', 'js', 'app.js'), 'utf8');
+    assert(!/endsWith\(['"]-er['"]\)/.test(appJsSrc), 'public/js/app.js no debe omitir /api/formatos/verificar para formatos -er');
+
+    const formatosSvcSrc = fs.readFileSync(path.join(ROOT_DIR, 'services', 'FormatosService.js'), 'utf8');
+    assert(formatosSvcSrc.includes('autoLoadLatest = false'), 'FormatosService.prepararFormato debe mantener autoLoadLatest = false por defecto para inicializar matrices vacías');
+
+    // 5.4 Auditoría 1:1 Power Apps, tarjetas móviles y cero estilos inline en amx-mecd
+    const formatoMecdEjs = fs.readFileSync(path.join(ROOT_DIR, 'views', 'partials', 'formato_mecd.ejs'), 'utf8');
+    assert(!/\sstyle\s*=/i.test(formatoMecdEjs), 'views/partials/formato_mecd.ejs no debe contener estilos inline (Helmet CSP)');
+    assert(
+      formatoMecdEjs.includes('mecd-table-compact') &&
+        formatoMecdEjs.includes('mecd-table-cards') &&
+        formatoMecdEjs.includes('input-locked'),
+      'formato_mecd.ejs debe incluir clases mecd-table-compact, mecd-table-cards y bloqueo .input-locked'
+    );
+    const mecdOrderIds = [
+      'mecdFecha',
+      'mecdNoVuelo',
+      'mecdInputRevControl',
+      'mecdInputRevColilla',
+      'btnAgregarRevMECD',
+      'mecdTablaRev',
+      'mecdInputCFPasajero',
+      'mecdInputCFColilla',
+      'mecdInputCFControl',
+      'mecdInputCFDestino',
+      'btnAgregarCFMECD',
+      'mecdTablaCF',
+      'mecdInputSFPasajero',
+      'mecdInputSFColilla',
+      'mecdInputSFControl',
+      'mecdInputSFDestino',
+      'btnAgregarSFMECD',
+      'mecdTablaSF',
+      'mecdCCO',
+      'mecdCanvasFirmaCCO',
+      'mecdAgente',
+      'mecdCanvasFirmaAgente',
+      'mecdSupervisor',
+      'mecdCanvasFirmaSupervisor',
+      'btnVistaPreliminarMECD',
+      'btnGuardarDefinitivoMECD'
+    ];
+    let prevMecdPos = -1;
+    for (const id of mecdOrderIds) {
+      const pos = formatoMecdEjs.indexOf(`id="${id}"`);
+      assert(pos > prevMecdPos, `Ordenamiento 1:1 Power Apps roto en formato_mecd.ejs para #${id}`);
+      prevMecdPos = pos;
+    }
+
+    const formatoMecdJs = fs.readFileSync(path.join(ROOT_DIR, 'public', 'js', 'formato-mecd.js'), 'utf8');
+    assert(!/\sstyle\s*=/i.test(formatoMecdJs), 'public/js/formato-mecd.js no debe inyectar atributos style inline');
+    for (const lbl of ['data-label="Nombre del Pasajero *"', 'data-label="No. de Colilla *"', 'data-label="No. de Control *"', 'data-label="Destino"']) {
+      assert(formatoMecdJs.includes(lbl), `formato-mecd.js debe incluir ${lbl} para tarjetas móviles legibles`);
+    }
+
+    // 5.5 Login alfanumérico (teclado completo en móvil + SQL NVarChar parametrizado)
+    const loginEjs = fs.readFileSync(path.join(ROOT_DIR, 'views', 'login.ejs'), 'utf8');
+    assert(loginEjs.includes('inputmode="text"') && !loginEjs.includes('inputmode="numeric"'), 'views/login.ejs debe usar inputmode="text" para permitir PIN alfanumérico en móvil');
+    assert(loginEjs.includes('maxlength="50"'), 'views/login.ejs debe permitir hasta 50 caracteres en #pinInput');
+    const loginModelSrc = fs.readFileSync(path.join(ROOT_DIR, 'models', 'LoginModel.js'), 'utf8');
+    assert(loginModelSrc.includes('sql.NVarChar(50)') && loginModelSrc.includes('LTRIM(RTRIM('), 'LoginModel.buscarPorPin debe usar sql.NVarChar(50) y LTRIM(RTRIM(...)) para PIN alfanumérico');
   } finally {
     if (prevCacheDir === undefined) delete process.env.SIGNATURES_CACHE_DIR;
     else process.env.SIGNATURES_CACHE_DIR = prevCacheDir;

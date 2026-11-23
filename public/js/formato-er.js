@@ -47,8 +47,7 @@
     }
 
     // Hidratar filas iniciales desde Azure SQL (si existen)
-    const initialDetalles = Array.isArray(_state.detalles) ? _state.detalles : [];
-    _erRows = initialDetalles.map((d) => ({
+    const normalizeErRows = (list) => (Array.isArray(list) ? list : []).map((d) => ({
       uid: _nextUid++,
       DetalleControlERId: parseInt(d.DetalleControlERId, 10) || 0,
       Pasajero: String(d.Pasajero || '').trim(),
@@ -60,6 +59,10 @@
       AgenteAVSEC: String(d.AgenteAVSEC || '').trim(),
       AgenteSeguridad: String(d.AgenteSeguridad || _state.agenteActual || '').trim()
     }));
+
+    const initialDetalles = Array.isArray(_state.detalles) ? _state.detalles : [];
+    _erRows = normalizeErRows(initialDetalles);
+    const initialRowsBaseline = _erRows.map((r) => ({ ...r }));
 
     // Inicializar Canvas de Firma Digital
     const canvasEl = document.getElementById('erCanvasFirma');
@@ -109,6 +112,24 @@
       btnAgregarEquipaje.addEventListener('click', agregarDesdePanelCaptura);
     }
 
+    // Botón: Ver Datos Agregados (lblVerDatos_1 + icoVerDatosAgregados_1)
+    const btnVerDatos = document.getElementById('btnVerDatosAgregadosER');
+    if (btnVerDatos) {
+      btnVerDatos.addEventListener('click', (e) => {
+        e.preventDefault();
+        const card = document.getElementById('erCardCuadricula');
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        const searchEl = document.getElementById('erBuscarPasajero');
+        if (searchEl && _erRows.length > 0) {
+          setTimeout(() => {
+            try { searchEl.focus({ preventScroll: true }); } catch (_e) {}
+          }, 300);
+        }
+      });
+    }
+
     // Buscador en vivo de la cuadrícula (txtBuscadorCP_6 + Icon4_13)
     const inputBuscar = document.getElementById('erBuscarPasajero');
     if (inputBuscar) {
@@ -146,6 +167,23 @@
     }
 
     renderizarCuadricula();
+
+    window.SioOfflineManager?.registerStateAdapter?.('format:er', {
+      capture: () => ({
+        detalles: _erRows.map(({ uid: _uid, ...rest }) => ({ ...rest }))
+      }),
+      restore: (saved) => {
+        const list = Array.isArray(saved) ? saved : (Array.isArray(saved?.detalles) ? saved.detalles : null);
+        if (!list) return;
+        _erRows = normalizeErRows(list);
+        renderizarCuadricula();
+      },
+      reset: () => {
+        _erRows = normalizeErRows(initialRowsBaseline);
+        renderizarCuadricula();
+      },
+      mapLegacyPatch: (patch) => (Array.isArray(patch?.detalles) ? { detalles: patch.detalles } : undefined)
+    });
   });
 
   /**
@@ -159,11 +197,16 @@
   function renderizarCuadricula() {
     const tbody = document.getElementById('erTbodyRegistros');
     const recuentoEl = document.getElementById('erRecuentoTotal');
+    const verDatosCountEl = document.getElementById('erVerDatosCount');
     const gridWrapper = document.getElementById('erGridWrapper');
     const isDeltaER = isDeltaERFormat();
+    const sigla = escapeHtml(_state?.siglaAgenteSeguridad || 'AMX');
 
     if (recuentoEl) {
       recuentoEl.textContent = String(_erRows.length);
+    }
+    if (verDatosCountEl) {
+      verDatosCountEl.textContent = String(_erRows.length);
     }
     if (gridWrapper) {
       gridWrapper.classList.remove('sio-grid-invalid');
@@ -174,11 +217,11 @@
     if (_erRows.length === 0) {
       tbody.innerHTML = `
         <tr class="er-empty-row">
-          <td colspan="${isDeltaER ? 9 : 10}">
-            <div class="cp-empty-dashed" style="margin: 8px 0;">
-              <i class="fas fa-luggage-cart fa-2x" style="color: var(--brand); margin-bottom: 8px; display: block;"></i>
-              No hay equipajes registrados en la lista de pasajeros para este vuelo.
-              <div style="font-weight: 500; font-size: 12px; margin-top: 4px; color: var(--text-3);">
+          <td colspan="${isDeltaER ? 9 : 10}" class="er-empty-cell">
+            <div class="cp-empty-dashed er-empty-card">
+              <i class="fas fa-luggage-cart fa-2x er-empty-icon"></i>
+              <div class="er-empty-title">No hay registros agregados aún</div>
+              <div class="er-empty-hint">
                 Complete los campos en <strong>"Ingrese los Datos:"</strong> y presione el botón <strong>"Agregar"</strong>.
               </div>
             </div>
@@ -195,7 +238,7 @@
         : '';
       const secTdHtml = isDeltaER
         ? ''
-        : `<td>
+        : `<td class="er-td-secuencia" data-label="Secuencia *">
             <input
               type="number"
               class="form-control er-cell-input er-cell-center"
@@ -211,13 +254,13 @@
 
       return `
         <tr data-row-index="${idx}" data-uid="${r.uid}" class="er-grid-row">
-          <td style="text-align: center; font-weight: 800; color: var(--brand-deep);">
-            <div style="display: inline-flex; align-items: center; gap: 5px;">
+          <td class="er-td-num" data-label="No.">
+            <div class="er-num-badge">
               ${persistedBadge}
-              <span class="er-row-number">${num}</span>
+              <span class="er-num-text"><span class="er-mobile-prefix">Pasajero #</span><span class="er-row-number">${num}</span></span>
             </div>
           </td>
-          <td>
+          <td class="er-td-pasajero" data-label="Nombre del Pasajero *">
             <input
               type="text"
               class="form-control er-cell-input"
@@ -229,7 +272,7 @@
             >
           </td>
           ${secTdHtml}
-          <td>
+          <td class="er-td-colilla" data-label="Colilla *">
             <input
               type="number"
               class="form-control er-cell-input er-cell-center"
@@ -242,7 +285,7 @@
               aria-label="Fila ${num} No. de Colilla"
             >
           </td>
-          <td>
+          <td class="er-td-vuelo" data-label="No. Vuelo">
             <input
               type="text"
               class="form-control er-cell-input er-cell-center er-cell-readonly"
@@ -253,7 +296,7 @@
               aria-label="Fila ${num} Vuelo"
             >
           </td>
-          <td>
+          <td class="er-td-destino" data-label="Destino">
             <input
               type="text"
               class="form-control er-cell-input er-cell-center"
@@ -264,7 +307,7 @@
               aria-label="Fila ${num} Destino"
             >
           </td>
-          <td>
+          <td class="er-td-hora" data-label="Hora de Revisión *">
             <div class="er-cell-time-group">
               <input
                 type="time"
@@ -283,7 +326,7 @@
               </button>
             </div>
           </td>
-          <td>
+          <td class="er-td-avsec" data-label="Agente AVSEC *">
             <input
               type="text"
               class="form-control er-cell-input"
@@ -294,18 +337,18 @@
               aria-label="Fila ${num} Nombre Agente AVSEC"
             >
           </td>
-          <td>
+          <td class="er-td-seguridad" data-label="Agente ${sigla} *">
             <input
               type="text"
               class="form-control er-cell-input"
               data-field="AgenteSeguridad"
               maxlength="150"
-              placeholder="Agente Seguridad ${escapeHtml(_state.siglaAgenteSeguridad || 'AMX')} *"
+              placeholder="Agente Seguridad ${sigla} *"
               value="${escapeHtml(r.AgenteSeguridad)}"
               aria-label="Fila ${num} Agente de Seguridad"
             >
           </td>
-          <td style="text-align: center;">
+          <td class="er-td-accion" data-label="Acción">
             <button
               type="button"
               class="cp-icon-btn trash btn-er-row-delete"
@@ -313,6 +356,7 @@
               title="Retirar fila de la cuadrícula (Soft Delete al guardar)"
             >
               <i class="fas fa-trash-alt"></i>
+              <span class="er-mobile-action-label">Retirar</span>
             </button>
           </td>
         </tr>
@@ -444,6 +488,20 @@
     if (elSeguridad) elSeguridad.value = '';
 
     renderizarCuadricula();
+    window.SioOfflineManager?.notifyStateChange?.();
+
+    if (typeof window.Swal !== 'undefined') {
+      window.Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: 'Pasajero agregado a la lista',
+        showConfirmButton: false,
+        timer: 1600,
+        timerProgressBar: true
+      });
+    }
+
     elPasajero.focus();
   }
 
@@ -471,6 +529,7 @@
     });
 
     renderizarCuadricula();
+    window.SioOfflineManager?.notifyStateChange?.();
 
     const tbody = document.getElementById('erTbodyRegistros');
     const newRowEl = tbody ? tbody.querySelector(`tr[data-uid="${newUid}"]`) : null;
@@ -493,13 +552,14 @@
     if (esFilaVacia) {
       _erRows.splice(idx, 1);
       renderizarCuadricula();
+      window.SioOfflineManager?.notifyStateChange?.();
       return;
     }
 
     Swal.fire({
       icon: 'question',
       title: `¿Retirar Fila #${idx + 1}?`,
-      html: `Se retirará el equipaje de <strong>${escapeHtml(row.Pasajero || 'Sin nombre')}</strong> (Colilla: <strong>${escapeHtml(row.Colilla || 'S/N')}</strong>).${row.DetalleControlERId > 0 ? '<br><small style="color:#64748B;">El registro persistido se marcará con Soft Delete (EstaEliminado = 1) al guardar el formato.</small>' : ''}`,
+      html: `Se retirará el equipaje de <strong>${escapeHtml(row.Pasajero || 'Sin nombre')}</strong> (Colilla: <strong>${escapeHtml(row.Colilla || 'S/N')}</strong>).${row.DetalleControlERId > 0 ? '<br><small class="er-softdelete-note">El registro persistido se marcará con Soft Delete (EstaEliminado = 1) al guardar el formato.</small>' : ''}`,
       showCancelButton: true,
       confirmButtonColor: '#DC2626',
       cancelButtonColor: '#64748B',
@@ -509,22 +569,28 @@
       if (res.isConfirmed) {
         _erRows.splice(idx, 1);
         renderizarCuadricula();
+        window.SioOfflineManager?.notifyStateChange?.(true);
       }
     });
   }
 
   /**
-   * Filtra visualmente las filas de la cuadrícula según texto de búsqueda
+   * Filtra visualmente las filas de la cuadrícula según texto de búsqueda (Search de Power Apps)
    */
   function filtrarFilasDOM(termino = '') {
     const q = String(termino || '').trim().toLowerCase();
     const tbody = document.getElementById('erTbodyRegistros');
     if (!tbody) return;
 
+    const existingNoMatch = tbody.querySelector('tr.er-no-match-row');
+    if (existingNoMatch) existingNoMatch.remove();
+
     const rows = tbody.querySelectorAll('tr[data-uid]');
+    let visibleCount = 0;
     rows.forEach((tr) => {
       if (!q) {
-        tr.style.display = '';
+        tr.classList.remove('er-row-hidden');
+        visibleCount++;
         return;
       }
       const uid = parseInt(tr.dataset.uid, 10);
@@ -537,12 +603,30 @@
         r.Colilla,
         r.Vuelo,
         r.Destino,
+        r.HoraRevision,
         r.AgenteAVSEC,
         r.AgenteSeguridad
       ].join(' ').toLowerCase();
 
-      tr.style.display = haystack.includes(q) ? '' : 'none';
+      const matched = haystack.includes(q);
+      tr.classList.toggle('er-row-hidden', !matched);
+      if (matched) visibleCount++;
     });
+
+    if (q && rows.length > 0 && visibleCount === 0) {
+      const noMatchTr = document.createElement('tr');
+      noMatchTr.className = 'er-empty-row er-no-match-row';
+      noMatchTr.innerHTML = `
+        <td colspan="${isDeltaERFormat() ? 9 : 10}" class="er-empty-cell">
+          <div class="cp-empty-dashed er-empty-card">
+            <i class="fas fa-search fa-lg er-empty-icon"></i>
+            <div class="er-empty-title">Sin resultados para "${escapeHtml(termino)}"</div>
+            <div class="er-empty-hint">Presione el botón de reinicio para ver todos los registros agregados.</div>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(noMatchTr);
+    }
   }
 
   /**

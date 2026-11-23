@@ -33,20 +33,25 @@ document.addEventListener('DOMContentLoaded', () => {
   const empMap = new Map();
   empleadosLaats.forEach((e) => empMap.set(Number(e.EmpleadoId), String(e.Nombre || '')));
 
-  let personalSAG = (Array.isArray(initialState.personalSAG) ? initialState.personalSAG : []).map((s, i) => ({
+  const normalizeRxSag = (list) => (Array.isArray(list) ? list : []).map((s, i) => ({
     No: i + 1,
     PersonalSAGId: parseInt(s.PersonalSAGId, 10) || 0,
     Nombre: String(s.Nombre || '').trim(),
     Id: String(s.Id || '').trim()
   }));
 
-  let personalLaats = (Array.isArray(initialState.personalLaats) ? initialState.personalLaats : []).map((l, i) => ({
+  const normalizeRxLaats = (list) => (Array.isArray(list) ? list : []).map((l, i) => ({
     No: i + 1,
     PersonalLaatsId: parseInt(l.PersonalLaatsId, 10) || 0,
     EmpleadoId: parseInt(l.EmpleadoId, 10) || '',
     Nombre: String(l.Nombre || empMap.get(Number(l.EmpleadoId)) || '').trim(),
     Id: String(l.Id || '').trim()
   }));
+
+  let personalSAG = normalizeRxSag(initialState.personalSAG);
+  let personalLaats = normalizeRxLaats(initialState.personalLaats);
+  const initialSagBaseline = personalSAG.map((s) => ({ ...s }));
+  const initialLaatsBaseline = personalLaats.map((l) => ({ ...l }));
 
   const inputFecha = document.getElementById('rxFecha');
   const inputHoraInicio = document.getElementById('rxHoraInicio');
@@ -472,4 +477,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
   renderTablaSag();
   renderTablaLaats();
+
+  window.SioOfflineManager?.registerStateAdapter?.('format:rx', {
+    capture: () => ({
+      personalSAG: personalSAG.map((s) => ({ ...s })),
+      personalLaats: personalLaats.map((l) => ({ ...l }))
+    }),
+    restore: (saved) => {
+      if (!saved || typeof saved !== 'object') return;
+      if (Array.isArray(saved.personalSAG)) personalSAG = normalizeRxSag(saved.personalSAG);
+      if (Array.isArray(saved.personalLaats)) personalLaats = normalizeRxLaats(saved.personalLaats);
+      renderTablaSag();
+      renderTablaLaats();
+    },
+    reset: () => {
+      personalSAG = initialSagBaseline.map((s) => ({ ...s }));
+      personalLaats = initialLaatsBaseline.map((l) => ({ ...l }));
+      renderTablaSag();
+      renderTablaLaats();
+    },
+    mapLegacyPatch: (patch) => {
+      if (!patch || (!Array.isArray(patch.personalSAG) && !Array.isArray(patch.personalLaats))) return undefined;
+      return {
+        personalSAG: Array.isArray(patch.personalSAG) ? patch.personalSAG : initialSagBaseline,
+        personalLaats: Array.isArray(patch.personalLaats) ? patch.personalLaats : initialLaatsBaseline
+      };
+    }
+  });
 });

@@ -6,6 +6,7 @@
   const conFirmaList = (mecdState && Array.isArray(mecdState.conFirma)) ? mecdState.conFirma : [];
   const sinFirmaList = (mecdState && Array.isArray(mecdState.sinFirma)) ? mecdState.sinFirma : [];
 
+  // Regla de Negocio: Origen único de la Fecha = Fecha del Itinerario (bloqueada contra edición)
   let fechaInicial = new Date().toISOString().substring(0, 10);
   if (vuelo && vuelo.FechaItinerado) {
     fechaInicial = String(vuelo.FechaItinerado instanceof Date ? vuelo.FechaItinerado.toISOString() : vuelo.FechaItinerado).substring(0, 10);
@@ -34,6 +35,7 @@
     itinerarioId: vuelo.itinerarioId,
     encabezadoId: encabezadoId || null,
     esNuevo: Boolean(esNuevo),
+    fecha: fechaInicial,
     destinoDefault,
     revision: revisionList,
     conFirma: conFirmaList,
@@ -46,11 +48,11 @@
   <input type="hidden" id="mecdItinerarioId" value="<%= vuelo.itinerarioId %>">
   <input type="hidden" id="mecdEncabezadoId" value="<%= encabezadoId || '' %>">
 
-  <!-- 1. CABECERA DEL FORMATO (EquipajeMalEstadoAMX) -->
+  <!-- 1. FORMATO E INGRESE LOS DATOS (Orden 1:1 EquipajeMalEstadoAMX: Fecha + NoVuelo bloqueados del itinerario) -->
   <div class="card">
     <div class="card-header sio-card-header-flex">
       <h3 class="cp-section-title">
-        <i class="fas fa-suitcase-rolling"></i> Datos Generales — Equipajes en Mal Estado y Carga Dañada
+        <i class="fas fa-suitcase-rolling"></i> FORMATO: <%= formato.nombre %>
       </h3>
       <div class="sio-card-header-meta">
         <% if (!esNuevo && encabezadoId) { %>
@@ -64,92 +66,69 @@
       </div>
     </div>
 
-    <div class="sio-grid-auto">
+    <div class="sio-grid-2">
       <div class="form-group">
-        <label for="mecdFecha"><i class="far fa-calendar-alt"></i> Fecha <i class="fas fa-lock input-lock-icon" title="Fecha vinculada al itinerario (Solo lectura)"></i></label>
-        <input type="date" id="mecdFecha" class="form-control input-locked" value="<%= fechaInicial %>" readonly tabindex="-1" required>
+        <label for="mecdFecha"><i class="far fa-calendar-alt"></i> Fecha: <i class="fas fa-lock input-lock-icon" title="Fecha vinculada al itinerario (Solo lectura)"></i></label>
+        <input
+          type="date"
+          id="mecdFecha"
+          class="form-control input-locked er-cell-readonly"
+          value="<%= fechaInicial %>"
+          readonly
+          disabled
+          tabindex="-1"
+          aria-readonly="true"
+          required
+        >
       </div>
 
       <div class="form-group">
-        <label for="mecdNoVuelo"><i class="fas fa-plane"></i> No. Vuelo <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
-        <input type="text" id="mecdNoVuelo" class="form-control input-locked" value="<%= vuelo.novuelo || '--' %>" readonly tabindex="-1">
-      </div>
-
-      <div class="form-group">
-        <label for="mecdCCO"><i class="fas fa-headset"></i> Representante CCO / Operaciones <span class="sio-required-star">*</span></label>
-        <select id="mecdCCO" class="form-control" required>
-          <option value="">-- Seleccione CCO --</option>
-          <% (usuariosLogin || []).forEach(u => { %>
-            <option
-              value="<%= u.LoginId %>"
-              data-usuario="<%= u.Nombre || u.Usuario %>"
-              <%= String(u.LoginId) === ccoLoginIdVal ? 'selected' : '' %>
-            ><%= u.Nombre || u.Usuario %> (<%= u.Usuario %>)</option>
-          <% }) %>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="mecdAgente"><i class="fas fa-user-shield"></i> Agente de Seguridad <span class="sio-required-star">*</span></label>
-        <select id="mecdAgente" class="form-control" required>
-          <option value="">-- Seleccione Agente SEC --</option>
-          <% (usuariosSEC || []).forEach(u => { %>
-            <option
-              value="<%= u.LoginId %>"
-              data-usuario="<%= u.Usuario %>"
-              <%= (String(u.LoginId) === agenteLoginSecIdVal || (!agenteLoginSecIdVal && user && u.Usuario === user.usuario)) ? 'selected' : '' %>
-            ><%= u.Usuario %></option>
-          <% }) %>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="mecdSupervisor"><i class="fas fa-user-tie"></i> Supervisor de Seguridad <span class="sio-required-star">*</span></label>
-        <select id="mecdSupervisor" class="form-control" required>
-          <option value="">-- Seleccione Supervisor SEC --</option>
-          <% (supervisores || []).forEach(sup => { %>
-            <option
-              value="<%= sup.LoginId %>"
-              data-usuario="<%= sup.Usuario %>"
-              <%= String(sup.LoginId) === supLoginSecIdVal ? 'selected' : '' %>
-            ><%= sup.Usuario %></option>
-          <% }) %>
-        </select>
+        <label for="mecdNoVuelo"><i class="fas fa-plane"></i> NoVuelo: <i class="fas fa-lock input-lock-icon" title="Número de vuelo vinculado al itinerario (Solo lectura)"></i></label>
+        <input
+          type="text"
+          id="mecdNoVuelo"
+          class="form-control input-locked er-cell-readonly"
+          value="<%= vuelo.novuelo || '--' %>"
+          readonly
+          disabled
+          tabindex="-1"
+          aria-readonly="true"
+        >
       </div>
     </div>
   </div>
 
-  <!-- 2. SECCIÓN A: EQUIPAJE EN REVISIÓN AVSEC (Control + Colilla) -->
+  <!-- 2. SECCIÓN 1: EQUIPAJE EN REVISIÓN (colControles: Control + Colilla) -->
   <div class="card sio-card-accent" id="mecdCardSecciones">
     <div class="card-header sio-card-header-flex">
       <h3 class="cp-section-title">
         <i class="fas fa-search"></i> 1. Equipaje en Revisión (No. de Control y No. de Colilla)
       </h3>
-      <span class="badge badge-gold" id="mecdCountRevBadge">0 registros</span>
+      <span class="badge badge-gold" id="mecdCountRevBadge">0 registro(s)</span>
     </div>
 
     <div class="sio-inline-bar">
       <div class="form-group">
-        <label for="mecdInputRevControl">No. de Control / Secuencia <span class="sio-required-star">*</span></label>
-        <input type="number" id="mecdInputRevControl" class="form-control" min="1" step="1" placeholder="Ej: 24">
+        <label for="mecdInputRevControl">No. de Control / Secuencia: <span class="sio-required-star">*</span></label>
+        <input type="number" id="mecdInputRevControl" class="form-control" min="1" step="1" inputmode="numeric" placeholder="Ingrese el No. de Control">
       </div>
       <div class="form-group">
-        <label for="mecdInputRevColilla">No. de Colilla / Marbete <span class="sio-required-star">*</span></label>
-        <input type="text" id="mecdInputRevColilla" class="form-control" placeholder="Ej: 0139485712">
+        <label for="mecdInputRevColilla">No. de Colilla / Marbete: <span class="sio-required-star">*</span></label>
+        <input type="text" id="mecdInputRevColilla" class="form-control" inputmode="numeric" placeholder="Ingrese el No. de Colilla" autocomplete="off">
       </div>
       <button type="button" id="btnAgregarRevMECD" class="btn btn-primary sio-btn-bar">
         <i class="fas fa-plus-circle"></i> Agregar a Revisión
       </button>
     </div>
 
-    <div class="er-fluid-grid-wrapper">
-      <table class="er-fluid-table" id="mecdTablaRev">
+    <div class="er-fluid-grid-wrapper mecd-grid-wrapper-compact" id="mecdWrapperRev">
+      <table class="er-fluid-table mecd-table mecd-table-compact" id="mecdTablaRev">
         <thead>
           <tr>
-            <th class="sio-th-no">NO.</th>
-            <th>NO. DE CONTROL <span class="er-req-star">*</span></th>
-            <th>NO. DE COLILLA <span class="er-req-star">*</span></th>
-            <th class="sio-th-action">ACCIÓN</th>
+            <th class="mecd-th-no">NO.</th>
+            <th class="mecd-th-rev-ctrl">NO. DE CONTROL <span class="er-req-star">*</span></th>
+            <th class="mecd-th-rev-col">NO. DE COLILLA <span class="er-req-star">*</span></th>
+            <th class="mecd-th-act">ACCIÓN</th>
           </tr>
         </thead>
         <tbody id="mecdTbodyRev"></tbody>
@@ -157,47 +136,47 @@
     </div>
   </div>
 
-  <!-- 3. SECCIÓN B: MALETA CON FIRMA DESDE MOSTRADOR -->
-  <div class="card">
+  <!-- 3. SECCIÓN 2: EQUIPAJE DAÑADO CON FIRMA (colControles1: Pasajero, Colilla, Control, Destino) -->
+  <div class="card" id="mecdCardConFirma">
     <div class="card-header sio-card-header-flex">
       <h3 class="cp-section-title">
         <i class="fas fa-file-signature"></i> 2. Maleta CON Firma desde Mostrador (Limited Release)
       </h3>
-      <span class="badge badge-gold" id="mecdCountCFBadge">0 registros</span>
+      <span class="badge badge-gold" id="mecdCountCFBadge">0 registro(s)</span>
     </div>
 
     <div class="sio-inline-bar">
       <div class="form-group sio-flex-2">
-        <label for="mecdInputCFPasajero">Nombre del Pasajero <span class="sio-required-star">*</span></label>
-        <input type="text" id="mecdInputCFPasajero" class="form-control" placeholder="Ej: ANA MARÍA GÓMEZ">
+        <label for="mecdInputCFPasajero">Nombre del Pasajero: <span class="sio-required-star">*</span></label>
+        <input type="text" id="mecdInputCFPasajero" class="form-control" placeholder="Ingrese el nombre del pasajero" autocomplete="off">
       </div>
       <div class="form-group">
-        <label for="mecdInputCFColilla">No. de Colilla <span class="sio-required-star">*</span></label>
-        <input type="text" id="mecdInputCFColilla" class="form-control" placeholder="Ej: 0139887766">
+        <label for="mecdInputCFColilla">No. de Colilla: <span class="sio-required-star">*</span></label>
+        <input type="text" id="mecdInputCFColilla" class="form-control" inputmode="numeric" placeholder="Ingrese el No. de Colilla" autocomplete="off">
       </div>
       <div class="form-group">
-        <label for="mecdInputCFControl">No. de Control <span class="sio-required-star">*</span></label>
-        <input type="number" id="mecdInputCFControl" class="form-control" min="1" step="1" placeholder="Ej: 31">
+        <label for="mecdInputCFControl">No. de Control: <span class="sio-required-star">*</span></label>
+        <input type="number" id="mecdInputCFControl" class="form-control" min="1" step="1" inputmode="numeric" placeholder="Ingrese el No. de Control">
       </div>
       <div class="form-group">
-        <label for="mecdInputCFDestino">Destino</label>
-        <input type="text" id="mecdInputCFDestino" class="form-control" value="<%= destinoDefault %>">
+        <label for="mecdInputCFDestino">Destino:</label>
+        <input type="text" id="mecdInputCFDestino" class="form-control" value="" placeholder="Ingrese el destino" autocomplete="off">
       </div>
       <button type="button" id="btnAgregarCFMECD" class="btn btn-primary sio-btn-bar">
         <i class="fas fa-plus-circle"></i> Agregar Con Firma
       </button>
     </div>
 
-    <div class="er-fluid-grid-wrapper">
-      <table class="er-fluid-table" id="mecdTablaCF">
+    <div class="er-fluid-grid-wrapper mecd-grid-wrapper-cards" id="mecdWrapperCF">
+      <table class="er-fluid-table mecd-table mecd-table-cards" id="mecdTablaCF">
         <thead>
           <tr>
-            <th class="sio-th-no">NO.</th>
-            <th>NOMBRE DEL PASAJERO <span class="er-req-star">*</span></th>
-            <th>NO. DE COLILLA <span class="er-req-star">*</span></th>
-            <th>NO. DE CONTROL <span class="er-req-star">*</span></th>
-            <th>DESTINO</th>
-            <th class="sio-th-action">ACCIÓN</th>
+            <th class="mecd-th-no">NO.</th>
+            <th class="mecd-th-pax">NOMBRE DEL PASAJERO <span class="er-req-star">*</span></th>
+            <th class="mecd-th-colilla">NO. DE COLILLA <span class="er-req-star">*</span></th>
+            <th class="mecd-th-control">NO. DE CONTROL <span class="er-req-star">*</span></th>
+            <th class="mecd-th-destino">DESTINO</th>
+            <th class="mecd-th-act">ACCIÓN</th>
           </tr>
         </thead>
         <tbody id="mecdTbodyCF"></tbody>
@@ -205,47 +184,47 @@
     </div>
   </div>
 
-  <!-- 4. SECCIÓN C: MALETA DAÑADA EN TOBOGÁN SIN FIRMA -->
-  <div class="card">
+  <!-- 4. SECCIÓN 3: EQUIPAJE DAÑADO SIN FIRMA (colControles2: Pasajero, Colilla, Control, Destino) -->
+  <div class="card" id="mecdCardSinFirma">
     <div class="card-header sio-card-header-flex">
       <h3 class="cp-section-title">
         <i class="fas fa-suitcase"></i> 3. Maleta Dañada en Tobogán SIN Firma
       </h3>
-      <span class="badge badge-gold" id="mecdCountSFBadge">0 registros</span>
+      <span class="badge badge-gold" id="mecdCountSFBadge">0 registro(s)</span>
     </div>
 
     <div class="sio-inline-bar">
       <div class="form-group sio-flex-2">
-        <label for="mecdInputSFPasajero">Nombre del Pasajero <span class="sio-required-star">*</span></label>
-        <input type="text" id="mecdInputSFPasajero" class="form-control" placeholder="Ej: ROBERTO DÍAZ">
+        <label for="mecdInputSFPasajero">Nombre del Pasajero: <span class="sio-required-star">*</span></label>
+        <input type="text" id="mecdInputSFPasajero" class="form-control" placeholder="Ingrese el nombre del pasajero" autocomplete="off">
       </div>
       <div class="form-group">
-        <label for="mecdInputSFColilla">No. de Colilla <span class="sio-required-star">*</span></label>
-        <input type="text" id="mecdInputSFColilla" class="form-control" placeholder="Ej: 0139554433">
+        <label for="mecdInputSFColilla">No. de Colilla: <span class="sio-required-star">*</span></label>
+        <input type="text" id="mecdInputSFColilla" class="form-control" inputmode="numeric" placeholder="Ingrese el No. de Colilla" autocomplete="off">
       </div>
       <div class="form-group">
-        <label for="mecdInputSFControl">No. de Control <span class="sio-required-star">*</span></label>
-        <input type="number" id="mecdInputSFControl" class="form-control" min="1" step="1" placeholder="Ej: 49">
+        <label for="mecdInputSFControl">No. de Control: <span class="sio-required-star">*</span></label>
+        <input type="number" id="mecdInputSFControl" class="form-control" min="1" step="1" inputmode="numeric" placeholder="Ingrese el No. de Control">
       </div>
       <div class="form-group">
-        <label for="mecdInputSFDestino">Destino</label>
-        <input type="text" id="mecdInputSFDestino" class="form-control" value="<%= destinoDefault %>">
+        <label for="mecdInputSFDestino">Destino:</label>
+        <input type="text" id="mecdInputSFDestino" class="form-control" value="" placeholder="Ingrese el destino" autocomplete="off">
       </div>
       <button type="button" id="btnAgregarSFMECD" class="btn btn-primary sio-btn-bar">
         <i class="fas fa-plus-circle"></i> Agregar Sin Firma
       </button>
     </div>
 
-    <div class="er-fluid-grid-wrapper">
-      <table class="er-fluid-table" id="mecdTablaSF">
+    <div class="er-fluid-grid-wrapper mecd-grid-wrapper-cards" id="mecdWrapperSF">
+      <table class="er-fluid-table mecd-table mecd-table-cards" id="mecdTablaSF">
         <thead>
           <tr>
-            <th class="sio-th-no">NO.</th>
-            <th>NOMBRE DEL PASAJERO <span class="er-req-star">*</span></th>
-            <th>NO. DE COLILLA <span class="er-req-star">*</span></th>
-            <th>NO. DE CONTROL <span class="er-req-star">*</span></th>
-            <th>DESTINO</th>
-            <th class="sio-th-action">ACCIÓN</th>
+            <th class="mecd-th-no">NO.</th>
+            <th class="mecd-th-pax">NOMBRE DEL PASAJERO <span class="er-req-star">*</span></th>
+            <th class="mecd-th-colilla">NO. DE COLILLA <span class="er-req-star">*</span></th>
+            <th class="mecd-th-control">NO. DE CONTROL <span class="er-req-star">*</span></th>
+            <th class="mecd-th-destino">DESTINO</th>
+            <th class="mecd-th-act">ACCIÓN</th>
           </tr>
         </thead>
         <tbody id="mecdTbodySF"></tbody>
@@ -253,37 +232,88 @@
     </div>
   </div>
 
-  <!-- 5. FIRMAS DIGITALES (CCO, AGENTE, SUPERVISOR) -->
-  <div class="card">
+  <!-- 5. FIRMAS Y RESPONSABLES (Orden exacto 1:1 Power Apps: FIRMA CCO -> AGENTE DE SECURITY, LAATS -> SUPERVISOR SECURITY LAATS) -->
+  <div class="card" id="mecdCardFirmas">
     <div class="card-header">
-      <h3 class="cp-section-title"><i class="fas fa-pen-nib"></i> Firmas Digitales para el Documento Controlado (Opcional en edición)</h3>
+      <h3 class="cp-section-title"><i class="fas fa-pen-nib"></i> Responsables y Firmas Digitales</h3>
     </div>
 
-    <div class="sio-grid-auto-lg">
-      <div>
+    <div class="sio-grid-auto-lg mecd-signatures-grid">
+      <!-- 5.1 FIRMA CCO (cmbFirmaCCO + penFirmaCCO) -->
+      <div class="mecd-sig-block">
+        <div class="mecd-sig-block-title"><i class="fas fa-headset"></i> FIRMA CCO</div>
+        <div class="form-group">
+          <label for="mecdCCO">Representante CCO / Operaciones: <span class="sio-required-star">*</span></label>
+          <select id="mecdCCO" class="form-control" required>
+            <option value="">-- Seleccione CCO --</option>
+            <% (usuariosLogin || []).forEach(u => { %>
+              <option
+                value="<%= u.LoginId %>"
+                data-usuario="<%= u.Nombre || u.Usuario %>"
+                <%= String(u.LoginId) === ccoLoginIdVal ? 'selected' : '' %>
+              ><%= u.Nombre || u.Usuario %> (<%= u.Usuario %>)</option>
+            <% }) %>
+          </select>
+        </div>
         <div class="sio-sig-header">
           <label class="sio-sig-label">Firma Representante CCO</label>
-          <button type="button" class="btn btn-secondary sio-btn-xs" data-clear-canvas="mecdCanvasFirmaCCO">Limpiar</button>
+          <button type="button" class="btn btn-secondary sio-btn-xs" data-clear-canvas="mecdCanvasFirmaCCO">
+            <i class="fas fa-eraser"></i> Limpiar
+          </button>
         </div>
         <div class="signature-box">
           <canvas id="mecdCanvasFirmaCCO"></canvas>
         </div>
       </div>
 
-      <div>
+      <!-- 5.2 AGENTE DE SECURITY, LAATS (cmbAgenteSecurity + penFirmaAgente) -->
+      <div class="mecd-sig-block">
+        <div class="mecd-sig-block-title"><i class="fas fa-user-shield"></i> AGENTE DE SECURITY, LAATS</div>
+        <div class="form-group">
+          <label for="mecdAgente">Agente de Seguridad: <span class="sio-required-star">*</span></label>
+          <select id="mecdAgente" class="form-control" required>
+            <option value="">-- Seleccione Agente SEC --</option>
+            <% (usuariosSEC || []).forEach(u => { %>
+              <option
+                value="<%= u.LoginId %>"
+                data-usuario="<%= u.Usuario %>"
+                <%= (String(u.LoginId) === agenteLoginSecIdVal || (!agenteLoginSecIdVal && user && u.Usuario === user.usuario)) ? 'selected' : '' %>
+              ><%= u.Usuario %></option>
+            <% }) %>
+          </select>
+        </div>
         <div class="sio-sig-header">
           <label class="sio-sig-label">Firma Agente de Seguridad</label>
-          <button type="button" class="btn btn-secondary sio-btn-xs" data-clear-canvas="mecdCanvasFirmaAgente">Limpiar</button>
+          <button type="button" class="btn btn-secondary sio-btn-xs" data-clear-canvas="mecdCanvasFirmaAgente">
+            <i class="fas fa-eraser"></i> Limpiar
+          </button>
         </div>
         <div class="signature-box">
           <canvas id="mecdCanvasFirmaAgente"></canvas>
         </div>
       </div>
 
-      <div>
+      <!-- 5.3 SUPERVISOR SECURITY LAATS (cmbSupervisorSecurity + penFirmaSupervisor) -->
+      <div class="mecd-sig-block">
+        <div class="mecd-sig-block-title"><i class="fas fa-user-tie"></i> SUPERVISOR SECURITY LAATS</div>
+        <div class="form-group">
+          <label for="mecdSupervisor">Supervisor de Seguridad: <span class="sio-required-star">*</span></label>
+          <select id="mecdSupervisor" class="form-control" required>
+            <option value="">-- Seleccione Supervisor SEC --</option>
+            <% (supervisores || []).forEach(sup => { %>
+              <option
+                value="<%= sup.LoginId %>"
+                data-usuario="<%= sup.Usuario %>"
+                <%= String(sup.LoginId) === supLoginSecIdVal ? 'selected' : '' %>
+              ><%= sup.Usuario %></option>
+            <% }) %>
+          </select>
+        </div>
         <div class="sio-sig-header">
           <label class="sio-sig-label">Firma Supervisor SEC</label>
-          <button type="button" class="btn btn-secondary sio-btn-xs" data-clear-canvas="mecdCanvasFirmaSupervisor">Limpiar</button>
+          <button type="button" class="btn btn-secondary sio-btn-xs" data-clear-canvas="mecdCanvasFirmaSupervisor">
+            <i class="fas fa-eraser"></i> Limpiar
+          </button>
         </div>
         <div class="signature-box">
           <canvas id="mecdCanvasFirmaSupervisor"></canvas>
@@ -298,7 +328,7 @@
       <i class="fas fa-eye"></i> Vista Preliminar (Formato Oficial AMX)
     </button>
     <button type="button" id="btnGuardarDefinitivoMECD" class="btn btn-primary sio-btn-action-primary">
-      <i class="fas fa-save"></i> <%= esNuevo ? 'Guardar Formato Definitivo' : 'Actualizar Formato Definitivo' %>
+      <i class="fas fa-save"></i> <%= esNuevo ? 'Crear Formato' : 'Actualizar Formato Definitivo' %>
     </button>
   </div>
 </form>

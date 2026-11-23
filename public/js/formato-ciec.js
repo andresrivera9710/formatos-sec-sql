@@ -67,6 +67,27 @@ document.addEventListener('DOMContentLoaded', () => {
     .filter((a) => a.EmpleadoId > 0)
     .slice(0, 2);
 
+  const initialRegistrosBaseline = registros.map((r) => ({ ...r }));
+  const initialAlerosBaseline = aleros.map((a) => ({ ...a }));
+
+  const normalizeCiecRegistros = (list) => (Array.isArray(list) ? list : []).map((r) => ({
+    DetalleCIECId: parseInt(r.DetalleCIECId, 10) || 0,
+    Nombre: String(r.Nombre || '').trim(),
+    NoTIA: String(r.NoTIA || '').trim(),
+    HoraIngreso: extractHHMM(r.HoraIngreso),
+    Empresa: String(r.Empresa || '').trim(),
+    Motivo: String(r.Motivo || '').trim(),
+    HoraSalida: extractHHMM(r.HoraSalida || r.HoraSalidaReal || r.HoraSalidaEstimada)
+  }));
+
+  const normalizeCiecAleros = (list) => (Array.isArray(list) ? list : [])
+    .map((a) => ({
+      EmpleadoId: parseInt(a.EmpleadoId, 10) || 0,
+      Nombre: String(a.Nombre || '').trim()
+    }))
+    .filter((a) => a.EmpleadoId > 0)
+    .slice(0, 2);
+
   // Referencias del DOM
   const inputFormatoId = document.getElementById('ciecFormatoId');
   const inputItinerarioId = document.getElementById('ciecItinerarioId');
@@ -130,7 +151,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const targetInput = document.getElementById(targetId);
       if (targetInput) {
         targetInput.value = nowHHMM();
-        targetInput.dispatchEvent(new Event('input'));
+        targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+        targetInput.dispatchEvent(new Event('change', { bubbles: true }));
       }
     });
   });
@@ -290,6 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (inputRegMotivo) inputRegMotivo.value = '';
 
       renderRegistros();
+      window.SioOfflineManager?.notifyStateChange?.();
     });
   }
 
@@ -304,6 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (action === 'salida-ahora') {
         registros[idx].HoraSalida = nowHHMM();
         renderRegistros();
+        window.SioOfflineManager?.notifyStateChange?.();
       } else if (action === 'editar-salida') {
         const { value: nuevaHora } = await Swal.fire({
           title: `Hora de Salida — ${registros[idx].Nombre}`,
@@ -317,10 +341,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (nuevaHora !== undefined) {
           registros[idx].HoraSalida = String(nuevaHora).trim();
           renderRegistros();
+          window.SioOfflineManager?.notifyStateChange?.(true);
         }
       } else if (action === 'eliminar-reg') {
         registros.splice(idx, 1);
         renderRegistros();
+        window.SioOfflineManager?.notifyStateChange?.();
       }
     });
   }
@@ -393,6 +419,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       aleros.push({ EmpleadoId: empId, Nombre: nombre });
       renderAleros();
+      window.SioOfflineManager?.notifyStateChange?.();
     });
   }
 
@@ -404,6 +431,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (Number.isInteger(idx) && aleros[idx]) {
         aleros.splice(idx, 1);
         renderAleros();
+        window.SioOfflineManager?.notifyStateChange?.();
       }
     });
   }
@@ -629,4 +657,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
   renderRegistros();
   renderAleros();
+
+  window.SioOfflineManager?.registerStateAdapter?.('format:ciec', {
+    capture: () => ({
+      registros: registros.map((r) => ({ ...r })),
+      aleros: aleros.map((a) => ({ ...a }))
+    }),
+    restore: (saved) => {
+      if (!saved || typeof saved !== 'object') return;
+      if (Array.isArray(saved.registros)) registros = normalizeCiecRegistros(saved.registros);
+      if (Array.isArray(saved.aleros)) aleros = normalizeCiecAleros(saved.aleros);
+      renderRegistros();
+      renderAleros();
+    },
+    reset: () => {
+      registros = initialRegistrosBaseline.map((r) => ({ ...r }));
+      aleros = initialAlerosBaseline.map((a) => ({ ...a }));
+      renderRegistros();
+      renderAleros();
+    },
+    mapLegacyPatch: (patch) => {
+      if (!patch || (!Array.isArray(patch.registros) && !Array.isArray(patch.detalles) && !Array.isArray(patch.aleros))) {
+        return undefined;
+      }
+      const regs = Array.isArray(patch.registros) ? patch.registros : (Array.isArray(patch.detalles) ? patch.detalles : initialRegistrosBaseline);
+      return {
+        registros: regs,
+        aleros: Array.isArray(patch.aleros) ? patch.aleros : initialAlerosBaseline
+      };
+    }
+  });
 });

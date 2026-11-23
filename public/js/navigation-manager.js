@@ -165,43 +165,50 @@
     } catch (_) {}
 
     // 3. Cerrar y purgar cualquier modal SweetAlert2 congelado en pantalla o BFCache
-    try {
-      if (typeof window.Swal !== 'undefined' && window.Swal && typeof window.Swal.close === 'function') {
-        if (typeof window.Swal.isVisible !== 'function' || window.Swal.isVisible()) {
-          window.Swal.close();
-        }
-      }
-    } catch (_) {}
+    // Proteger el modal superpuesto de decisión de Borrador Local (.sio-draft-swal-container)
+    // frente a barridos de pageshow durante la carga inicial normal de un formato.
+    const activeDraftSwal = document.querySelector('.swal2-container.sio-draft-swal-container');
+    const shouldCloseSwal = !activeDraftSwal || opts.dismissDraftModal === true;
 
-    try {
-      const swalContainers = document.querySelectorAll('.swal2-container');
-      swalContainers.forEach(function (node) {
-        if (node && node.parentNode) {
-          node.parentNode.removeChild(node);
+    if (shouldCloseSwal) {
+      try {
+        if (typeof window.Swal !== 'undefined' && window.Swal && typeof window.Swal.close === 'function') {
+          if (typeof window.Swal.isVisible !== 'function' || window.Swal.isVisible()) {
+            window.Swal.close();
+          }
         }
-      });
+      } catch (_) {}
 
-      const swalClasses = [
-        'swal2-shown',
-        'swal2-height-auto',
-        'swal2-iosfix',
-        'swal2-no-backdrop',
-        'swal2-toast-shown'
-      ];
-      if (document.documentElement) {
-        swalClasses.forEach(function (cls) {
-          document.documentElement.classList.remove(cls);
+      try {
+        const swalContainers = document.querySelectorAll('.swal2-container');
+        swalContainers.forEach(function (node) {
+          if (node && node.parentNode) {
+            node.parentNode.removeChild(node);
+          }
         });
-      }
-      if (document.body) {
-        swalClasses.forEach(function (cls) {
-          document.body.classList.remove(cls);
-        });
-        document.body.style.removeProperty('overflow');
-        document.body.style.removeProperty('padding-right');
-        document.body.style.removeProperty('pointer-events');
-      }
-    } catch (_) {}
+
+        const swalClasses = [
+          'swal2-shown',
+          'swal2-height-auto',
+          'swal2-iosfix',
+          'swal2-no-backdrop',
+          'swal2-toast-shown'
+        ];
+        if (document.documentElement) {
+          swalClasses.forEach(function (cls) {
+            document.documentElement.classList.remove(cls);
+          });
+        }
+        if (document.body) {
+          swalClasses.forEach(function (cls) {
+            document.body.classList.remove(cls);
+          });
+          document.body.style.removeProperty('overflow');
+          document.body.style.removeProperty('padding-right');
+          document.body.style.removeProperty('pointer-events');
+        }
+      } catch (_) {}
+    }
 
     // 4. Ocultar modales personalizados (ej. #modalReanudar)
     try {
@@ -321,10 +328,10 @@
   }
 
   function handlePopState() {
-    dismissAllOverlays({ reason: 'popstate', abortRequests: true });
+    dismissAllOverlays({ reason: 'popstate', abortRequests: true, dismissDraftModal: true });
     if (typeof window.requestAnimationFrame === 'function') {
       window.requestAnimationFrame(function () {
-        dismissAllOverlays({ reason: 'popstate-raf', abortRequests: false });
+        dismissAllOverlays({ reason: 'popstate-raf', abortRequests: false, dismissDraftModal: true });
       });
     }
   }
@@ -334,7 +341,7 @@
    * cancelamos fetches en curso para que el snapshot guardado por el navegador esté 100% limpio.
    */
   function handlePageHide() {
-    dismissAllOverlays({ reason: 'pagehide', abortRequests: true });
+    dismissAllOverlays({ reason: 'pagehide', abortRequests: true, dismissDraftModal: true });
   }
 
   function handleVisibilityChange() {

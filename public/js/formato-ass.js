@@ -45,10 +45,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.getElementById('btnAssHoraInicioAhora')?.addEventListener('click', () => {
-    if (inputHoraInicio) inputHoraInicio.value = nowHHMM();
+    if (inputHoraInicio) {
+      inputHoraInicio.value = nowHHMM();
+      inputHoraInicio.dispatchEvent(new Event('input', { bubbles: true }));
+    }
   });
   document.getElementById('btnAssHoraFinAhora')?.addEventListener('click', () => {
-    if (inputHoraFin) inputHoraFin.value = nowHHMM();
+    if (inputHoraFin) {
+      inputHoraFin.value = nowHHMM();
+      inputHoraFin.dispatchEvent(new Event('input', { bubbles: true }));
+    }
   });
 
   document.getElementById('btnLimpiarFirmaASS')?.addEventListener('click', () => {

@@ -105,6 +105,7 @@
     let items = (Array.isArray(options.initialItems) ? options.initialItems : [])
       .map((raw, idx) => normalizeItem(raw, idx, idField))
       .filter(Boolean);
+    const initialBaselineItems = items.map((it) => ({ ...it }));
 
     let selectedIdx = -1;
     let lastPointerTarget = null;
@@ -170,7 +171,7 @@
           formEl.dispatchEvent(new Event('change', { bubbles: true }));
         }
         if (window.SioOfflineManager && typeof window.SioOfflineManager.saveCurrentDraft === 'function') {
-          window.SioOfflineManager.saveCurrentDraft().catch(() => {});
+          window.SioOfflineManager.saveCurrentDraft().catch(() => { });
         }
       }
     }
@@ -618,15 +619,41 @@
       return items.map((it) => ({ ...it }));
     }
 
-    function setItems(newList) {
+    function setItems(newList, setOpts = {}) {
       items = (Array.isArray(newList) ? newList : [])
         .map((raw, idx) => normalizeItem(raw, idx, idField))
         .filter(Boolean);
       selectedIdx = -1;
       render();
+      if (onChange && !setOpts.silent) {
+        try {
+          onChange(getItems(), getActiveCount());
+        } catch (err) {
+          console.warn('[SioBaggageMatrix setItems onChange WARN]', err);
+        }
+      }
     }
 
     render();
+
+    // Registro transversal automático con SioOfflineManager para captura,
+    // restauración profunda en sitio ("Continuar donde lo dejé") y reinicio limpio
+    // ("Empezar uno de nuevo") en todos los formatos con matriz actuales y futuros.
+    const matrixAdapterKey = `matrix:${family}:${tbodyEl?.id || 'default'}`;
+    if (window.SioOfflineManager && typeof window.SioOfflineManager.registerStateAdapter === 'function') {
+      window.SioOfflineManager.registerStateAdapter(matrixAdapterKey, {
+        kind: 'matrix',
+        family,
+        capture: () => getItems(),
+        restore: (savedItems) => {
+          setItems(Array.isArray(savedItems) ? savedItems : []);
+        },
+        reset: () => {
+          setItems(initialBaselineItems.map((it) => ({ ...it })), { silent: true });
+        },
+        legacyPatchKey: family === 'ciec' ? 'equipajePuerta' : 'detalles'
+      });
+    }
 
     return {
       render,

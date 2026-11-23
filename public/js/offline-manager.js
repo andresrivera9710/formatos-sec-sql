@@ -23,7 +23,6 @@
   const STORE_TEMPLATES = 'templates';
   const MIRROR_PREFIX = 'sio_idb_mirror::';
   const PREVIEW_CACHE_NAME = 'sio-offline-previews-v1';
-  const RESUME_FLAG_PREFIX = 'sio_draft_resume::';
   const HEARTBEAT_INTERVAL_MS = 15000;
   const HEARTBEAT_TIMEOUT_MS = 3000;
   const BLANK_IMG = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
@@ -43,7 +42,10 @@
   // Flujo de decisión de borrador local: mientras el usuario no decida (modal), el autoguardado
   // permanece en pausa para no pisar el borrador de IndexedDB con un formulario en blanco.
   let _autosaveBlocked = true;
-  let _resumeRequested = false;
+  let _hasUserEdited = false;
+  let _initialBaseline = null;
+  let _initialModeBadge = null;
+  const _stateAdapters = new Map();
 
   function escapeHtml(val) {
     return String(val ?? '')
@@ -196,67 +198,48 @@
   }
 
   // ============================================================================
-  // 3. HIDRATACIÓN TEMPRANA PRE-DOMCONTENTLOADED (Synchronous Mirror -> InitialStateJson)
+  // 3. REGISTRO DE ADAPTADORES DE ESTADO (Full State Hydration en sitio sin recarga)
   // ============================================================================
-  function readMirror(draftKey) {
+  function safeClone(val) {
     try {
-      const raw = localStorage.getItem(MIRROR_PREFIX + draftKey);
-      return raw ? JSON.parse(raw) : null;
+      return JSON.parse(JSON.stringify(val));
     } catch (_) {
-      return null;
+      return val;
     }
   }
 
-  function consumeResumeFlag(draftKey) {
-    try {
-      const flagKey = RESUME_FLAG_PREFIX + draftKey;
-      if (sessionStorage.getItem(flagKey)) {
-        sessionStorage.removeItem(flagKey);
-        return true;
-      }
-    } catch (_) {}
-    return false;
-  }
-
-  function applyEarlyMirrorBeforeFormatInit() {
-    const ctx = readPageContext();
-    if (!ctx || !ctx.formatoId) return;
-    const draftKey = buildDraftKey(ctx);
-    // Solo se hidrata el borrador antes de iniciar el formato cuando el usuario eligió
-    // "Continuar donde lo dejé" en el modal (bandera de un solo uso en sessionStorage).
-    _resumeRequested = consumeResumeFlag(draftKey);
-    if (!_resumeRequested) return;
-    const mirror = readMirror(draftKey);
-    if (!mirror || !mirror.initialStatePatch) return;
-
-    const patch = mirror.initialStatePatch;
-    if (ctx.formatoId.endsWith('-cp')) {
-      const bootEl = document.getElementById('cpBootstrapData');
-      if (bootEl) {
-        if (Array.isArray(patch.registros)) {
-          bootEl.dataset.registros = JSON.stringify(patch.registros);
-        }
-        if (Array.isArray(patch.aleros)) {
-          bootEl.dataset.aleros = JSON.stringify(patch.aleros);
-        }
-      }
+  function registerStateAdapter(adapterKey, adapter) {
+    if (!adapterKey || !adapter || typeof adapter.capture !== 'function' || typeof adapter.restore !== 'function') {
       return;
     }
-
-    const jsonScripts = document.querySelectorAll('script[type="application/json"][id$="InitialStateJson"]');
-    jsonScripts.forEach((scriptEl) => {
-      try {
-        const current = JSON.parse(scriptEl.textContent || '{}');
-        const merged = { ...current, ...patch };
-        scriptEl.textContent = JSON.stringify(merged);
-      } catch (err) {
-        console.warn('[OFFLINE EARLY HYDRATE WARN]', err);
-      }
-    });
+    _stateAdapters.set(String(adapterKey), adapter);
   }
 
-  // Ejecutar parche temprano inmediatamente al evaluar offline-manager.js (antes de formato-*.js)
-  applyEarlyMirrorBeforeFormatInit();
+  function captureAdaptersState() {
+    const out = {};
+    _stateAdapters.forEach((adapter, key) => {
+      try {
+        out[key] = safeClone(adapter.capture());
+      } catch (err) {
+        console.warn('[OFFLINE ADAPTER CAPTURE WARN]', key, err);
+      }
+    });
+    return out;
+  }
+
+  function notifyStateChange(immediate = false) {
+    if (_autosaveBlocked) return;
+    _hasUserEdited = true;
+    if (immediate) {
+      if (_draftTimer) {
+        clearTimeout(_draftTimer);
+        _draftTimer = null;
+      }
+      saveCurrentDraft();
+    } else {
+      scheduleDraftSave();
+    }
+  }
 
   // ============================================================================
   // 4. MONITOR REAL DE CONECTIVIDAD (online/offline + Heartbeat GET /api/health)
@@ -334,8 +317,36 @@
   }
 
   // ============================================================================
-  // 5. CAPTURA Y RESTAURACIÓN DE BORRADORES (Campos, Cuadrículas y Firmas)
+  // 5. CAPTURA Y RESTAURACIÓN PROFUNDA DE BORRADORES (Full State Hydration)
   // ============================================================================
+  const SEARCH_FILTER_IDS = new Set([
+    'cpBuscador',
+    'ciecBuscador',
+    'erBuscarPasajero',
+    'axAFiltroTexto',
+    'ccdaFiltroPersonal'
+  ]);
+
+  function isLockedField(el) {
+    if (!el) return true;
+    return Boolean(
+      el.disabled ||
+      el.readOnly ||
+      el.classList.contains('input-locked') ||
+      el.classList.contains('er-cell-readonly')
+    );
+  }
+
+  function isSearchFilterInput(el) {
+    if (!el) return false;
+    if (el.id && SEARCH_FILTER_IDS.has(el.id)) return true;
+    return Boolean(
+      el.classList.contains('sio-search-input') ||
+      el.classList.contains('sio-combo-search') ||
+      el.getAttribute('data-sio-no-draft') === '1'
+    );
+  }
+
   function draftFieldKey(el) {
     if (el.id) return el.id;
     if (el.type === 'radio' && el.name) return `${el.name}::${el.value}`;
@@ -350,13 +361,14 @@
     const elements = main.querySelectorAll('input, select, textarea');
     elements.forEach((el) => {
       if (el.type === 'hidden' || el.type === 'password' || el.type === 'file') return;
-      if (el.closest('tr[data-uid], tr[data-row-index], tr[data-index]')) return; // Las filas dinámicas se capturan en initialStatePatch
+      if (isLockedField(el) || isSearchFilterInput(el)) return;
+      if (el.closest('tr[data-uid], tr[data-row-index], tr[data-index]')) return;
       const key = draftFieldKey(el);
       if (!key) return;
       if (el.type === 'checkbox' || el.type === 'radio') {
         fields[key] = { type: el.type, checked: Boolean(el.checked), value: el.value };
       } else {
-        fields[key] = { type: el.tagName.toLowerCase(), value: el.value };
+        fields[key] = { type: el.type || el.tagName.toLowerCase(), tag: el.tagName.toLowerCase(), value: el.value };
       }
     });
     return fields;
@@ -407,7 +419,10 @@
         tr.querySelectorAll('.er-cell-input[data-field]').forEach((inp) => {
           row[inp.dataset.field] = inp.value;
         });
-        if (row.Pasajero || row.Colilla || row.Secuencia) {
+        const hasAnyValue = Object.entries(row).some(
+          ([k, v]) => k !== 'Vuelo' && String(v || '').trim() !== ''
+        );
+        if (hasAnyValue) {
           detalles.push(row);
         }
       });
@@ -417,7 +432,7 @@
     }
 
     // 2. Formato MECD (#mecdTbodyRev, #mecdTbodyCF, #mecdTbodySF)
-    if (fmt === 'amx-mecd') {
+    if (fmt.endsWith('-mecd')) {
       const readGrid = (tbodyId) => {
         const rows = [];
         document.querySelectorAll(`#${tbodyId} tr[data-row-index]`).forEach((tr) => {
@@ -436,7 +451,7 @@
     }
 
     // 3. Formato PO (#poTbodyMatriz tr[data-record-json])
-    if (fmt === 'amx-po') {
+    if (fmt.endsWith('-po')) {
       const detalles = [];
       document.querySelectorAll('#poTbodyMatriz tr[data-row-index]').forEach((tr) => {
         const rawJson = tr.getAttribute('data-record-json');
@@ -486,15 +501,24 @@
       patch.detalles = detalles;
     }
 
-    // 5. Formato CP (.cp-reg-card[data-record-json])
+    // 5. Formato CP (#cpRegistrosLista .cp-reg-card[data-record-json] + #cpAlerosLista)
     if (fmt.endsWith('-cp')) {
       const registros = [];
-      document.querySelectorAll('#cpListaRegistros .cp-reg-card[data-record-json]').forEach((card) => {
+      document.querySelectorAll('#cpRegistrosLista .cp-reg-card[data-record-json]').forEach((card) => {
         try {
           registros.push(JSON.parse(card.getAttribute('data-record-json')));
         } catch (_) {}
       });
+      const aleros = [];
+      document.querySelectorAll('#cpAlerosLista .btn-cp-eliminar-alero[data-emp-id]').forEach((btn) => {
+        const empId = parseInt(btn.getAttribute('data-emp-id') || '0', 10);
+        const card = btn.closest('.cp-alero-card');
+        const spans = card ? card.querySelectorAll('span') : [];
+        const nombre = spans.length > 1 ? spans[1].textContent.trim() : `Empleado #${empId}`;
+        if (empId > 0) aleros.push({ EmpleadoId: empId, Nombre: nombre });
+      });
       patch.registros = registros;
+      patch.aleros = aleros;
     }
 
     // 6. Formato CIEC (.cp-registro-card + Matriz Equipaje en Puerta #ciecTbodyMatrizPuerta)
@@ -540,14 +564,15 @@
       const er = d.erPayload || d;
       if (Array.isArray(er.registros)) patch.detalles = er.registros;
       if (er.observaciones !== undefined) patch.observaciones = er.observaciones;
-    } else if (formatoId === 'amx-mecd') {
+    } else if (formatoId.endsWith('-mecd')) {
       const m = d.mecdPayload || d;
       if (Array.isArray(m.revision)) patch.revision = m.revision;
       if (Array.isArray(m.conFirma)) patch.conFirma = m.conFirma;
       if (Array.isArray(m.sinFirma)) patch.sinFirma = m.sinFirma;
-    } else if (formatoId === 'amx-po') {
+    } else if (formatoId.endsWith('-po')) {
       const po = d.poPayload || d;
       if (Array.isArray(po.registros)) patch.detalles = po.registros;
+      else if (Array.isArray(po.detalles)) patch.detalles = po.detalles;
     } else if (formatoId.endsWith('-eb')) {
       const eb = d.ebPayload || d;
       if (Array.isArray(eb.detalles)) patch.detalles = eb.detalles;
@@ -561,9 +586,25 @@
       if (Array.isArray(cp.aleros)) patch.aleros = cp.aleros;
     } else if (formatoId.endsWith('-ciec')) {
       const ciec = d.ciecPayload || d;
-      if (Array.isArray(ciec.registros)) patch.detalles = ciec.registros;
+      if (Array.isArray(ciec.registros)) {
+        patch.detalles = ciec.registros;
+        patch.registros = ciec.registros;
+      }
       if (Array.isArray(ciec.equipajePuerta)) patch.equipajePuerta = ciec.equipajePuerta;
     }
+    return patch;
+  }
+
+  function mergeAdaptersIntoLegacyPatch(adapterState = {}) {
+    const patch = {};
+    Object.entries(adapterState).forEach(([key, val]) => {
+      const adapter = _stateAdapters.get(key);
+      if (adapter && adapter.kind === 'matrix' && adapter.legacyPatchKey && Array.isArray(val)) {
+        patch[adapter.legacyPatchKey] = val;
+      } else if (val && typeof val === 'object' && !Array.isArray(val)) {
+        Object.assign(patch, val);
+      }
+    });
     return patch;
   }
 
@@ -576,9 +617,11 @@
     const draftKey = buildDraftKey(ctx);
     const fields = collectFormFields();
     const signatures = window.SioSignatureRepoClient?.exportUnlockedSignatures?.() || {};
+    const adapterState = captureAdaptersState();
     const domPatch = scrapeDynamicTablesFromDom(ctx);
+    const adapterPatch = mergeAdaptersIntoLegacyPatch(adapterState);
     const payloadPatch = extraPayload ? convertPayloadToInitialStatePatch(ctx.formatoId, extraPayload) : {};
-    const initialStatePatch = { ...domPatch, ...payloadPatch };
+    const initialStatePatch = { ...domPatch, ...adapterPatch, ...payloadPatch };
 
     const record = {
       draftKey,
@@ -592,22 +635,10 @@
       updatedAt: new Date().toISOString(),
       fields,
       signatures,
+      adapterState,
       initialStatePatch,
       lastPayload: extraPayload || null
     };
-
-    try {
-      localStorage.setItem(
-        MIRROR_PREFIX + draftKey,
-        JSON.stringify({
-          updatedAt: record.updatedAt,
-          status: record.status,
-          fields: record.fields,
-          signatures: record.signatures,
-          initialStatePatch: record.initialStatePatch
-        })
-      );
-    } catch (_) {}
 
     try {
       await idbPut(STORE_DRAFTS, record);
@@ -618,6 +649,8 @@
   }
 
   function scheduleDraftSave() {
+    if (_autosaveBlocked) return;
+    _hasUserEdited = true;
     if (_draftTimer) clearTimeout(_draftTimer);
     _draftTimer = setTimeout(() => {
       saveCurrentDraft();
@@ -637,31 +670,53 @@
     return document.querySelector(`[name="${CSS.escape(key)}"]`);
   }
 
-  const EMPTY_RESTORABLE_TYPES = new Set(['text', 'number', 'time', 'search', 'tel', 'email', 'url', 'textarea']);
+  const EMPTY_RESTORABLE_TYPES = new Set(['text', 'number', 'time', 'date', 'search', 'tel', 'email', 'url', 'textarea']);
 
   /**
-   * Restauración profunda de campos y firmas.
-   * - Respeta campos bloqueados del itinerario (.input-locked), readonly y disabled.
-   * - Dispara input/change para recalcular totales y estados dependientes.
-   * - Con { dryRun: true } solo informa si habría algo que restaurar (no modifica el DOM).
+   * Restauración profunda de campos (inputs, selects, textareas, checkboxes, radios) y firmas.
+   * - Respeta estrictamente .input-locked, readonly y disabled (nunca altera fechas/datos de itinerario).
+   * - Dos pasadas: 1) selects/checkboxes/radios (dispara cambios dependientes y SioSearchableCombo),
+   *   2) inputs de texto/hora/número y textareas (conserva valores personalizados sobre defaults).
+   * - Con { dryRun: true } solo evalúa diferencias sin modificar el DOM.
    */
   function restoreFieldsAndSignatures(draft, opts = {}) {
     if (!draft) return false;
     const dryRun = Boolean(opts.dryRun);
+    const isReset = Boolean(opts.isReset);
     let restoredAny = false;
 
-    if (draft.fields && typeof draft.fields === 'object') {
-      Object.entries(draft.fields).forEach(([key, entry]) => {
+    const fieldsObj = draft.fields && typeof draft.fields === 'object' ? draft.fields : null;
+    if (fieldsObj) {
+      const pass1 = []; // selects, checkboxes, radios (unchecked primero, luego checked)
+      const pass2 = []; // text, number, time, date, textarea
+
+      Object.entries(fieldsObj).forEach(([key, entry]) => {
         if (!entry) return;
         const el = resolveDraftField(key);
-        if (!el || el.disabled || el.readOnly || el.classList.contains('input-locked') || el.classList.contains('er-cell-readonly')) {
-          return;
+        if (!el || isLockedField(el) || isSearchFilterInput(el)) return;
+        if (el.closest('tr[data-uid], tr[data-row-index], tr[data-index]')) return;
+
+        if (el.tagName === 'SELECT' || el.type === 'checkbox' || el.type === 'radio') {
+          pass1.push({ el, entry });
+        } else {
+          pass2.push({ el, entry });
         }
+      });
+
+      // En radios, desmarcar primero los false y marcar al final los true para evitar colisiones del mismo grupo
+      pass1.sort((a, b) => {
+        const aRadioTrue = a.el.type === 'radio' && Boolean(a.entry.checked) ? 1 : 0;
+        const bRadioTrue = b.el.type === 'radio' && Boolean(b.entry.checked) ? 1 : 0;
+        return aRadioTrue - bRadioTrue;
+      });
+
+      const applyEntry = ({ el, entry }) => {
         if (el.type === 'checkbox' || el.type === 'radio') {
-          if (Boolean(el.checked) !== Boolean(entry.checked)) {
+          const targetChecked = Boolean(entry.checked);
+          if (Boolean(el.checked) !== targetChecked) {
             restoredAny = true;
             if (dryRun) return;
-            el.checked = Boolean(entry.checked);
+            el.checked = targetChecked;
             el.dispatchEvent(new Event('input', { bubbles: true }));
             el.dispatchEvent(new Event('change', { bubbles: true }));
           }
@@ -669,7 +724,8 @@
         }
         if (entry.value === undefined || entry.value === null) return;
         const nextVal = String(entry.value);
-        const allowEmpty = EMPTY_RESTORABLE_TYPES.has(el.type);
+        const elType = el.tagName === 'TEXTAREA' ? 'textarea' : String(el.type || '').toLowerCase();
+        const allowEmpty = isReset || el.tagName === 'SELECT' || EMPTY_RESTORABLE_TYPES.has(elType);
         if (nextVal === '' && !allowEmpty) return;
         if (el.value === nextVal) return;
         if (el.tagName === 'SELECT' && !Array.from(el.options).some((o) => o.value === nextVal)) return;
@@ -678,18 +734,73 @@
         el.value = nextVal;
         el.dispatchEvent(new Event('input', { bubbles: true }));
         el.dispatchEvent(new Event('change', { bubbles: true }));
-      });
+      };
+
+      pass1.forEach(applyEntry);
+      pass2.forEach(applyEntry);
     }
 
-    if (draft.signatures && typeof draft.signatures === 'object' && Object.keys(draft.signatures).length > 0) {
-      if (!dryRun) window.SioSignatureRepoClient?.loadDraftSignatures?.(draft.signatures);
-      restoredAny = true;
+    if (!isReset && draft.signatures && typeof draft.signatures === 'object' && Object.keys(draft.signatures).length > 0) {
+      const hasUnlockedMatch = window.SioSignatureRepoClient?.hasUnlockedCanvasForKeys
+        ? window.SioSignatureRepoClient.hasUnlockedCanvasForKeys(draft.signatures)
+        : true;
+      if (hasUnlockedMatch) {
+        if (!dryRun) window.SioSignatureRepoClient?.loadDraftSignatures?.(draft.signatures);
+        restoredAny = true;
+      }
     }
 
     return restoredAny;
   }
 
-  /** ¿El patch de filas/matrices del borrador difiere de lo que muestra la página actualmente? */
+  function resolveAdapterSavedSlice(adapterKey, adapter, draft) {
+    if (draft && draft.adapterState && Object.prototype.hasOwnProperty.call(draft.adapterState, adapterKey)) {
+      return { found: true, value: draft.adapterState[adapterKey] };
+    }
+    const legacy = draft && draft.initialStatePatch;
+    if (!legacy || typeof legacy !== 'object') return { found: false, value: undefined };
+
+    if (adapter.kind === 'matrix' && adapter.legacyPatchKey && Array.isArray(legacy[adapter.legacyPatchKey])) {
+      return { found: true, value: legacy[adapter.legacyPatchKey] };
+    }
+    if (typeof adapter.mapLegacyPatch === 'function') {
+      const mapped = adapter.mapLegacyPatch(legacy);
+      if (mapped !== undefined) return { found: true, value: mapped };
+    }
+    return { found: false, value: undefined };
+  }
+
+  function restoreAdaptersInPlace(draft) {
+    let restoredAny = false;
+    _stateAdapters.forEach((adapter, key) => {
+      try {
+        const slice = resolveAdapterSavedSlice(key, adapter, draft);
+        if (slice.found) {
+          adapter.restore(safeClone(slice.value));
+          restoredAny = true;
+        }
+      } catch (err) {
+        console.warn('[OFFLINE ADAPTER RESTORE WARN]', key, err);
+      }
+    });
+    return restoredAny;
+  }
+
+  function adaptersDifferFromBaseline(draft, baseline) {
+    const baseAdapters = (baseline && baseline.adapterState) || {};
+    let differs = false;
+    _stateAdapters.forEach((adapter, key) => {
+      if (differs) return;
+      const slice = resolveAdapterSavedSlice(key, adapter, draft);
+      if (!slice.found) return;
+      const baseVal = baseAdapters[key];
+      if (JSON.stringify(slice.value) !== JSON.stringify(baseVal)) {
+        differs = true;
+      }
+    });
+    return differs;
+  }
+
   function draftPatchDiffersFromPage(draft, ctx) {
     const saved = draft && draft.initialStatePatch;
     if (!saved || typeof saved !== 'object') return false;
@@ -700,10 +811,60 @@
     });
   }
 
+  function summarizeDraftContents(draft, baseline) {
+    const summary = { fieldsCount: 0, matrixCount: 0, rowsCount: 0, signaturesCount: 0 };
+    if (!draft) return summary;
+
+    const baseFields = (baseline && baseline.fields) || {};
+    if (draft.fields && typeof draft.fields === 'object') {
+      Object.entries(draft.fields).forEach(([key, entry]) => {
+        const el = resolveDraftField(key);
+        if (!el || isLockedField(el) || isSearchFilterInput(el)) return;
+        const baseEntry = baseFields[key];
+        if (el.type === 'checkbox' || el.type === 'radio') {
+          if (Boolean(entry?.checked) !== Boolean(baseEntry?.checked)) {
+            summary.fieldsCount += 1;
+          }
+        } else if (String(entry?.value ?? '') !== String(baseEntry?.value ?? '')) {
+          summary.fieldsCount += 1;
+        }
+      });
+    }
+
+    _stateAdapters.forEach((adapter, key) => {
+      const slice = resolveAdapterSavedSlice(key, adapter, draft);
+      if (!slice.found || !slice.value) return;
+      if (adapter.kind === 'matrix' && Array.isArray(slice.value)) {
+        summary.matrixCount += slice.value.length;
+      } else if (typeof slice.value === 'object') {
+        Object.values(slice.value).forEach((v) => {
+          if (Array.isArray(v)) summary.rowsCount += v.length;
+        });
+      }
+    });
+
+    if (draft.signatures && typeof draft.signatures === 'object') {
+      summary.signaturesCount = Object.values(draft.signatures).filter(
+        (v) => typeof v === 'string' && v.startsWith('data:image/')
+      ).length;
+    }
+
+    return summary;
+  }
+
   function formatDraftSavedAt(iso) {
     const d = iso ? new Date(iso) : null;
     if (!d || Number.isNaN(d.getTime())) return 'hora no disponible';
     try {
+      const now = new Date();
+      const sameDay =
+        d.getFullYear() === now.getFullYear() &&
+        d.getMonth() === now.getMonth() &&
+        d.getDate() === now.getDate();
+      if (sameDay) {
+        const timeStr = d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true });
+        return `Hoy a las ${timeStr}`;
+      }
       return d.toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true });
     } catch (_) {
       return d.toLocaleString();
@@ -718,11 +879,19 @@
     }
   }
 
+  function restoreInitialModeBadge() {
+    const modeBadge = document.getElementById('sioFormatoModeBadge');
+    if (modeBadge && _initialModeBadge) {
+      modeBadge.textContent = _initialModeBadge.textContent;
+      modeBadge.className = _initialModeBadge.className;
+    }
+  }
+
   /**
-   * Modal superpuesto de decisión de borrador local (reemplaza al banner incrustado).
-   * Devuelve 'continue' (restaurar todo) o 'discard' (empezar de cero).
+   * Modal superpuesto de decisión de borrador local (reemplaza al antiguo banner incrustado).
+   * Devuelve 'continue' (restaurar todo en sitio) o 'discard' (limpiar IndexedDB y empezar de cero).
    */
-  async function promptDraftDecision(draft, isQueued) {
+  async function promptDraftDecision(draft, isQueued, summary = null) {
     const hasSwal = typeof Swal !== 'undefined' && Swal && typeof Swal.fire === 'function';
     const when = formatDraftSavedAt(draft && draft.updatedAt);
     const nombre = (draft && draft.formatoNombre) || (draft && draft.codigoFormato) || 'este formato';
@@ -735,6 +904,23 @@
         : 'discard';
     }
 
+    const chips = [];
+    if (summary) {
+      if (summary.fieldsCount > 0) {
+        chips.push(`<span class="sio-draft-chip"><i class="fas fa-sliders-h"></i> ${summary.fieldsCount} ${summary.fieldsCount === 1 ? 'campo' : 'campos'}</span>`);
+      }
+      if (summary.matrixCount > 0) {
+        chips.push(`<span class="sio-draft-chip"><i class="fas fa-th"></i> ${summary.matrixCount} ${summary.matrixCount === 1 ? 'secuencia' : 'secuencias'}</span>`);
+      }
+      if (summary.rowsCount > 0) {
+        chips.push(`<span class="sio-draft-chip"><i class="fas fa-list-ul"></i> ${summary.rowsCount} ${summary.rowsCount === 1 ? 'registro' : 'registros'}</span>`);
+      }
+      if (summary.signaturesCount > 0) {
+        chips.push(`<span class="sio-draft-chip"><i class="fas fa-signature"></i> ${summary.signaturesCount} ${summary.signaturesCount === 1 ? 'firma' : 'firmas'}</span>`);
+      }
+    }
+    const chipsHtml = chips.length > 0 ? `<div class="sio-draft-chips">${chips.join('')}</div>` : '';
+
     const queuedNote = isQueued
       ? '<p class="sio-draft-note"><i class="fas fa-cloud-upload-alt"></i> Este formato quedó guardado sin conexión y está pendiente de sincronizar con el servidor.</p>'
       : '';
@@ -742,18 +928,22 @@
     const res = await Swal.fire({
       icon: 'info',
       iconHtml: '<i class="fas fa-database"></i>',
-      title: 'Tiene un borrador pendiente',
+      title: 'Borrador local pendiente',
       html: `
         <div class="sio-draft-body">
-          <p>Se encontró un borrador guardado localmente en este dispositivo para:</p>
-          <p class="sio-draft-format"><strong>${escapeHtml(nombre)}</strong>${cliente || correlativo ? `<span>${escapeHtml(cliente)}${correlativo ? ' · #' + escapeHtml(correlativo) : ''}</span>` : ''}</p>
+          <p>Tienes un borrador guardado localmente en este dispositivo para:</p>
+          <div class="sio-draft-format">
+            <strong>${escapeHtml(nombre)}</strong>
+            ${cliente || correlativo ? `<span>${escapeHtml(cliente)}${correlativo ? ' · #' + escapeHtml(correlativo) : ''}</span>` : ''}
+          </div>
           <p class="sio-draft-time"><i class="far fa-clock"></i> Guardado: <strong>${escapeHtml(when)}</strong></p>
+          ${chipsHtml}
           ${queuedNote}
         </div>`,
       showConfirmButton: true,
       showCancelButton: true,
       confirmButtonText: '<i class="fas fa-play-circle"></i> Continuar donde lo dejé',
-      cancelButtonText: '<i class="fas fa-file"></i> Empezar uno de nuevo',
+      cancelButtonText: '<i class="fas fa-rotate-left"></i> Empezar uno de nuevo',
       allowOutsideClick: false,
       allowEscapeKey: false,
       focusConfirm: true,
@@ -767,7 +957,13 @@
         cancelButton: 'sio-draft-btn sio-draft-btn-secondary sio-draft-btn-new'
       }
     });
+
     if (res && res.isConfirmed) return 'continue';
+
+    // Solo proceder a descartar si el usuario presionó explícitamente el botón secundario ("Empezar uno de nuevo").
+    if (!res || res.dismiss !== Swal.DismissReason.cancel) {
+      return 'keep_closed';
+    }
 
     if (isQueued) {
       const sure = await Swal.fire({
@@ -788,45 +984,45 @@
           cancelButton: 'sio-draft-btn sio-draft-btn-secondary'
         }
       });
-      if (!sure || !sure.isConfirmed) return promptDraftDecision(draft, isQueued);
+      if (!sure || !sure.isConfirmed) return promptDraftDecision(draft, isQueued, summary);
     }
     return 'discard';
   }
 
   /**
-   * "Continuar donde lo dejé": se persiste el borrador en el espejo síncrono + bandera de un solo uso
-   * y se recarga la vista, de modo que cada formato reconstruye matrices, filas dinámicas y campos
-   * desde su propio estado inicial (hidratación completa antes de iniciar el formato).
-   * Devuelve true si se disparó la recarga.
+   * "Continuar donde lo dejé": Hidratación completa y profunda en sitio (sin recargar la página).
+   * Restaura matrices, tablas dinámicas, aleros, sellos, inputs/selects/radios/checkboxes y firmas.
    */
-  function resumeDraftViaReload(draft, ctx) {
+  function applyDraftInPlace(draft) {
+    if (!draft) return;
+    _autosaveBlocked = true;
     try {
-      const draftKey = buildDraftKey(ctx);
-      localStorage.setItem(
-        MIRROR_PREFIX + draftKey,
-        JSON.stringify({
-          updatedAt: draft.updatedAt,
-          status: draft.status,
-          fields: draft.fields || {},
-          signatures: draft.signatures || {},
-          initialStatePatch: draft.initialStatePatch || {}
-        })
-      );
-      sessionStorage.setItem(RESUME_FLAG_PREFIX + draftKey, '1');
-    } catch (_) {
-      return false;
+      restoreAdaptersInPlace(draft);
+      restoreFieldsAndSignatures(draft);
+    } finally {
+      _autosaveBlocked = false;
+      _hasUserEdited = true;
     }
-    window.location.reload();
-    return true;
   }
 
-  async function discardActiveDraft() {
+  /**
+   * "Empezar uno de nuevo": Limpia IndexedDB + espejo legado + cola y deja el formulario
+   * limpio en su estado inicial (sin recargar la página y 100% compatible con modo offline).
+   */
+  async function discardActiveDraftInPlace(baseline) {
     const ctx = readPageContext();
     if (!ctx || !ctx.formatoId) return;
     const draftKey = buildDraftKey(ctx);
+    _autosaveBlocked = true;
+    if (_draftTimer) {
+      clearTimeout(_draftTimer);
+      _draftTimer = null;
+    }
+
     try {
       localStorage.removeItem(MIRROR_PREFIX + draftKey);
     } catch (_) {}
+
     try {
       await idbDelete(STORE_DRAFTS, draftKey);
       const queueItems = await idbGetAll(STORE_QUEUE);
@@ -837,7 +1033,35 @@
       }
       await refreshPendingCount();
     } catch (_) {}
-    window.location.reload();
+
+    // Resetear adaptadores (matrices, tablas dinámicas, aleros, sellos) al estado inicial limpio
+    _stateAdapters.forEach((adapter, key) => {
+      try {
+        if (typeof adapter.reset === 'function') {
+          adapter.reset();
+        } else if (baseline && baseline.adapterState && Object.prototype.hasOwnProperty.call(baseline.adapterState, key)) {
+          adapter.restore(safeClone(baseline.adapterState[key]));
+        }
+      } catch (err) {
+        console.warn('[OFFLINE ADAPTER RESET WARN]', key, err);
+      }
+    });
+
+    // Limpiar firmas no bloqueadas y restaurar controles mutables al estado base limpio
+    window.SioSignatureRepoClient?.clearUnlockedSignatures?.();
+    if (baseline && baseline.fields) {
+      restoreFieldsAndSignatures({ fields: baseline.fields }, { isReset: true });
+    }
+    SEARCH_FILTER_IDS.forEach((id) => {
+      const inp = document.getElementById(id);
+      if (inp && inp.value) {
+        inp.value = '';
+        inp.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+    restoreInitialModeBadge();
+    _hasUserEdited = false;
+    _autosaveBlocked = false;
   }
 
   // ============================================================================
@@ -1537,6 +1761,12 @@
               const ctx = readPageContext();
               if (ctx) {
                 const dk = buildDraftKey(ctx);
+                _hasUserEdited = false;
+                _autosaveBlocked = true;
+                if (_draftTimer) {
+                  clearTimeout(_draftTimer);
+                  _draftTimer = null;
+                }
                 try { localStorage.removeItem(MIRROR_PREFIX + dk); } catch (_) {}
                 await idbDelete(STORE_DRAFTS, dk).catch(() => {});
               }
@@ -1662,87 +1892,120 @@
     const ctx = readPageContext();
     if (!ctx || !ctx.formatoId) return;
 
+    const modeBadgeEl = document.getElementById('sioFormatoModeBadge');
+    if (modeBadgeEl) {
+      _initialModeBadge = {
+        textContent: modeBadgeEl.textContent,
+        className: modeBadgeEl.className
+      };
+    }
+
     prefetchTemplateForActiveFormat();
 
     const draftKey = buildDraftKey(ctx);
     const queueKey = `${ctx.itinerarioId}::${ctx.formatoId}::${ctx.encabezadoId || 'NEW'}`;
-    let savedDraft = await idbGet(STORE_DRAFTS, draftKey).catch(() => null);
+    const savedDraft = await idbGet(STORE_DRAFTS, draftKey).catch(() => null);
     const queuedItem = await idbGet(STORE_QUEUE, queueKey).catch(() => null);
 
-    // Dejar que el script del formato termine de inicializar su DOM antes de comparar/restaurar.
+    // Esperar a que todos los scripts formato-*.js terminen de montar DOM, combos, matrices y adaptadores.
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    let reloading = false;
+    _initialBaseline = {
+      fields: collectFormFields(),
+      adapterState: captureAdaptersState()
+    };
 
-    if (_resumeRequested) {
-      // Retorno tras "Continuar donde lo dejé": el estado inicial ya fue hidratado (matrices y filas);
-      // aquí se completan campos, horas, totales dependientes y firmas.
-      if (!savedDraft) {
-        const mirror = readMirror(draftKey);
-        if (mirror) savedDraft = { ...mirror, cliente: ctx.cliente, codigoFormato: ctx.formatoId };
-      }
-      if (savedDraft) {
-        restoreFieldsAndSignatures(savedDraft);
-        if (queuedItem) markQueuedBadge();
-        if (typeof Swal !== 'undefined' && Swal && typeof Swal.fire === 'function') {
-          Swal.fire({
-            toast: true,
-            position: 'top-end',
-            icon: 'success',
-            title: 'Borrador restaurado',
-            showConfirmButton: false,
-            timer: 2600,
-            timerProgressBar: true
-          });
-        }
-      }
-    } else if (savedDraft) {
+    if (savedDraft) {
       const isQueued = Boolean(queuedItem && savedDraft.lastPayload);
       if (isQueued) {
         await generateOfflinePreview(ctx.formatoId, savedDraft.lastPayload).catch(() => {});
         markQueuedBadge();
       }
+
       const hasRecoverableData = isQueued ||
         restoreFieldsAndSignatures(savedDraft, { dryRun: true }) ||
+        adaptersDifferFromBaseline(savedDraft, _initialBaseline) ||
         draftPatchDiffersFromPage(savedDraft, ctx);
 
       if (hasRecoverableData) {
-        const decision = await promptDraftDecision(savedDraft, isQueued);
+        const summary = summarizeDraftContents(savedDraft, _initialBaseline);
+        const decision = await promptDraftDecision(savedDraft, isQueued, summary);
         if (decision === 'continue') {
-          reloading = resumeDraftViaReload(savedDraft, ctx);
-          if (!reloading) {
-            // Sin sessionStorage/localStorage: restauración en sitio (campos y firmas).
-            restoreFieldsAndSignatures(savedDraft);
+          applyDraftInPlace(savedDraft);
+          if (isQueued) markQueuedBadge();
+          // Normalizar el registro en IndexedDB con adapterState actualizado
+          saveCurrentDraft(isQueued ? savedDraft.lastPayload : null, isQueued ? 'queued_offline' : 'draft').catch(() => {});
+          if (typeof Swal !== 'undefined' && Swal && typeof Swal.fire === 'function') {
+            Swal.fire({
+              toast: true,
+              position: 'top-end',
+              icon: 'success',
+              title: 'Borrador local restaurado',
+              showConfirmButton: false,
+              timer: 2600,
+              timerProgressBar: true
+            });
           }
-        } else {
-          await discardActiveDraft(); // limpia IndexedDB + espejo + cola y recarga en blanco
-          reloading = true;
+        } else if (decision === 'discard') {
+          await discardActiveDraftInPlace(_initialBaseline);
+          if (typeof Swal !== 'undefined' && Swal && typeof Swal.fire === 'function') {
+            Swal.fire({
+              toast: true,
+              position: 'top-end',
+              icon: 'info',
+              title: 'Borrador descartado — listo para empezar de nuevo',
+              showConfirmButton: false,
+              timer: 2400,
+              timerProgressBar: true
+            });
+          }
         }
       }
     }
 
-    // El autoguardado permanece bloqueado si la vista se está recargando para no pisar el borrador.
-    if (reloading) return;
     _autosaveBlocked = false;
 
     // Escuchar cambios en tiempo real para autoguardado continuo en IndexedDB
     const main = document.querySelector('main') || document.body;
-    main.addEventListener('input', scheduleDraftSave);
-    main.addEventListener('change', scheduleDraftSave);
+    main.addEventListener('input', (e) => {
+      if (isSearchFilterInput(e.target)) return;
+      scheduleDraftSave();
+    });
+    main.addEventListener('change', (e) => {
+      if (isSearchFilterInput(e.target)) return;
+      scheduleDraftSave();
+    });
     main.addEventListener('sio:signature-change', scheduleDraftSave);
     main.addEventListener('click', (e) => {
       const btn = e.target.closest('button, td[data-cell-index], td[data-pos-id]');
-      if (btn) scheduleDraftSave();
+      if (!btn) return;
+      if (btn.id && /VistaPreliminar|GuardarDefinitivo|LimpiarBuscador/i.test(btn.id)) return;
+      scheduleDraftSave();
     });
 
-    window.addEventListener('pagehide', () => {
+    const flushDraftOnLeave = () => {
+      if (_autosaveBlocked || !_hasUserEdited) return;
+      if (_draftTimer) {
+        clearTimeout(_draftTimer);
+        _draftTimer = null;
+      }
       saveCurrentDraft();
+    };
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        flushDraftOnLeave();
+      }
     });
+    window.addEventListener('pagehide', flushDraftOnLeave);
   });
 
   window.SioOfflineManager = {
     checkRealConnectivity,
+    registerStateAdapter,
+    notifyStateChange,
     saveCurrentDraft,
+    discardActiveDraft: () => discardActiveDraftInPlace(_initialBaseline),
     processPendingSyncQueue,
     openStatusModal,
     openLastOfflinePreview,

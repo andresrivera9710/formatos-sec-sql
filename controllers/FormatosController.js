@@ -445,23 +445,23 @@ class FormatosController {
 
       const rawTemplate = HtmlPreviewService.readRawTemplate(formatoId) || '';
       const logoVars = {
-        varLogoAeromexico: HtmlPreviewService.getLogoBase64('aeromexico.png'),
-        varLogoArajet: HtmlPreviewService.getLogoBase64('arajet.png'),
-        varLogoDelta: HtmlPreviewService.getLogoBase64('delta.png'),
-        varLogoAirCanada: HtmlPreviewService.getLogoBase64('aircanada.png'),
-        varLogoLatam: HtmlPreviewService.getLogoBase64('latam.png'),
-        varLogoFedex: HtmlPreviewService.getLogoBase64('fedex.png'),
-        varLogoAmerijet: HtmlPreviewService.getLogoBase64('amerijet.png'),
-        varImgAvion: HtmlPreviewService.getLogoBase64('avion_anexob.png')
+        varLogoAeromexico: HtmlPreviewService.getLogoInfo('aeromexico.jpeg'),
+        varLogoArajet: HtmlPreviewService.getLogoInfo('arajet.png'),
+        varLogoDelta: HtmlPreviewService.getLogoInfo('delta.png'),
+        varLogoAirCanada: HtmlPreviewService.getLogoInfo('air-canada.png'),
+        varLogoLatam: HtmlPreviewService.getLogoInfo('latam-cargo.png'),
+        varLogoFedex: HtmlPreviewService.getLogoInfo('fedex.png'),
+        varLogoAmerijet: HtmlPreviewService.getLogoInfo('amerijet.png'),
+        varImgAvion: HtmlPreviewService.getLogoInfo('avion_anexob.png')
       };
 
       let templateWithLogos = rawTemplate;
-      for (const [varName, b64] of Object.entries(logoVars)) {
-        if (!b64) continue;
+      for (const [varName, info] of Object.entries(logoVars)) {
+        if (!info || !info.b64) continue;
         const imgDataRegex = new RegExp(`data:image\\/[a-zA-Z0-9+.-]+;base64,\\s*@\\{\\s*variables\\(\\s*'\\s*${varName}\\s*'\\s*\\)\\s*\\}\\s*`, 'gi');
         const bareVarRegex = new RegExp(`@\\{\\s*variables\\(\\s*'\\s*${varName}\\s*'\\s*\\)\\s*\\}\\s*`, 'gi');
-        templateWithLogos = templateWithLogos.replace(imgDataRegex, `data:image/png;base64,${b64}`);
-        templateWithLogos = templateWithLogos.replace(bareVarRegex, b64);
+        templateWithLogos = templateWithLogos.replace(imgDataRegex, `data:${info.mime};base64,${info.b64}`);
+        templateWithLogos = templateWithLogos.replace(bareVarRegex, info.b64);
       }
 
       const defaultVars = formatoId.endsWith('-cp')
@@ -525,7 +525,8 @@ class FormatosController {
               formatoId,
               itinerarioId: vuelo.itinerarioId,
               encabezadoId: targetEncId,
-              user
+              user,
+              autoLoadLatest: !targetEncId
             });
           } catch (hydErr) {
             console.warn('[DIRECT PREVIEW HYDRATION WARNING]', hydErr.message);

@@ -32,21 +32,22 @@ document.addEventListener('DOMContentLoaded', () => {
     opMap.set(Number(o.EmpleadoId), String(o.Nombre || ''));
   });
 
-  let carretas = Array.isArray(initialState.carretas)
-    ? initialState.carretas.map((c, idx) => ({
-        No: idx + 1,
-        DetalleCFRId: parseInt(c.DetalleCFRId, 10) || 0,
-        CarretaId: parseInt(c.CarretaId, 10) || '',
-        NoCarreta: String(c.NoCarreta || maqMap.get(Number(c.CarretaId)) || ''),
-        FlejeUno: String(c.FlejeUno || '').trim(),
-        FlejeDos: String(c.FlejeDos || '').trim(),
-        MaquinariaEquipoId: parseInt(c.MaquinariaEquipoId, 10) || '',
-        NoUnidad: String(c.NoUnidad || maqMap.get(Number(c.MaquinariaEquipoId)) || ''),
-        TotalEqDetalle: c.TotalEqDetalle !== undefined && c.TotalEqDetalle !== '' ? String(c.TotalEqDetalle) : '',
-        EmpleadoId: parseInt(c.EmpleadoId, 10) || '',
-        Operador: String(c.Operador || opMap.get(Number(c.EmpleadoId)) || '')
-      }))
-    : [];
+  const normalizeCfrCarretas = (list) => (Array.isArray(list) ? list : []).map((c, idx) => ({
+    No: idx + 1,
+    DetalleCFRId: parseInt(c.DetalleCFRId, 10) || 0,
+    CarretaId: parseInt(c.CarretaId, 10) || '',
+    NoCarreta: String(c.NoCarreta || maqMap.get(Number(c.CarretaId)) || ''),
+    FlejeUno: String(c.FlejeUno || '').trim(),
+    FlejeDos: String(c.FlejeDos || '').trim(),
+    MaquinariaEquipoId: parseInt(c.MaquinariaEquipoId, 10) || '',
+    NoUnidad: String(c.NoUnidad || maqMap.get(Number(c.MaquinariaEquipoId)) || ''),
+    TotalEqDetalle: c.TotalEqDetalle !== undefined && c.TotalEqDetalle !== '' ? String(c.TotalEqDetalle) : '',
+    EmpleadoId: parseInt(c.EmpleadoId, 10) || '',
+    Operador: String(c.Operador || opMap.get(Number(c.EmpleadoId)) || '')
+  }));
+
+  let carretas = normalizeCfrCarretas(initialState.carretas);
+  const initialCarretasBaseline = carretas.map((c) => ({ ...c }));
 
   const tbody = document.getElementById('cfrTbodyCarretas');
   const totalCarretasEl = document.getElementById('cfrTotalCarretasBadge');
@@ -495,4 +496,21 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnGuardarDefinitivoCFR')?.addEventListener('click', () => enviarFormato({ guardar: true }));
 
   renderTabla();
+
+  window.SioOfflineManager?.registerStateAdapter?.('format:cfr', {
+    capture: () => ({
+      carretas: carretas.map((c) => ({ ...c }))
+    }),
+    restore: (saved) => {
+      const list = Array.isArray(saved) ? saved : (Array.isArray(saved?.carretas) ? saved.carretas : null);
+      if (!list) return;
+      carretas = normalizeCfrCarretas(list);
+      renderTabla();
+    },
+    reset: () => {
+      carretas = initialCarretasBaseline.map((c) => ({ ...c }));
+      renderTabla();
+    },
+    mapLegacyPatch: (patch) => (Array.isArray(patch?.carretas) ? { carretas: patch.carretas } : undefined)
+  });
 });

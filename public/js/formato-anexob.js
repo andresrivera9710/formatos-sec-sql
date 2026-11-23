@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const itinerarioId = parseInt(document.getElementById('axBItinerarioId')?.value || initialState.itinerarioId, 10) || 0;
   let encabezadoId = parseInt(document.getElementById('axBEncabezadoId')?.value || initialState.encabezadoId, 10) || 0;
 
-  let zonesSearch = (Array.isArray(initialState.zonesSearch) ? initialState.zonesSearch : []).slice(0, 5).map((z) => ({
+  const normalizeAnexoBZones = (list) => (Array.isArray(list) ? list : []).slice(0, 5).map((z) => ({
     EmployeeInfo: String(z.EmployeeInfo || '').trim(),
     Zone: String(z.Zone || '').trim(),
     SearchType: String(z.SearchType || 'Física').trim().toLowerCase() === 'visual' ? 'Visual' : 'Física',
@@ -50,6 +50,9 @@ document.addEventListener('DOMContentLoaded', () => {
     TimeCompleted: extractHHMM(z.TimeCompleted),
     Remarks: String(z.Remarks || '').trim()
   }));
+
+  let zonesSearch = normalizeAnexoBZones(initialState.zonesSearch);
+  const initialZonesBaseline = zonesSearch.map((z) => ({ ...z }));
 
   const DEFAULT_ZONE_NAMES = [
     'Zone 1 - Flight Deck & Fwd Galley',
@@ -95,10 +98,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnAgregarZona = document.getElementById('btnAxBAgregarZona');
 
   document.getElementById('btnAxBStartTimeAhora')?.addEventListener('click', () => {
-    if (inputStartTime) inputStartTime.value = nowHHMM();
+    if (inputStartTime) {
+      inputStartTime.value = nowHHMM();
+      inputStartTime.dispatchEvent(new Event('input', { bubbles: true }));
+    }
   });
   document.getElementById('btnAxBEndTimeAhora')?.addEventListener('click', () => {
-    if (inputEndTime) inputEndTime.value = nowHHMM();
+    if (inputEndTime) {
+      inputEndTime.value = nowHHMM();
+      inputEndTime.dispatchEvent(new Event('input', { bubbles: true }));
+    }
   });
 
   document.getElementById('btnLimpiarLeadFirmaAnexoB')?.addEventListener('click', () => {
@@ -479,4 +488,25 @@ document.addEventListener('DOMContentLoaded', () => {
   actualizarUiOperacion();
   actualizarUiIdValidation();
   renderZonas();
+
+  window.SioOfflineManager?.registerStateAdapter?.('format:anexob', {
+    capture: () => ({
+      zonesSearch: zonesSearch.map((z) => ({ ...z }))
+    }),
+    restore: (saved) => {
+      const list = Array.isArray(saved) ? saved : (Array.isArray(saved?.zonesSearch) ? saved.zonesSearch : null);
+      if (!list) return;
+      zonesSearch = normalizeAnexoBZones(list);
+      renderZonas();
+      actualizarUiOperacion();
+      actualizarUiIdValidation();
+    },
+    reset: () => {
+      zonesSearch = initialZonesBaseline.map((z) => ({ ...z }));
+      renderZonas();
+      actualizarUiOperacion();
+      actualizarUiIdValidation();
+    },
+    mapLegacyPatch: (patch) => (Array.isArray(patch?.zonesSearch) ? { zonesSearch: patch.zonesSearch } : undefined)
+  });
 });

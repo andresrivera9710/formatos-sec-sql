@@ -607,12 +607,6 @@ async function seleccionarOperacion(vuelo) {
  * Maneja la selección de un formato y verifica si debe reanudar o crear nuevo
  */
 async function abrirFormato(formatoId, formatoNombre, itinerarioId) {
-  if (String(formatoId || '').endsWith('-er')) {
-    mostrarPantallaCarga('Cargando Formato...', `Consultando y cargando "${formatoNombre}" desde Azure SQL...`);
-    window.location.assign(`/formatos/${encodeURIComponent(formatoId)}`);
-    return;
-  }
-
   const navMgr = window.SioNavigationManager;
   const reqCtrl = navMgr ? navMgr.createAbortController('verificar-formatos') : { signal: undefined, epoch: 0, release: () => {} };
 

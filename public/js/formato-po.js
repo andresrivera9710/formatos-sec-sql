@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const posicionesCatalog = Array.isArray(initialState.posicionesCatalog) ? initialState.posicionesCatalog : [];
   const usuariosSEC = Array.isArray(initialState.usuariosSEC) ? initialState.usuariosSEC : [];
 
-  let detalles = (Array.isArray(initialState.detalles) ? initialState.detalles : []).map((d) => {
+  const normalizePoDetalles = (list) => (Array.isArray(list) ? list : []).map((d) => {
     const empId = parseInt(d.EmpleadoId, 10) || 0;
     const posId = parseInt(d.PosicionesPOId ?? d.PosicionId, 10) || 0;
     const userMatch = usuariosSEC.find((u) => Number(u.EmpleadoId) === empId);
@@ -43,6 +43,9 @@ document.addEventListener('DOMContentLoaded', () => {
       Posicion: d.Posicion || d.Posiciones || (posMatch ? posMatch.Posicion : `Posición #${posId}`)
     };
   });
+
+  let detalles = normalizePoDetalles(initialState.detalles);
+  const initialDetallesBaseline = detalles.map((d) => ({ ...d }));
 
   // Referencias del DOM
   const inputFormatoId = document.getElementById('poFormatoId');
@@ -362,4 +365,21 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   renderMatriz();
+
+  window.SioOfflineManager?.registerStateAdapter?.('format:po', {
+    capture: () => ({
+      detalles: detalles.map((d) => ({ ...d }))
+    }),
+    restore: (saved) => {
+      const list = Array.isArray(saved) ? saved : (Array.isArray(saved?.detalles) ? saved.detalles : null);
+      if (!list) return;
+      detalles = normalizePoDetalles(list);
+      renderMatriz();
+    },
+    reset: () => {
+      detalles = initialDetallesBaseline.map((d) => ({ ...d }));
+      renderMatriz();
+    },
+    mapLegacyPatch: (patch) => (Array.isArray(patch?.detalles) ? { detalles: patch.detalles } : undefined)
+  });
 });

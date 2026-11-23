@@ -66,7 +66,7 @@ class FormatosService {
    * @param {number} [options.encabezadoId] - Si se reanuda un formato existente
    * @param {Object} options.user
    */
-  static async prepararFormato({ formatoId, itinerarioId, encabezadoId, user, forzarNuevo = false }) {
+  static async prepararFormato({ formatoId, itinerarioId, encabezadoId, user, forzarNuevo = false, autoLoadLatest = false }) {
     const catalogo = OperacionesService.getCatalogoFormatosPorAerolinea();
     const formatoMeta = catalogo.find(f => f.id === formatoId);
 
@@ -117,10 +117,12 @@ class FormatosService {
 
     const encParamName = formatoMeta.paramEncabezado || (isCP ? 'EncabezadoCPId' : (isER ? 'EncabezadoControlERId' : 'EncabezadoId'));
     let encIdNum = encabezadoId ? parseInt(encabezadoId, 10) : null;
+    const shouldAutoLoadLatest = Boolean(autoLoadLatest && !forzarNuevo && itinerarioId);
 
-    // Si no se especificó encabezadoId ni se forzó nuevo registro (?nuevo=1),
-    // cargar automáticamente el último registro guardado de este formato para la operación activa.
-    if (!encIdNum && !forzarNuevo && itinerarioId && familyKey) {
+    // Regla Power Apps (varCargarDesdeSQL): al abrir un formato nuevo sin ?encabezadoId,
+    // TODAS las matrices/tablas inician 100% vacías. Solo se autocarga el último registro SQL
+    // cuando se solicita explícitamente (ej. hidratación directa de vista preliminar sin snapshot).
+    if (!encIdNum && shouldAutoLoadLatest && familyKey) {
       try {
         const existentes = await FormatosModel.obtenerFormatosPorItinerario(parseInt(itinerarioId, 10));
         const coincidentes = (existentes || []).filter(
@@ -233,6 +235,7 @@ class FormatosService {
       const rawRows = datosExistentes?.[0] || [];
       const detalles = rawRows
         .filter(d => d && (d.Pasajero || d.Colilla !== undefined || d.Secuencia !== undefined))
+        .sort((a, b) => (parseInt(a.DetalleControlERId, 10) || 0) - (parseInt(b.DetalleControlERId, 10) || 0))
         .map((d, idx) => ({
           Numero: idx + 1,
           DetalleControlERId: parseInt(d.DetalleControlERId, 10) || 0,
@@ -362,12 +365,15 @@ class FormatosService {
       const agenteInfo = resolverPersonaMecd(encMecd?.AgenteId ?? encMecd?.AgenteLoginSECId, usuariosSEC);
       const supInfo = resolverPersonaMecd(encMecd?.SupervisorId ?? encMecd?.SupervisorLoginSECId, supervisores);
 
-      const revisionesMapeadas = (mecdRaw.revisiones || []).map((r, i) => ({
-        Numero: i + 1,
-        DetalleEquipMECDId: parseInt(r.DetalleEquipMECDId, 10) || 0,
-        Control: String(r.Control ?? '').trim(),
-        Colilla: String(r.Colilla ?? '').trim()
-      }));
+      const revisionesMapeadas = (mecdRaw.revisiones || [])
+        .slice()
+        .sort((a, b) => (parseInt(a.DetalleEquipMECDId, 10) || 0) - (parseInt(b.DetalleEquipMECDId, 10) || 0))
+        .map((r, i) => ({
+          Numero: i + 1,
+          DetalleEquipMECDId: parseInt(r.DetalleEquipMECDId, 10) || 0,
+          Control: String(r.Control ?? '').trim(),
+          Colilla: String(r.Colilla ?? '').trim()
+        }));
 
       mecdState = {
         encabezado: encMecd,
@@ -380,22 +386,28 @@ class FormatosService {
         supervisorNombre: supInfo.nombre,
         revision: revisionesMapeadas,
         revisiones: revisionesMapeadas,
-        conFirma: (mecdRaw.conFirma || []).map((r, i) => ({
-          Numero: i + 1,
-          EquipajeMEId: parseInt(r.EquipajeMEId, 10) || 0,
-          Pasajero: String(r.Pasajero ?? '').trim(),
-          Colilla: String(r.Colilla ?? '').trim(),
-          Control: String(r.Control ?? '').trim(),
-          Destino: String(r.Destino ?? '').trim()
-        })),
-        sinFirma: (mecdRaw.sinFirma || []).map((r, i) => ({
-          Numero: i + 1,
-          EquipajeDTId: parseInt(r.EquipajeDTId, 10) || 0,
-          Pasajero: String(r.Pasajero ?? '').trim(),
-          Colilla: String(r.Colilla ?? '').trim(),
-          Control: String(r.Control ?? '').trim(),
-          Destino: String(r.Destino ?? '').trim()
-        }))
+        conFirma: (mecdRaw.conFirma || [])
+          .slice()
+          .sort((a, b) => (parseInt(a.EquipajeMEId, 10) || 0) - (parseInt(b.EquipajeMEId, 10) || 0))
+          .map((r, i) => ({
+            Numero: i + 1,
+            EquipajeMEId: parseInt(r.EquipajeMEId, 10) || 0,
+            Pasajero: String(r.Pasajero ?? '').trim(),
+            Colilla: String(r.Colilla ?? '').trim(),
+            Control: String(r.Control ?? '').trim(),
+            Destino: String(r.Destino ?? '').trim()
+          })),
+        sinFirma: (mecdRaw.sinFirma || [])
+          .slice()
+          .sort((a, b) => (parseInt(a.EquipajeDTId, 10) || 0) - (parseInt(b.EquipajeDTId, 10) || 0))
+          .map((r, i) => ({
+            Numero: i + 1,
+            EquipajeDTId: parseInt(r.EquipajeDTId, 10) || 0,
+            Pasajero: String(r.Pasajero ?? '').trim(),
+            Colilla: String(r.Colilla ?? '').trim(),
+            Control: String(r.Control ?? '').trim(),
+            Destino: String(r.Destino ?? '').trim()
+          }))
       };
     }
 
@@ -480,7 +492,7 @@ class FormatosService {
 
     if (isRX) {
       let rxRaw = { encabezado: null, personalSAG: [], personalLaats: [] };
-      if (encIdNum || (!forzarNuevo && itinerarioId)) {
+      if (encIdNum || shouldAutoLoadLatest) {
         try {
           rxRaw = await FormatosModel.consultarTodoDRayosX(encIdNum, itinerarioId);
           if (rxRaw.encabezado?.EncabezadoDRayosXId) {
@@ -573,7 +585,7 @@ class FormatosService {
 
     if (isDAL) {
       let dalRow = null;
-      if (encIdNum || (!forzarNuevo && itinerarioId)) {
+      if (encIdNum || shouldAutoLoadLatest) {
         try {
           dalRow = await FormatosModel.consultarDetalleDAL(encIdNum, itinerarioId);
           if (dalRow?.DetalleDALId) {
@@ -590,7 +602,7 @@ class FormatosService {
 
     if (isSEL) {
       let selRow = null;
-      if (encIdNum || (!forzarNuevo && itinerarioId)) {
+      if (encIdNum || shouldAutoLoadLatest) {
         try {
           selRow = await FormatosModel.consultarDetalleSEL(encIdNum, itinerarioId);
           if (selRow?.DetalleSELId) {
@@ -607,7 +619,7 @@ class FormatosService {
 
     if (isASS) {
       let assRow = null;
-      if (encIdNum || (!forzarNuevo && itinerarioId)) {
+      if (encIdNum || shouldAutoLoadLatest) {
         try {
           assRow = await FormatosModel.consultarDetalleASS(encIdNum, itinerarioId);
           if (assRow?.EncabezadoASSId) {
@@ -624,7 +636,7 @@ class FormatosService {
 
     if (isANEXOA) {
       let anexoADoc = null;
-      if (encIdNum || (!forzarNuevo && itinerarioId)) {
+      if (encIdNum || shouldAutoLoadLatest) {
         try {
           anexoADoc = await FormatosModel.consultarDetalleAnexoA(encIdNum, itinerarioId);
           if (anexoADoc?.encabezado?.EncabezadoAnexoAId) {
@@ -643,7 +655,7 @@ class FormatosService {
 
     if (isANEXOB) {
       let anexoBDoc = null;
-      if (encIdNum || (!forzarNuevo && itinerarioId)) {
+      if (encIdNum || shouldAutoLoadLatest) {
         try {
           anexoBDoc = await FormatosModel.consultarDetalleAnexoB(encIdNum, itinerarioId);
           if (anexoBDoc?.encabezado?.EncabezadoAnexoBId) {
@@ -661,7 +673,7 @@ class FormatosService {
 
     if (isLIADC) {
       let liadcRow = null;
-      if (encIdNum || (!forzarNuevo && itinerarioId)) {
+      if (encIdNum || shouldAutoLoadLatest) {
         try {
           liadcRow = await FormatosModel.consultarDetalleLIADC(encIdNum, itinerarioId);
           if (liadcRow?.EncabezadoLIADCId) {
@@ -678,7 +690,7 @@ class FormatosService {
 
     if (isCCDA) {
       let ccdaDoc = null;
-      if (encIdNum || (!forzarNuevo && itinerarioId)) {
+      if (encIdNum || shouldAutoLoadLatest) {
         try {
           ccdaDoc = await FormatosModel.consultarDetalleCCDA(encIdNum, itinerarioId);
           if (ccdaDoc?.encabezado?.EncabezadoCCDAId) {
@@ -697,7 +709,7 @@ class FormatosService {
 
     if (isLISA) {
       let lisaRow = null;
-      if (encIdNum || (!forzarNuevo && itinerarioId)) {
+      if (encIdNum || shouldAutoLoadLatest) {
         try {
           lisaRow = await FormatosModel.consultarDetalleLISA(encIdNum, itinerarioId);
           if (lisaRow?.EncabezadoLISAId) {

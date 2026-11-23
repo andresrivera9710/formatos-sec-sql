@@ -124,45 +124,56 @@ document.addEventListener('DOMContentLoaded', () => {
     updateChecklistStatus();
   });
 
+  function applySealUi(num, active, numeroVal, iniVal, shouldFocus = false) {
+    selloActivo[num] = Boolean(active);
+    const btn = form.querySelector(`.lisa-seal-toggle[data-num="${num}"]`);
+    const rowContainer = document.getElementById(`lisaSealRow_${num}`);
+    const emptyLabel = document.getElementById(`lisaSealEmpty_${num}`);
+    const sealInput = document.getElementById(`lisaSello_${num}`);
+    const iniInput = document.getElementById(`lisaIni_${num}`);
+    const trEl = btn ? btn.closest('tr[data-row-index]') : null;
+
+    if (rowContainer) rowContainer.style.display = selloActivo[num] ? 'flex' : 'none';
+    if (emptyLabel) emptyLabel.style.display = selloActivo[num] ? 'none' : 'inline';
+
+    if (btn) {
+      btn.classList.toggle('btn-primary', selloActivo[num]);
+      btn.classList.toggle('btn-secondary', !selloActivo[num]);
+      const icon = btn.querySelector('i');
+      if (icon) {
+        icon.classList.toggle('fa-lock-open', selloActivo[num]);
+        icon.classList.toggle('fa-lock', !selloActivo[num]);
+      }
+    }
+
+    if (selloActivo[num]) {
+      if (sealInput && numeroVal !== undefined) sealInput.value = String(numeroVal || '');
+      if (iniInput) {
+        if (iniVal !== undefined) {
+          iniInput.value = String(iniVal || '') || inicialesAuto;
+        } else if (!iniInput.value.trim()) {
+          iniInput.value = inicialesAuto;
+        }
+      }
+      if (shouldFocus) sealInput?.focus();
+    } else {
+      if (sealInput) {
+        sealInput.value = '';
+        sealInput.classList.remove('is-invalid', 'sio-field-invalid');
+        sealInput.removeAttribute('aria-invalid');
+      }
+      if (iniInput) iniInput.value = '';
+      if (trEl) trEl.classList.remove('sio-row-invalid', 'er-row-invalid');
+    }
+  }
+
   // Toggle candado de Sello por cada punto 1..15
   form.querySelectorAll('.lisa-seal-toggle').forEach((btn) => {
     btn.addEventListener('click', () => {
       const num = parseInt(btn.dataset.num, 10);
       if (!num) return;
-      selloActivo[num] = !selloActivo[num];
-      const active = selloActivo[num];
-
-      const rowContainer = document.getElementById(`lisaSealRow_${num}`);
-      const emptyLabel = document.getElementById(`lisaSealEmpty_${num}`);
-      const sealInput = document.getElementById(`lisaSello_${num}`);
-      const iniInput = document.getElementById(`lisaIni_${num}`);
-      const trEl = btn.closest('tr[data-row-index]');
-
-      if (rowContainer) rowContainer.style.display = active ? 'flex' : 'none';
-      if (emptyLabel) emptyLabel.style.display = active ? 'none' : 'inline';
-
-      btn.classList.toggle('btn-primary', active);
-      btn.classList.toggle('btn-secondary', !active);
-      const icon = btn.querySelector('i');
-      if (icon) {
-        icon.classList.toggle('fa-lock-open', active);
-        icon.classList.toggle('fa-lock', !active);
-      }
-
-      if (active) {
-        if (iniInput && !iniInput.value.trim()) {
-          iniInput.value = inicialesAuto;
-        }
-        sealInput?.focus();
-      } else {
-        if (sealInput) {
-          sealInput.value = '';
-          sealInput.classList.remove('is-invalid', 'sio-field-invalid');
-          sealInput.removeAttribute('aria-invalid');
-        }
-        if (iniInput) iniInput.value = '';
-        if (trEl) trEl.classList.remove('sio-row-invalid', 'er-row-invalid');
-      }
+      applySealUi(num, !selloActivo[num], undefined, undefined, true);
+      window.SioOfflineManager?.notifyStateChange?.();
     });
   });
 
@@ -413,4 +424,50 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnGuardarDefinitivoLISA')?.addEventListener('click', () => enviarFormato(true));
 
   updateChecklistStatus();
+
+  const captureLisaState = () => {
+    const checks = {};
+    form.querySelectorAll('.lisa-check-item').forEach((chk) => {
+      const key = chk.dataset.key;
+      if (key) checks[key] = Boolean(chk.checked);
+    });
+    const sellos = {};
+    for (let i = 1; i <= 15; i += 1) {
+      const sealInput = document.getElementById(`lisaSello_${i}`);
+      const iniInput = document.getElementById(`lisaIni_${i}`);
+      sellos[i] = {
+        activo: Boolean(selloActivo[i]),
+        numero: String(sealInput?.value || ''),
+        iniciales: String(iniInput?.value || '')
+      };
+    }
+    return { checks, sellos };
+  };
+
+  const applyLisaState = (state) => {
+    if (!state || typeof state !== 'object') return;
+    if (state.checks && typeof state.checks === 'object') {
+      form.querySelectorAll('.lisa-check-item').forEach((chk) => {
+        const key = chk.dataset.key;
+        if (key && Object.prototype.hasOwnProperty.call(state.checks, key)) {
+          chk.checked = Boolean(state.checks[key]);
+        }
+      });
+    }
+    if (state.sellos && typeof state.sellos === 'object') {
+      for (let i = 1; i <= 15; i += 1) {
+        const s = state.sellos[i] || state.sellos[String(i)] || { activo: false, numero: '', iniciales: '' };
+        applySealUi(i, Boolean(s.activo || s.numero), s.numero || '', s.iniciales || '', false);
+      }
+    }
+    updateChecklistStatus();
+  };
+
+  const initialLisaBaseline = captureLisaState();
+
+  window.SioOfflineManager?.registerStateAdapter?.('format:lisa', {
+    capture: captureLisaState,
+    restore: applyLisaState,
+    reset: () => applyLisaState(initialLisaBaseline)
+  });
 });

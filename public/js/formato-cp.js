@@ -64,6 +64,27 @@ document.addEventListener('DOMContentLoaded', () => {
     .filter((a) => a.EmpleadoId > 0)
     .slice(0, 2);
 
+  const initialRegistrosBaseline = registros.map((r) => ({ ...r }));
+  const initialAlerosBaseline = aleros.map((a) => ({ ...a }));
+
+  const normalizeCpRegistros = (list) => (Array.isArray(list) ? list : []).map((r) => ({
+    DetalleCPId: parseInt(r.DetalleCPId, 10) || 0,
+    Nombre: String(r.Nombre || '').trim(),
+    NoTIA: String(r.NoTIA || '').trim(),
+    HoraIngreso: extractHHMM(r.HoraIngreso),
+    Empresa: String(r.Empresa || '').trim(),
+    Motivo: String(r.Motivo || '').trim(),
+    HoraSalida: extractHHMM(r.HoraSalida || r.HoraSalidaReal || r.HoraSalidaEstimada)
+  }));
+
+  const normalizeCpAleros = (list) => (Array.isArray(list) ? list : [])
+    .map((a) => ({
+      EmpleadoId: parseInt(a.EmpleadoId, 10) || 0,
+      Nombre: String(a.Nombre || '').trim()
+    }))
+    .filter((a) => a.EmpleadoId > 0)
+    .slice(0, 2);
+
   // Inicializar cuadros combinados con búsqueda integrada
   const selSupervisor = document.getElementById('cpSupervisor');
   const selEmpresa = document.getElementById('cpRegEmpresa');
@@ -137,6 +158,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btn && targetInput) {
       btn.addEventListener('click', () => {
         targetInput.value = nowHHMM();
+        targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+        targetInput.dispatchEvent(new Event('change', { bubbles: true }));
       });
     }
   };
@@ -309,6 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       renderRegistros();
+      window.SioOfflineManager?.notifyStateChange?.();
       inputRegNombre?.focus();
     });
   }
@@ -322,6 +346,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Number.isFinite(idx) && registros[idx] && !registros[idx].HoraSalida) {
           registros[idx].HoraSalida = nowHHMM();
           renderRegistros();
+          window.SioOfflineManager?.notifyStateChange?.();
         }
         return;
       }
@@ -345,6 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (result.isConfirmed) {
             registros.splice(idx, 1);
             renderRegistros();
+            window.SioOfflineManager?.notifyStateChange?.(true);
           }
         });
       }
@@ -436,6 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
       aleros.push({ EmpleadoId: empId, Nombre: nombre });
       resetAleroSelect();
       renderAleros();
+      window.SioOfflineManager?.notifyStateChange?.();
     });
   }
 
@@ -446,6 +473,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const empId = parseInt(btnQuitar.dataset.empId, 10);
       aleros = aleros.filter((a) => a.EmpleadoId !== empId);
       renderAleros();
+      window.SioOfflineManager?.notifyStateChange?.();
     });
   }
 
@@ -697,8 +725,35 @@ document.addEventListener('DOMContentLoaded', () => {
     btnGuardarDefinitivo.addEventListener('click', () => procesarCP(true));
   }
 
-  // Render inicial
+  // Render inicial y registro de adaptador Offline-First (Full State Hydration)
   renderRegistros();
   renderAleros();
+
+  window.SioOfflineManager?.registerStateAdapter?.('format:cp', {
+    capture: () => ({
+      registros: registros.map((r) => ({ ...r })),
+      aleros: aleros.map((a) => ({ ...a }))
+    }),
+    restore: (saved) => {
+      if (!saved || typeof saved !== 'object') return;
+      if (Array.isArray(saved.registros)) registros = normalizeCpRegistros(saved.registros);
+      if (Array.isArray(saved.aleros)) aleros = normalizeCpAleros(saved.aleros);
+      renderRegistros();
+      renderAleros();
+    },
+    reset: () => {
+      registros = initialRegistrosBaseline.map((r) => ({ ...r }));
+      aleros = initialAlerosBaseline.map((a) => ({ ...a }));
+      renderRegistros();
+      renderAleros();
+    },
+    mapLegacyPatch: (patch) => {
+      if (!patch || (!Array.isArray(patch.registros) && !Array.isArray(patch.aleros))) return undefined;
+      return {
+        registros: Array.isArray(patch.registros) ? patch.registros : initialRegistrosBaseline,
+        aleros: Array.isArray(patch.aleros) ? patch.aleros : initialAlerosBaseline
+      };
+    }
+  });
 });
 

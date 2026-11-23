@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ? initialState.empresas
     : ['LAATS', 'FEDEX', 'OTROS...'];
 
-  let personal = (Array.isArray(initialState.personal) ? initialState.personal : []).map((r) => ({
+  const normalizeCcdaPersonal = (list) => (Array.isArray(list) ? list : []).map((r) => ({
     DetalleIngresoCCDAId: parseInt(r.DetalleIngresoCCDAId, 10) || 0,
     Personal: String(r.Personal || r.Nombre || '').trim(),
     EmpleadoId: String(r.EmpleadoId ?? r.ID ?? '').trim(),
@@ -56,6 +56,9 @@ document.addEventListener('DOMContentLoaded', () => {
     SegundaEntrada: extractHHMM(r.SegundaEntrada ?? r.HoraEntrada2),
     SegundaSalida: extractHHMM(r.SegundaSalida ?? r.HoraSalida2)
   }));
+
+  let personal = normalizeCcdaPersonal(initialState.personal);
+  const initialPersonalBaseline = personal.map((r) => ({ ...r }));
 
   // Referencias del DOM
   const inputFecha = document.getElementById('ccdaFecha');
@@ -337,6 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
           personal[idx].Empresa = customEmp.trim();
         }
         renderTabla();
+        window.SioOfflineManager?.notifyStateChange?.(true);
         return;
       }
     }
@@ -754,4 +758,21 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnGuardarDefinitivoCCDA')?.addEventListener('click', () => enviarFormato(true));
 
   renderTabla();
+
+  window.SioOfflineManager?.registerStateAdapter?.('format:ccda', {
+    capture: () => ({
+      personal: personal.map((r) => ({ ...r }))
+    }),
+    restore: (saved) => {
+      const list = Array.isArray(saved) ? saved : (Array.isArray(saved?.personal) ? saved.personal : null);
+      if (!list) return;
+      personal = normalizeCcdaPersonal(list);
+      renderTabla();
+    },
+    reset: () => {
+      personal = initialPersonalBaseline.map((r) => ({ ...r }));
+      renderTabla();
+    },
+    mapLegacyPatch: (patch) => (Array.isArray(patch?.personal) ? { personal: patch.personal } : undefined)
+  });
 });

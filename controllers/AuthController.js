@@ -39,18 +39,26 @@ class AuthController {
    */
   static async postLogin(req, res) {
     setNoCacheHeaders(res);
-    const { pin } = req.body;
+    const rawPin = (typeof req.body?.pin === 'string' || typeof req.body?.pin === 'number')
+      ? String(req.body.pin).trim()
+      : '';
     const isApiRequest = req.xhr || req.path.startsWith('/api') || (req.headers.accept && req.headers.accept.includes('application/json'));
 
-    if (!pin || pin.trim() === '') {
+    if (!rawPin) {
       const msg = 'El PIN es obligatorio para iniciar sesión.';
       if (isApiRequest) return res.status(400).json({ success: false, message: msg });
       return res.render('login', { title: 'Iniciar Sesión', version: 'v1.0.9', errorMessage: msg });
     }
 
+    if (rawPin.length > 50 || /[\x00-\x1F\x7F]/.test(rawPin)) {
+      const msg = 'El PIN de acceso ingresado tiene un formato o longitud no válida.';
+      if (isApiRequest) return res.status(400).json({ success: false, message: msg });
+      return res.render('login', { title: 'Iniciar Sesión', version: 'v1.0.9', errorMessage: msg });
+    }
+
     try {
-      // 1ERA VALIDACIÓN: Existe en LogIn por PIN (Mayúsculas y trimmed)
-      const usuarioLogin = await LoginModel.buscarPorPin(pin);
+      // 1ERA VALIDACIÓN: Existe en LogIn por PIN alfanumérico (insensible a mayúsculas/minúsculas)
+      const usuarioLogin = await LoginModel.buscarPorPin(rawPin);
 
       if (!usuarioLogin) {
         const msg = 'PIN no encontrado. Por favor comuníquese con el departamento de IT.';

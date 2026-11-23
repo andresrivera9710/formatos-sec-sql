@@ -54,10 +54,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.getElementById('btnLiadcHoraInicioAhora')?.addEventListener('click', () => {
-    if (inputHoraInicio) inputHoraInicio.value = nowHHMM();
+    if (inputHoraInicio) {
+      inputHoraInicio.value = nowHHMM();
+      inputHoraInicio.dispatchEvent(new Event('input', { bubbles: true }));
+    }
   });
   document.getElementById('btnLiadcHoraTerminoAhora')?.addEventListener('click', () => {
-    if (inputHoraTermino) inputHoraTermino.value = nowHHMM();
+    if (inputHoraTermino) {
+      inputHoraTermino.value = nowHHMM();
+      inputHoraTermino.dispatchEvent(new Event('input', { bubbles: true }));
+    }
   });
 
   document.getElementById('btnLimpiarFirmaInspectorLIADC')?.addEventListener('click', () => {

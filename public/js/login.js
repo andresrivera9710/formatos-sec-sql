@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       if (isSubmitting) return;
 
-      const pin = pinInput.value.trim();
+      const pin = String(pinInput.value || '').trim();
       const hpInput = formLogin.querySelector('input[name="hp_token_website"]');
       const hp = hpInput ? hpInput.value : '';
 
@@ -52,7 +52,17 @@ document.addEventListener('DOMContentLoaded', () => {
         Swal.fire({
           icon: 'warning',
           title: 'PIN Requerido',
-          text: 'Por favor ingrese su PIN para continuar.',
+          text: 'Por favor ingrese su PIN alfanumérico para continuar.',
+          confirmButtonColor: '#275B88'
+        });
+        return;
+      }
+
+      if (pin.length > 50 || /[\x00-\x1F\x7F]/.test(pin)) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'PIN Inválido',
+          text: 'El PIN ingresado excede la longitud permitida o contiene caracteres no válidos.',
           confirmButtonColor: '#275B88'
         });
         return;

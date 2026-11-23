@@ -32,7 +32,7 @@
             <i class="fas fa-key"></i>
           </div>
           <h2 class="login-form-title">Acceso al Sistema</h2>
-          <p class="login-form-subtitle">Ingrese su PIN de usuario asignado</p>
+          <p class="login-form-subtitle">Ingrese su PIN de acceso alfanumérico asignado</p>
         </div>
 
         <% if (errorMessage) { %>
@@ -45,17 +45,20 @@
           <div class="form-group login-form-group">
             <label for="pinInput" class="login-label">PIN DE ACCESO</label>
             <div class="login-input-wrap">
-              <input 
-                type="password" 
-                id="pinInput" 
-                name="pin" 
-                class="form-control login-input" 
-                placeholder="••••••••" 
-                maxlength="20" 
+              <input
+                type="password"
+                id="pinInput"
+                name="pin"
+                class="form-control login-input"
+                placeholder="Ingrese su PIN"
+                maxlength="50"
                 required
                 autofocus
                 autocomplete="current-password"
-                inputmode="numeric"
+                inputmode="text"
+                autocapitalize="off"
+                autocorrect="off"
+                spellcheck="false"
               >
               <button 
                 type="button" 
@@ -91,6 +94,6 @@
     </div>
   </div>
 
-  <script src="/js/login.js?v=1.0.17"></script>
+  <script src="/js/login.js?v=1.0.21"></script>
 </body>
 </html>

@@ -1288,11 +1288,162 @@ body.dark-mode .cp-section-title {
   box-shadow: var(--shadow-sm);
 }
 
+.er-capture-agents {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border);
+}
+
+.er-btn-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background-color: var(--brand);
+  color: #FFFFFF;
+  font-size: 11px;
+  font-weight: 800;
+  margin-left: 6px;
+}
+
+[data-theme="dark"] .er-btn-count-badge,
+body.dark-mode .er-btn-count-badge {
+  background-color: var(--gold);
+  color: #0F2744;
+}
+
 .er-fluid-table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
   min-width: 1120px;
+}
+
+.mecd-td-no,
+.mecd-td-num {
+  text-align: center;
+  font-weight: 800;
+  color: var(--brand-deep);
+}
+
+[data-theme="dark"] .mecd-td-no,
+[data-theme="dark"] .mecd-td-num,
+body.dark-mode .mecd-td-no,
+body.dark-mode .mecd-td-num {
+  color: var(--gold);
+}
+
+.mecd-td-act,
+.mecd-td-accion {
+  text-align: center;
+}
+
+.mecd-cell-input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  font-size: 12.5px;
+  min-height: 36px;
+}
+
+.mecd-sig-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--brand);
+  border-radius: var(--radius-md);
+  background-color: var(--bg);
+}
+
+[data-theme="dark"] .mecd-sig-block,
+body.dark-mode .mecd-sig-block {
+  border-top-color: var(--gold);
+  background-color: rgba(15, 39, 68, 0.35);
+}
+
+.mecd-sig-block-title {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--brand-deep);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+[data-theme="dark"] .mecd-sig-block-title,
+body.dark-mode .mecd-sig-block-title {
+  color: var(--gold);
+}
+
+.er-td-num {
+  text-align: center;
+  font-weight: 800;
+  color: var(--brand-deep);
+}
+
+[data-theme="dark"] .er-td-num,
+body.dark-mode .er-td-num {
+  color: var(--gold);
+}
+
+.er-num-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.er-mobile-prefix,
+.er-mobile-action-label {
+  display: none;
+}
+
+.er-td-accion {
+  text-align: center;
+}
+
+.er-row-hidden {
+  display: none !important;
+}
+
+.er-empty-card {
+  margin: 8px 0;
+}
+
+.er-empty-icon {
+  color: var(--brand);
+  margin-bottom: 8px;
+  display: block;
+}
+
+[data-theme="dark"] .er-empty-icon,
+body.dark-mode .er-empty-icon {
+  color: var(--gold);
+}
+
+.er-empty-title {
+  font-weight: 700;
+  font-size: 13.5px;
+  color: var(--text);
+}
+
+.er-empty-hint {
+  font-weight: 500;
+  font-size: 12px;
+  margin-top: 4px;
+  color: var(--text-3);
+}
+
+.er-softdelete-note {
+  color: var(--text-3);
 }
 
 .er-fluid-table thead th {
@@ -1397,6 +1548,97 @@ body.dark-mode .er-cell-readonly {
   flex: 1;
   min-width: 96px;
 }
+
+/* Escritorio: ajuste 100% simétrico al contenedor (0 desbordamiento horizontal) para ER y MECD */
+.er-fluid-table.er-pasajeros-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.er-fluid-table.er-pasajeros-table thead th {
+  white-space: normal;
+  line-height: 1.25;
+  font-size: 10px;
+  padding: 9px 5px;
+  letter-spacing: 0.25px;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  vertical-align: middle;
+}
+
+.er-fluid-table.er-pasajeros-table tbody td {
+  padding: 6px 5px;
+}
+
+.er-fluid-table.er-pasajeros-table .er-cell-input {
+  padding: 6px 6px;
+  font-size: 12px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.er-fluid-table.er-pasajeros-table .er-cell-time-group {
+  gap: 4px;
+}
+
+.er-fluid-table.er-pasajeros-table .er-cell-time-group .er-cell-input {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 6px 4px;
+}
+
+.er-fluid-table.er-pasajeros-table .er-cell-time-group .btn-er-row-clock {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 32px;
+  padding: 0;
+}
+
+.er-fluid-table.er-pasajeros-table .er-th-num { width: 4%; text-align: center; }
+.er-fluid-table.er-pasajeros-table .er-th-pasajero { width: 16%; }
+.er-fluid-table.er-pasajeros-table .er-th-secuencia { width: 8%; text-align: center; }
+.er-fluid-table.er-pasajeros-table .er-th-colilla { width: 10%; text-align: center; }
+.er-fluid-table.er-pasajeros-table .er-th-vuelo { width: 7.5%; text-align: center; }
+.er-fluid-table.er-pasajeros-table .er-th-destino { width: 7.5%; text-align: center; }
+.er-fluid-table.er-pasajeros-table .er-th-hora { width: 12.5%; text-align: center; }
+.er-fluid-table.er-pasajeros-table .er-th-avsec { width: 14.5%; }
+.er-fluid-table.er-pasajeros-table .er-th-seguridad { width: 14.5%; }
+.er-fluid-table.er-pasajeros-table .er-th-accion { width: 5.5%; text-align: center; }
+
+.er-fluid-table.er-pasajeros-table.er-table-no-secuencia .er-th-pasajero { width: 20%; }
+.er-fluid-table.er-pasajeros-table.er-table-no-secuencia .er-th-avsec { width: 16.5%; }
+.er-fluid-table.er-pasajeros-table.er-table-no-secuencia .er-th-seguridad { width: 16.5%; }
+
+.er-fluid-table.mecd-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.er-fluid-table.mecd-table thead th {
+  white-space: normal;
+  line-height: 1.25;
+  font-size: 11px;
+  padding: 10px 8px;
+  word-break: break-word;
+  vertical-align: middle;
+}
+
+.er-fluid-table.mecd-table tbody td {
+  padding: 8px 8px;
+}
+
+.er-fluid-table.mecd-table .mecd-th-no { width: 7%; text-align: center; }
+.er-fluid-table.mecd-table .mecd-th-rev-ctrl { width: 41%; text-align: center; }
+.er-fluid-table.mecd-table .mecd-th-rev-col { width: 41%; text-align: center; }
+.er-fluid-table.mecd-table .mecd-th-pax { width: 32%; }
+.er-fluid-table.mecd-table .mecd-th-colilla { width: 21%; text-align: center; }
+.er-fluid-table.mecd-table .mecd-th-control { width: 16%; text-align: center; }
+.er-fluid-table.mecd-table .mecd-th-destino { width: 15%; text-align: center; }
+.er-fluid-table.mecd-table .mecd-th-act { width: 10%; text-align: center; }
+.er-fluid-table.mecd-table.mecd-table-compact .mecd-th-act { width: 11%; }
 
 .er-total-counter-badge {
   display: inline-flex;
@@ -1680,8 +1922,8 @@ body.dark-mode .login-key-icon {
 
 .login-input {
   text-align: center;
-  font-size: 22px;
-  letter-spacing: 6px;
+  font-size: 18px;
+  letter-spacing: 3px;
   height: 52px;
   font-weight: 700;
   border-radius: var(--radius-md);
@@ -1692,6 +1934,12 @@ body.dark-mode .login-key-icon {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   width: 100%;
   box-sizing: border-box;
+}
+
+.login-input::placeholder {
+  letter-spacing: 0.4px;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .login-input:focus {
@@ -2761,6 +3009,476 @@ section {
     min-height: 36px;
   }
 
+  /* 3a. Matriz PASAJEROS (ER — Control de Equipaje AVSEC/SGDAIA):
+     Transformación a tarjetas apiladas estructuradas (2 columnas por tarjeta, 0 recortes laterales) */
+  .er-pasajeros-wrapper {
+    overflow: visible;
+    max-height: none;
+    border: none;
+    border-radius: 0;
+    background-color: transparent;
+    box-shadow: none;
+  }
+
+  .er-pasajeros-table {
+    display: block;
+    width: 100%;
+    min-width: 0 !important;
+    border-collapse: collapse;
+  }
+
+  .er-pasajeros-table thead {
+    display: none;
+  }
+
+  .er-pasajeros-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+  }
+
+  .er-pasajeros-table tbody tr.er-empty-row {
+    display: block;
+    width: 100%;
+  }
+
+  .er-pasajeros-table tbody tr.er-empty-row td.er-empty-cell {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: none;
+    background-color: transparent !important;
+  }
+
+  .er-pasajeros-table tbody tr.er-grid-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 10px;
+    width: 100%;
+    box-sizing: border-box;
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--brand);
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  [data-theme="dark"] .er-pasajeros-table tbody tr.er-grid-row,
+  body.dark-mode .er-pasajeros-table tbody tr.er-grid-row {
+    background-color: var(--surface);
+    border-color: var(--border);
+    border-left-color: var(--gold);
+  }
+
+  .er-pasajeros-table tbody tr.er-grid-row.sio-row-invalid,
+  .er-pasajeros-table tbody tr.er-grid-row.er-row-invalid {
+    border-color: var(--danger) !important;
+    border-left: 4px solid var(--danger) !important;
+    background-color: #FEF2F2 !important;
+  }
+
+  [data-theme="dark"] .er-pasajeros-table tbody tr.er-grid-row.sio-row-invalid,
+  [data-theme="dark"] .er-pasajeros-table tbody tr.er-grid-row.er-row-invalid,
+  body.dark-mode .er-pasajeros-table tbody tr.er-grid-row.sio-row-invalid,
+  body.dark-mode .er-pasajeros-table tbody tr.er-grid-row.er-row-invalid {
+    background-color: rgba(220, 38, 38, 0.16) !important;
+  }
+
+  .er-pasajeros-table tbody tr.er-grid-row td {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0;
+    border: none;
+    background-color: transparent !important;
+    text-align: left;
+  }
+
+  .er-pasajeros-table tbody tr.er-grid-row td[data-label]:not(.er-td-num):not(.er-td-accion)::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 10.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.45px;
+    color: var(--brand);
+    margin-bottom: 4px;
+    line-height: 1.25;
+  }
+
+  [data-theme="dark"] .er-pasajeros-table tbody tr.er-grid-row td[data-label]:not(.er-td-num):not(.er-td-accion)::before,
+  body.dark-mode .er-pasajeros-table tbody tr.er-grid-row td[data-label]:not(.er-td-num):not(.er-td-accion)::before {
+    color: var(--gold);
+  }
+
+  /* Cabecera de tarjeta: Pasajero #N (izq.) + Acción Retirar (der.) */
+  .er-pasajeros-table tbody tr.er-grid-row td.er-td-num {
+    grid-column: 1 / 2;
+    grid-row: 1;
+    flex-direction: row;
+    align-items: center;
+    padding-bottom: 8px;
+    margin-right: -10px;
+    padding-right: 10px;
+    border-bottom: 1px solid var(--border-2);
+  }
+
+  .er-pasajeros-table tbody tr.er-grid-row td.er-td-num .er-num-badge {
+    background-color: rgba(39, 91, 136, 0.12);
+    color: var(--brand-deep, #0F2744);
+    border: 1px solid rgba(39, 91, 136, 0.28);
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  [data-theme="dark"] .er-pasajeros-table tbody tr.er-grid-row td.er-td-num .er-num-badge,
+  body.dark-mode .er-pasajeros-table tbody tr.er-grid-row td.er-td-num .er-num-badge {
+    background-color: rgba(212, 175, 55, 0.16);
+    color: var(--gold);
+    border-color: rgba(212, 175, 55, 0.35);
+  }
+
+  .er-pasajeros-table .er-mobile-prefix,
+  .er-pasajeros-table .er-mobile-action-label {
+    display: inline;
+  }
+
+  .er-pasajeros-table tbody tr.er-grid-row td.er-td-accion {
+    grid-column: 2 / 3;
+    grid-row: 1;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-2);
+  }
+
+  .er-pasajeros-table tbody tr.er-grid-row td.er-td-accion .btn-er-row-delete {
+    width: auto;
+    min-height: 32px;
+    padding: 5px 10px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  /* Distribución estructurada por filas dentro de la tarjeta */
+  .er-pasajeros-table tbody tr.er-grid-row td.er-td-pasajero {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .er-pasajeros-table tbody tr.er-grid-row td.er-td-secuencia {
+    grid-column: 1 / 2;
+    grid-row: 3;
+  }
+
+  .er-pasajeros-table tbody tr.er-grid-row td.er-td-colilla {
+    grid-column: 2 / 3;
+    grid-row: 3;
+  }
+
+  .er-pasajeros-table.er-table-no-secuencia tbody tr.er-grid-row td.er-td-colilla {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+
+  .er-pasajeros-table tbody tr.er-grid-row td.er-td-vuelo {
+    grid-column: 1 / 2;
+    grid-row: 4;
+  }
+
+  .er-pasajeros-table tbody tr.er-grid-row td.er-td-destino {
+    grid-column: 2 / 3;
+    grid-row: 4;
+  }
+
+  .er-pasajeros-table tbody tr.er-grid-row td.er-td-hora {
+    grid-column: 1 / -1;
+    grid-row: 5;
+  }
+
+  .er-pasajeros-table tbody tr.er-grid-row td.er-td-avsec {
+    grid-column: 1 / -1;
+    grid-row: 6;
+  }
+
+  .er-pasajeros-table tbody tr.er-grid-row td.er-td-seguridad {
+    grid-column: 1 / -1;
+    grid-row: 7;
+  }
+
+  .er-pasajeros-table .er-cell-input {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    font-size: 15px !important;
+    min-height: 40px;
+    padding: 8px 10px;
+    text-align: left;
+  }
+
+  .er-pasajeros-table .er-cell-time-group {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .er-pasajeros-table .er-cell-time-group .er-cell-input {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .er-pasajeros-table .er-cell-time-group .btn-er-row-clock {
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+  }
+
+  /* 3a-bis. Módulo MECD (Equipajes en Mal Estado y Carga Dañada):
+     - Matriz 1 (Revisión: No., Control, Colilla, Acción) -> tabla fija compacta 100% legible sin corte
+     - Matrices 2 y 3 (Con Firma / Sin Firma) -> tarjetas apiladas estructuradas de 2 columnas con data-label */
+  .mecd-grid-wrapper-compact {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .er-fluid-table.mecd-table.mecd-table-compact {
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: fixed !important;
+  }
+
+  .er-fluid-table.mecd-table.mecd-table-compact .mecd-th-no { width: 11%; }
+  .er-fluid-table.mecd-table.mecd-table-compact .mecd-th-rev-ctrl { width: 33%; }
+  .er-fluid-table.mecd-table.mecd-table-compact .mecd-th-rev-col { width: 37%; }
+  .er-fluid-table.mecd-table.mecd-table-compact .mecd-th-act { width: 19%; }
+
+  .er-fluid-table.mecd-table.mecd-table-compact thead th {
+    padding: 8px 3px;
+    font-size: 10px;
+    line-height: 1.2;
+    letter-spacing: 0.15px;
+    white-space: normal;
+    word-break: normal;
+  }
+
+  .er-fluid-table.mecd-table.mecd-table-compact tbody td {
+    padding: 6px 4px;
+  }
+
+  .er-fluid-table.mecd-table.mecd-table-compact .mecd-compact-input {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    font-size: 13px !important;
+    min-height: 36px;
+    padding: 6px 5px;
+  }
+
+  .er-fluid-table.mecd-table.mecd-table-compact .mecd-del-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+  }
+
+  .mecd-grid-wrapper-cards {
+    overflow: visible;
+    max-height: none;
+    border: none;
+    border-radius: 0;
+    background-color: transparent;
+    box-shadow: none;
+  }
+
+  .mecd-table-cards {
+    display: block;
+    width: 100%;
+    min-width: 0 !important;
+    border-collapse: collapse;
+  }
+
+  .mecd-table-cards thead {
+    display: none;
+  }
+
+  .mecd-table-cards tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .mecd-table-cards tbody tr.mecd-empty-row {
+    display: block;
+    width: 100%;
+  }
+
+  .mecd-table-cards tbody tr.mecd-empty-row td.mecd-empty-cell {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: none;
+    background-color: transparent !important;
+  }
+
+  .mecd-table-cards tbody tr.mecd-card-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 10px;
+    width: 100%;
+    box-sizing: border-box;
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--brand);
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  [data-theme="dark"] .mecd-table-cards tbody tr.mecd-card-row,
+  body.dark-mode .mecd-table-cards tbody tr.mecd-card-row {
+    background-color: var(--surface);
+    border-color: var(--border);
+    border-left-color: var(--gold);
+  }
+
+  .mecd-table-cards tbody tr.mecd-card-row td {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0;
+    border: none;
+    background-color: transparent !important;
+    text-align: left;
+  }
+
+  .mecd-table-cards tbody tr.mecd-card-row td[data-label]:not(.mecd-td-num):not(.mecd-td-accion)::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 10.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.45px;
+    color: var(--brand);
+    margin-bottom: 4px;
+    line-height: 1.25;
+  }
+
+  [data-theme="dark"] .mecd-table-cards tbody tr.mecd-card-row td[data-label]:not(.mecd-td-num):not(.mecd-td-accion)::before,
+  body.dark-mode .mecd-table-cards tbody tr.mecd-card-row td[data-label]:not(.mecd-td-num):not(.mecd-td-accion)::before {
+    color: var(--gold);
+  }
+
+  .mecd-table-cards tbody tr.mecd-card-row td.mecd-td-num {
+    grid-column: 1 / 2;
+    grid-row: 1;
+    flex-direction: row;
+    align-items: center;
+    padding-bottom: 8px;
+    margin-right: -10px;
+    padding-right: 10px;
+    border-bottom: 1px solid var(--border-2);
+  }
+
+  .mecd-table-cards tbody tr.mecd-card-row td.mecd-td-num .er-num-badge {
+    background-color: rgba(39, 91, 136, 0.12);
+    color: var(--brand-deep, #0F2744);
+    border: 1px solid rgba(39, 91, 136, 0.28);
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  [data-theme="dark"] .mecd-table-cards tbody tr.mecd-card-row td.mecd-td-num .er-num-badge,
+  body.dark-mode .mecd-table-cards tbody tr.mecd-card-row td.mecd-td-num .er-num-badge {
+    background-color: rgba(212, 175, 55, 0.16);
+    color: var(--gold);
+    border-color: rgba(212, 175, 55, 0.35);
+  }
+
+  .mecd-table-cards .er-mobile-prefix,
+  .mecd-table-cards .er-mobile-action-label {
+    display: inline;
+  }
+
+  .mecd-table-cards tbody tr.mecd-card-row td.mecd-td-accion {
+    grid-column: 2 / 3;
+    grid-row: 1;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-2);
+  }
+
+  .mecd-table-cards tbody tr.mecd-card-row td.mecd-td-accion .mecd-card-del-btn {
+    width: auto;
+    min-height: 32px;
+    padding: 5px 10px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .mecd-table-cards tbody tr.mecd-card-row td.mecd-td-pasajero {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .mecd-table-cards tbody tr.mecd-card-row td.mecd-td-colilla {
+    grid-column: 1 / 2;
+    grid-row: 3;
+  }
+
+  .mecd-table-cards tbody tr.mecd-card-row td.mecd-td-control {
+    grid-column: 2 / 3;
+    grid-row: 3;
+  }
+
+  .mecd-table-cards tbody tr.mecd-card-row td.mecd-td-destino {
+    grid-column: 1 / -1;
+    grid-row: 4;
+  }
+
+  .mecd-table-cards .mecd-cell-input {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    font-size: 15px !important;
+    min-height: 40px;
+    padding: 8px 10px;
+    text-align: left;
+  }
+
+  .mecd-sig-block {
+    padding: 12px;
+  }
+
   /* 3b. Matrices de Secuencias (FILA + A..J): 11 columnas completas y legibles sin corte horizontal */
   .sio-baggage-matrix-wrap {
     width: 100%;
@@ -2926,6 +3644,35 @@ section {
 
   .sio-mx-x-overlay {
     font-size: 16px;
+  }
+
+  .er-pasajeros-table tbody tr.er-grid-row,
+  .mecd-table-cards tbody tr.mecd-card-row {
+    padding: 10px;
+    gap: 8px 8px;
+  }
+
+  .er-pasajeros-table tbody tr.er-grid-row td.er-td-num,
+  .mecd-table-cards tbody tr.mecd-card-row td.mecd-td-num {
+    margin-right: -8px;
+    padding-right: 8px;
+  }
+
+  .er-pasajeros-table .er-cell-input,
+  .mecd-table-cards .mecd-cell-input {
+    font-size: 14px !important;
+    min-height: 38px;
+    padding: 7px 8px;
+  }
+
+  .er-fluid-table.mecd-table.mecd-table-compact thead th {
+    font-size: 9.5px;
+    padding: 7px 2px;
+  }
+
+  .er-fluid-table.mecd-table.mecd-table-compact .mecd-compact-input {
+    font-size: 12px !important;
+    padding: 5px 4px;
   }
 }
 

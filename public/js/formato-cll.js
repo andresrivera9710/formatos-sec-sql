@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const itinerarioId = parseInt(document.getElementById('cllItinerarioId')?.value || initialState.itinerarioId, 10) || 0;
   let encabezadoId = parseInt(document.getElementById('cllEncabezadoId')?.value || initialState.encabezadoId, 10) || 0;
 
-  let registros = (Array.isArray(initialState.registros) ? initialState.registros : []).map((r, idx) => ({
+  const normalizeCllRegistros = (list) => (Array.isArray(list) ? list : []).map((r, idx) => ({
     No: idx + 1,
     DetalleCLLId: parseInt(r.DetalleCLLId, 10) || 0,
     Guia: String(r.Guia || '').trim(),
@@ -37,6 +37,9 @@ document.addEventListener('DOMContentLoaded', () => {
     Piezas: r.Piezas !== undefined && r.Piezas !== '' ? String(r.Piezas) : '',
     BIN: String(r.BIN || '').trim()
   }));
+
+  let registros = normalizeCllRegistros(initialState.registros);
+  const initialRegistrosBaseline = registros.map((r) => ({ ...r }));
 
   const inputFecha = document.getElementById('cllFecha');
   const inputStation = document.getElementById('cllStation');
@@ -313,4 +316,21 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnGuardarDefinitivoCLL')?.addEventListener('click', () => enviarFormato(true));
 
   renderTabla();
+
+  window.SioOfflineManager?.registerStateAdapter?.('format:cll', {
+    capture: () => ({
+      registros: registros.map((r) => ({ ...r }))
+    }),
+    restore: (saved) => {
+      const list = Array.isArray(saved) ? saved : (Array.isArray(saved?.registros) ? saved.registros : null);
+      if (!list) return;
+      registros = normalizeCllRegistros(list);
+      renderTabla();
+    },
+    reset: () => {
+      registros = initialRegistrosBaseline.map((r) => ({ ...r }));
+      renderTabla();
+    },
+    mapLegacyPatch: (patch) => (Array.isArray(patch?.registros) ? { registros: patch.registros } : undefined)
+  });
 });

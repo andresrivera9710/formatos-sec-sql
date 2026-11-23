@@ -26,14 +26,14 @@ document.addEventListener('DOMContentLoaded', () => {
     console.error('[MECD INIT JSON ERROR]', err);
   }
 
-  let revision = (Array.isArray(initialState.revision) ? initialState.revision : []).map((r) => ({
+  const normalizeMecdRev = (list) => (Array.isArray(list) ? list : []).map((r) => ({
     DetalleEquipMECDId: parseInt(r.DetalleEquipMECDId ?? r.EquipajeRevId, 10) || 0,
     EquipajeRevId: parseInt(r.DetalleEquipMECDId ?? r.EquipajeRevId, 10) || 0,
     Control: String(r.Control ?? '').trim(),
     Colilla: String(r.Colilla ?? '').trim()
   }));
 
-  let conFirma = (Array.isArray(initialState.conFirma) ? initialState.conFirma : []).map((r) => ({
+  const normalizeMecdCF = (list) => (Array.isArray(list) ? list : []).map((r) => ({
     EquipajeMEId: parseInt(r.EquipajeMEId, 10) || 0,
     NombrePasajero: String(r.NombrePasajero ?? r.Pasajero ?? '').trim(),
     Colilla: String(r.Colilla ?? '').trim(),
@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
     Destino: String(r.Destino ?? initialState.destinoDefault ?? '').trim()
   }));
 
-  let sinFirma = (Array.isArray(initialState.sinFirma) ? initialState.sinFirma : []).map((r) => ({
+  const normalizeMecdSF = (list) => (Array.isArray(list) ? list : []).map((r) => ({
     EquipajeDTId: parseInt(r.EquipajeDTId ?? r.EquipajeMEDSFId, 10) || 0,
     EquipajeMEDSFId: parseInt(r.EquipajeDTId ?? r.EquipajeMEDSFId, 10) || 0,
     NombrePasajero: String(r.NombrePasajero ?? r.Pasajero ?? '').trim(),
@@ -49,6 +49,14 @@ document.addEventListener('DOMContentLoaded', () => {
     Control: String(r.Control ?? '').trim(),
     Destino: String(r.Destino ?? initialState.destinoDefault ?? '').trim()
   }));
+
+  let revision = normalizeMecdRev(initialState.revision);
+  let conFirma = normalizeMecdCF(initialState.conFirma);
+  let sinFirma = normalizeMecdSF(initialState.sinFirma);
+
+  const initialRevBaseline = revision.map((r) => ({ ...r }));
+  const initialCFBaseline = conFirma.map((r) => ({ ...r }));
+  const initialSFBaseline = sinFirma.map((r) => ({ ...r }));
 
   // Referencias del DOM
   const inputFormatoId = document.getElementById('mecdFormatoId');
@@ -84,6 +92,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnVistaPreliminar = document.getElementById('btnVistaPreliminarMECD');
   const btnGuardarDefinitivo = document.getElementById('btnGuardarDefinitivoMECD');
 
+  // Bloqueo estricto en cliente de la Fecha del Itinerario (#mecdFecha)
+  if (inputFecha && initialState.fecha) {
+    inputFecha.value = initialState.fecha;
+    inputFecha.setAttribute('readonly', 'readonly');
+    inputFecha.setAttribute('disabled', 'disabled');
+    inputFecha.addEventListener('change', () => {
+      inputFecha.value = initialState.fecha;
+    });
+  }
+
   // Inicializar los 3 lienzos de firma (con bloqueo inmutable desde Repositorio GitHub)
   const signaturePads = {};
   ['mecdCanvasFirmaCCO', 'mecdCanvasFirmaAgente', 'mecdCanvasFirmaSupervisor'].forEach((canvasId) => {
@@ -103,6 +121,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  function notifyMecdToast(title) {
+    if (typeof window.Swal !== 'undefined') {
+      window.Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title,
+        showConfirmButton: false,
+        timer: 1500,
+        timerProgressBar: true
+      });
+    }
+  }
+
   function renderGrids() {
     if (badgeRev) badgeRev.textContent = `${revision.length} registro(s)`;
     if (badgeCF) badgeCF.textContent = `${conFirma.length} registro(s)`;
@@ -110,17 +142,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (tbodyRev) {
       if (revision.length === 0) {
-        tbodyRev.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-3); padding:14px;">Sin registros en Revisión.</td></tr>`;
+        tbodyRev.innerHTML = `
+          <tr class="er-empty-row mecd-empty-row">
+            <td colspan="4" class="er-empty-cell mecd-empty-cell">
+              <div class="cp-empty-dashed er-empty-card">
+                <div class="er-empty-title">No hay registros agregados aún</div>
+                <div class="er-empty-hint">Ingrese No. de Control y No. de Colilla y presione <strong>"Agregar a Revisión"</strong>.</div>
+              </div>
+            </td>
+          </tr>
+        `;
       } else {
         tbodyRev.innerHTML = revision
           .map(
             (r, i) => `
-              <tr data-row-index="${i}">
-                <td style="text-align:center; font-weight:700;">${i + 1}</td>
-                <td><input type="number" class="form-control" data-grid="rev" data-idx="${i}" data-field="Control" value="${esc(r.Control)}"></td>
-                <td><input type="text" class="form-control" data-grid="rev" data-idx="${i}" data-field="Colilla" value="${esc(r.Colilla)}"></td>
-                <td style="text-align:center;">
-                  <button type="button" class="btn btn-secondary" data-del-grid="rev" data-idx="${i}" style="color:var(--danger); border-color:var(--danger); padding:4px 8px;">
+              <tr data-row-index="${i}" class="mecd-compact-row">
+                <td class="mecd-td-no" data-label="No.">${i + 1}</td>
+                <td class="mecd-td-rev-ctrl" data-label="No. de Control *">
+                  <input type="number" class="form-control mecd-cell-input mecd-compact-input er-cell-center" data-grid="rev" data-idx="${i}" data-field="Control" min="1" step="1" inputmode="numeric" value="${esc(r.Control)}" aria-label="Revisión fila ${i + 1} No. de Control">
+                </td>
+                <td class="mecd-td-rev-col" data-label="No. de Colilla *">
+                  <input type="text" class="form-control mecd-cell-input mecd-compact-input er-cell-center" data-grid="rev" data-idx="${i}" data-field="Colilla" inputmode="numeric" value="${esc(r.Colilla)}" aria-label="Revisión fila ${i + 1} No. de Colilla">
+                </td>
+                <td class="mecd-td-act" data-label="Acción">
+                  <button type="button" class="cp-icon-btn trash mecd-del-btn" data-del-grid="rev" data-idx="${i}" title="Retirar registro #${i + 1}">
                     <i class="fas fa-trash-alt"></i>
                   </button>
                 </td>
@@ -131,54 +176,58 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    if (tbodyCF) {
-      if (conFirma.length === 0) {
-        tbodyCF.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-3); padding:14px;">Sin registros Con Firma desde Mostrador.</td></tr>`;
-      } else {
-        tbodyCF.innerHTML = conFirma
-          .map(
-            (r, i) => `
-              <tr data-row-index="${i}">
-                <td style="text-align:center; font-weight:700;">${i + 1}</td>
-                <td><input type="text" class="form-control" data-grid="cf" data-idx="${i}" data-field="NombrePasajero" value="${esc(r.NombrePasajero)}"></td>
-                <td><input type="text" class="form-control" data-grid="cf" data-idx="${i}" data-field="Colilla" value="${esc(r.Colilla)}"></td>
-                <td><input type="number" class="form-control" data-grid="cf" data-idx="${i}" data-field="Control" value="${esc(r.Control)}"></td>
-                <td><input type="text" class="form-control" data-grid="cf" data-idx="${i}" data-field="Destino" value="${esc(r.Destino)}"></td>
-                <td style="text-align:center;">
-                  <button type="button" class="btn btn-secondary" data-del-grid="cf" data-idx="${i}" style="color:var(--danger); border-color:var(--danger); padding:4px 8px;">
-                    <i class="fas fa-trash-alt"></i>
-                  </button>
-                </td>
-              </tr>
-            `
-          )
-          .join('');
+    const renderDetailedRows = (list, gridKey, emptyTitle) => {
+      if (list.length === 0) {
+        return `
+          <tr class="er-empty-row mecd-empty-row">
+            <td colspan="6" class="er-empty-cell mecd-empty-cell">
+              <div class="cp-empty-dashed er-empty-card">
+                <div class="er-empty-title">${esc(emptyTitle)}</div>
+                <div class="er-empty-hint">Complete los campos superiores y presione el botón de agregar.</div>
+              </div>
+            </td>
+          </tr>
+        `;
       }
+      return list
+        .map(
+          (r, i) => `
+            <tr data-row-index="${i}" class="mecd-card-row">
+              <td class="mecd-td-num" data-label="No.">
+                <div class="er-num-badge">
+                  <span class="er-num-text"><span class="er-mobile-prefix">Registro #</span><span class="er-row-number">${i + 1}</span></span>
+                </div>
+              </td>
+              <td class="mecd-td-pasajero" data-label="Nombre del Pasajero *">
+                <input type="text" class="form-control mecd-cell-input" data-grid="${gridKey}" data-idx="${i}" data-field="NombrePasajero" value="${esc(r.NombrePasajero)}" placeholder="Nombre del pasajero *" aria-label="Fila ${i + 1} Nombre del Pasajero">
+              </td>
+              <td class="mecd-td-colilla" data-label="No. de Colilla *">
+                <input type="text" class="form-control mecd-cell-input er-cell-center" data-grid="${gridKey}" data-idx="${i}" data-field="Colilla" inputmode="numeric" value="${esc(r.Colilla)}" placeholder="Colilla *" aria-label="Fila ${i + 1} No. de Colilla">
+              </td>
+              <td class="mecd-td-control" data-label="No. de Control *">
+                <input type="number" class="form-control mecd-cell-input er-cell-center" data-grid="${gridKey}" data-idx="${i}" data-field="Control" min="1" step="1" inputmode="numeric" value="${esc(r.Control)}" placeholder="Control *" aria-label="Fila ${i + 1} No. de Control">
+              </td>
+              <td class="mecd-td-destino" data-label="Destino">
+                <input type="text" class="form-control mecd-cell-input er-cell-center" data-grid="${gridKey}" data-idx="${i}" data-field="Destino" value="${esc(r.Destino)}" placeholder="${esc(initialState.destinoDefault || 'MEX')}" aria-label="Fila ${i + 1} Destino">
+              </td>
+              <td class="mecd-td-accion" data-label="Acción">
+                <button type="button" class="cp-icon-btn trash mecd-del-btn mecd-card-del-btn" data-del-grid="${gridKey}" data-idx="${i}" title="Retirar registro #${i + 1}">
+                  <i class="fas fa-trash-alt"></i>
+                  <span class="er-mobile-action-label">Retirar</span>
+                </button>
+              </td>
+            </tr>
+          `
+        )
+        .join('');
+    };
+
+    if (tbodyCF) {
+      tbodyCF.innerHTML = renderDetailedRows(conFirma, 'cf', 'No hay registros agregados aún');
     }
 
     if (tbodySF) {
-      if (sinFirma.length === 0) {
-        tbodySF.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-3); padding:14px;">Sin registros Sin Firma en Tobogán.</td></tr>`;
-      } else {
-        tbodySF.innerHTML = sinFirma
-          .map(
-            (r, i) => `
-              <tr data-row-index="${i}">
-                <td style="text-align:center; font-weight:700;">${i + 1}</td>
-                <td><input type="text" class="form-control" data-grid="sf" data-idx="${i}" data-field="NombrePasajero" value="${esc(r.NombrePasajero)}"></td>
-                <td><input type="text" class="form-control" data-grid="sf" data-idx="${i}" data-field="Colilla" value="${esc(r.Colilla)}"></td>
-                <td><input type="number" class="form-control" data-grid="sf" data-idx="${i}" data-field="Control" value="${esc(r.Control)}"></td>
-                <td><input type="text" class="form-control" data-grid="sf" data-idx="${i}" data-field="Destino" value="${esc(r.Destino)}"></td>
-                <td style="text-align:center;">
-                  <button type="button" class="btn btn-secondary" data-del-grid="sf" data-idx="${i}" style="color:var(--danger); border-color:var(--danger); padding:4px 8px;">
-                    <i class="fas fa-trash-alt"></i>
-                  </button>
-                </td>
-              </tr>
-            `
-          )
-          .join('');
-      }
+      tbodySF.innerHTML = renderDetailedRows(sinFirma, 'sf', 'No hay registros agregados aún');
     }
   }
 
@@ -192,6 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const list = grid === 'rev' ? revision : grid === 'cf' ? conFirma : sinFirma;
     if (list[idx] && field) {
       list[idx][field] = inp.value;
+      window.SioOfflineManager?.notifyStateChange?.();
     }
   });
 
@@ -204,6 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (list[idx]) {
       list.splice(idx, 1);
       renderGrids();
+      window.SioOfflineManager?.notifyStateChange?.(true);
     }
   });
 
@@ -221,6 +272,9 @@ document.addEventListener('DOMContentLoaded', () => {
       inputRevControl.value = '';
       inputRevColilla.value = '';
       renderGrids();
+      window.SioOfflineManager?.notifyStateChange?.();
+      notifyMecdToast('Equipaje agregado a Revisión');
+      inputRevControl.focus();
     });
   }
 
@@ -241,7 +295,11 @@ document.addEventListener('DOMContentLoaded', () => {
       inputCFPasajero.value = '';
       inputCFColilla.value = '';
       inputCFControl.value = '';
+      if (inputCFDestino) inputCFDestino.value = '';
       renderGrids();
+      window.SioOfflineManager?.notifyStateChange?.();
+      notifyMecdToast('Maleta Con Firma agregada');
+      inputCFPasajero.focus();
     });
   }
 
@@ -262,7 +320,11 @@ document.addEventListener('DOMContentLoaded', () => {
       inputSFPasajero.value = '';
       inputSFColilla.value = '';
       inputSFControl.value = '';
+      if (inputSFDestino) inputSFDestino.value = '';
       renderGrids();
+      window.SioOfflineManager?.notifyStateChange?.();
+      notifyMecdToast('Maleta Sin Firma agregada');
+      inputSFPasajero.focus();
     });
   }
 
@@ -454,4 +516,35 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   renderGrids();
+
+  window.SioOfflineManager?.registerStateAdapter?.('format:mecd', {
+    capture: () => ({
+      revision: revision.map((r) => ({ ...r })),
+      conFirma: conFirma.map((r) => ({ ...r })),
+      sinFirma: sinFirma.map((r) => ({ ...r }))
+    }),
+    restore: (saved) => {
+      if (!saved || typeof saved !== 'object') return;
+      if (Array.isArray(saved.revision)) revision = normalizeMecdRev(saved.revision);
+      if (Array.isArray(saved.conFirma)) conFirma = normalizeMecdCF(saved.conFirma);
+      if (Array.isArray(saved.sinFirma)) sinFirma = normalizeMecdSF(saved.sinFirma);
+      renderGrids();
+    },
+    reset: () => {
+      revision = initialRevBaseline.map((r) => ({ ...r }));
+      conFirma = initialCFBaseline.map((r) => ({ ...r }));
+      sinFirma = initialSFBaseline.map((r) => ({ ...r }));
+      renderGrids();
+    },
+    mapLegacyPatch: (patch) => {
+      if (!patch || (!Array.isArray(patch.revision) && !Array.isArray(patch.conFirma) && !Array.isArray(patch.sinFirma))) {
+        return undefined;
+      }
+      return {
+        revision: Array.isArray(patch.revision) ? patch.revision : initialRevBaseline,
+        conFirma: Array.isArray(patch.conFirma) ? patch.conFirma : initialCFBaseline,
+        sinFirma: Array.isArray(patch.sinFirma) ? patch.sinFirma : initialSFBaseline
+      };
+    }
+  });
 });

@@ -107,15 +107,28 @@ class HtmlPreviewService {
       .replace(/'/g, '&#39;');
   }
 
-  static getLogoBase64(filename) {
-    if (logoBase64Cache.has(filename)) {
-      return logoBase64Cache.get(filename);
+  static getLogoInfo(filename) {
+    const cacheKey = `info:${filename}`;
+    if (logoBase64Cache.has(cacheKey)) {
+      return logoBase64Cache.get(cacheKey);
     }
-    const fullPath = path.join(IMAGES_DIR, filename);
-    if (!fs.existsSync(fullPath)) return '';
-    const b64 = fs.readFileSync(fullPath).toString('base64');
-    logoBase64Cache.set(filename, b64);
-    return b64;
+    const baseName = filename.replace(/\.[^.]+$/, '');
+    const candidates = [filename, `${baseName}.png`, `${baseName}.jpeg`, `${baseName}.jpg`];
+    for (const candidate of candidates) {
+      const fullPath = path.join(IMAGES_DIR, candidate);
+      if (fs.existsSync(fullPath)) {
+        const ext = path.extname(candidate).toLowerCase();
+        const mime = (ext === '.jpg' || ext === '.jpeg') ? 'image/jpeg' : 'image/png';
+        const info = { b64: fs.readFileSync(fullPath).toString('base64'), mime };
+        logoBase64Cache.set(cacheKey, info);
+        return info;
+      }
+    }
+    return { b64: '', mime: 'image/png' };
+  }
+
+  static getLogoBase64(filename) {
+    return HtmlPreviewService.getLogoInfo(filename).b64;
   }
 
   static hasControlledTemplate(formatoId) {
@@ -2163,7 +2176,7 @@ class HtmlPreviewService {
 
     // 1. Logos corporativos (Aeroméxico, Arajet, Delta, Air Canada, LATAM, FedEx y Amerijet)
     const brandLogos = [
-      ['varLogoAeromexico', 'aeromexico.png'],
+      ['varLogoAeromexico', 'aeromexico.jpeg'],
       ['varLogoArajet', 'arajet.png'],
       ['varLogoDelta', 'delta.png'],
       ['varLogoAirCanada', 'air-canada.png'],
@@ -2173,11 +2186,11 @@ class HtmlPreviewService {
     ];
     const resolvedLogos = {};
     for (const [varName, imgFile] of brandLogos) {
-      const b64 = HtmlPreviewService.getLogoBase64(imgFile);
+      const { b64, mime } = HtmlPreviewService.getLogoInfo(imgFile);
       resolvedLogos[varName] = b64;
-      const imgDataRegex = new RegExp(`data:image/png;base64,\\s*@\\{\\s*variables\\(\\s*'\\s*${varName}\\s*'\\s*\\)\\s*\\}\\s*`, 'gi');
+      const imgDataRegex = new RegExp(`data:image\\/[a-zA-Z0-9+.-]+;base64,\\s*@\\{\\s*variables\\(\\s*'\\s*${varName}\\s*'\\s*\\)\\s*\\}\\s*`, 'gi');
       const bareVarRegex = new RegExp(`@\\{\\s*variables\\(\\s*'\\s*${varName}\\s*'\\s*\\)\\s*\\}\\s*`, 'gi');
-      html = html.replace(imgDataRegex, `data:image/png;base64,${b64}`);
+      html = html.replace(imgDataRegex, `data:${mime};base64,${b64}`);
       html = html.replace(bareVarRegex, b64);
     }
 

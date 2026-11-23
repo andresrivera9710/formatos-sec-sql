@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ? initialState.empresas
     : ['LAATS', 'AIR CANADA', 'GODARD(Cocinas)', 'ODA (Combustible)', 'OIRSA', 'DGAC (Operaciones)', 'OTROS...'];
 
-  let registros = (Array.isArray(initialState.registros) ? initialState.registros : []).map((r) => ({
+  const normalizeAnexoARegistros = (list) => (Array.isArray(list) ? list : []).map((r) => ({
     DetalleAnexoAId: parseInt(r.DetalleAnexoAId, 10) || 0,
     EmpleadoId: parseInt(r.EmpleadoId, 10) || 0,
     Nombre: String(r.Nombre || r.PersonalMonitoreo || '').trim(),
@@ -56,6 +56,9 @@ document.addEventListener('DOMContentLoaded', () => {
     Motivo: String(r.Motivo || r.MotivoAcceso || '').trim(),
     HoraSalida: extractHHMM(r.HoraSalida || r.HoraSalidaReal || r.HoraFin)
   }));
+
+  let registros = normalizeAnexoARegistros(initialState.registros);
+  const initialRegistrosBaseline = registros.map((r) => ({ ...r }));
 
   const inputFecha = document.getElementById('axAFecha');
   const inputHoraRevision = document.getElementById('axAHoraRevision');
@@ -80,21 +83,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const pendientesBadge = document.getElementById('axAPendientesBadge');
 
   // Relojes rápidos
-  document.getElementById('btnAxAHoraRevAhora')?.addEventListener('click', () => {
-    if (inputHoraRevision) inputHoraRevision.value = nowHHMM();
-  });
-  document.getElementById('btnAxAArriboAhora')?.addEventListener('click', () => {
-    if (inputArribo) inputArribo.value = nowHHMM();
-  });
-  document.getElementById('btnAxAAseguradaAhora')?.addEventListener('click', () => {
-    if (inputAsegurada) inputAsegurada.value = nowHHMM();
-  });
-  document.getElementById('btnAxAHoraIngresoAhora')?.addEventListener('click', () => {
-    if (quickHoraIngreso) quickHoraIngreso.value = nowHHMM();
-  });
-  document.getElementById('btnAxAHoraSalidaAhora')?.addEventListener('click', () => {
-    if (quickHoraSalida) quickHoraSalida.value = nowHHMM();
-  });
+  const setClock = (el) => {
+    if (!el) return;
+    el.value = nowHHMM();
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  document.getElementById('btnAxAHoraRevAhora')?.addEventListener('click', () => setClock(inputHoraRevision));
+  document.getElementById('btnAxAArriboAhora')?.addEventListener('click', () => setClock(inputArribo));
+  document.getElementById('btnAxAAseguradaAhora')?.addEventListener('click', () => setClock(inputAsegurada));
+  document.getElementById('btnAxAHoraIngresoAhora')?.addEventListener('click', () => setClock(quickHoraIngreso));
+  document.getElementById('btnAxAHoraSalidaAhora')?.addEventListener('click', () => setClock(quickHoraSalida));
 
   function resolveEmpleadoIdByNombre(nombre) {
     if (!datalistEmp || !nombre) return 0;
@@ -480,4 +479,21 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnGuardarDefinitivoAnexoA')?.addEventListener('click', () => enviarFormato(true));
 
   renderTabla();
+
+  window.SioOfflineManager?.registerStateAdapter?.('format:anexoa', {
+    capture: () => ({
+      registros: registros.map((r) => ({ ...r }))
+    }),
+    restore: (saved) => {
+      const list = Array.isArray(saved) ? saved : (Array.isArray(saved?.registros) ? saved.registros : null);
+      if (!list) return;
+      registros = normalizeAnexoARegistros(list);
+      renderTabla();
+    },
+    reset: () => {
+      registros = initialRegistrosBaseline.map((r) => ({ ...r }));
+      renderTabla();
+    },
+    mapLegacyPatch: (patch) => (Array.isArray(patch?.registros) ? { registros: patch.registros } : undefined)
+  });
 });

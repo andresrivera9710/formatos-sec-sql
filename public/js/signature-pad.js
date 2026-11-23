@@ -249,28 +249,39 @@
       return Boolean(this.locked);
     }
 
-    clear() {
+    clear(options = {}) {
       if (this.locked) return;
-      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      const ratio = Math.max(window.devicePixelRatio || 1, 1);
+      const w = (this.canvas.width / ratio) || this.canvas.offsetWidth || 320;
+      const h = (this.canvas.height / ratio) || this.canvas.offsetHeight || 160;
+      this.ctx.clearRect(0, 0, Math.max(this.canvas.width, w), Math.max(this.canvas.height, h));
       this.hasDrawn = false;
-      this.canvas.dispatchEvent(new CustomEvent('sio:signature-change', {
-        bubbles: true,
-        detail: { canvasId: this.canvas.id, signatureKey: this.signatureKey, cleared: true }
-      }));
+      if (!options.silent) {
+        this.canvas.dispatchEvent(new CustomEvent('sio:signature-change', {
+          bubbles: true,
+          detail: { canvasId: this.canvas.id, signatureKey: this.signatureKey, cleared: true }
+        }));
+      }
     }
 
     loadDraftDataUrl(dataUrl) {
       if (this.locked) return false;
       const clean = String(dataUrl || '').trim();
       if (!clean.startsWith('data:image/')) return false;
+      if (!this.canvas.width || !this.canvas.height) {
+        this.resizeCanvas();
+      }
       const img = new Image();
       img.onload = () => {
         if (this.locked) return;
         const ratio = Math.max(window.devicePixelRatio || 1, 1);
         const w = (this.canvas.width / ratio) || this.canvas.offsetWidth || 320;
         const h = (this.canvas.height / ratio) || this.canvas.offsetHeight || 160;
+        this.ctx.save();
+        this.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
         this.ctx.clearRect(0, 0, w, h);
         this.ctx.drawImage(img, 0, 0, w, h);
+        this.ctx.restore();
         this.hasDrawn = true;
       };
       img.src = clean;
@@ -297,6 +308,22 @@
         if (pad && !pad.isLocked() && dataUrl) {
           pad.loadDraftDataUrl(dataUrl);
         }
+      });
+    }
+
+    static clearUnlockedSignatures() {
+      _mountedPads.forEach((pad) => {
+        if (!pad.isLocked()) {
+          pad.clear({ silent: true });
+        }
+      });
+    }
+
+    static hasUnlockedCanvasForKeys(sigMap = {}) {
+      if (!sigMap || typeof sigMap !== 'object') return false;
+      return Object.entries(sigMap).some(([canvasId, dataUrl]) => {
+        const pad = _mountedPads.get(canvasId);
+        return Boolean(pad && !pad.isLocked() && dataUrl && String(dataUrl).startsWith('data:image/'));
       });
     }
 
@@ -338,6 +365,8 @@
     applyRepoState: SioSignaturePad.applyRepoState,
     getMountedPad: SioSignaturePad.getMountedPad,
     exportUnlockedSignatures: SioSignaturePad.exportUnlockedSignatures,
-    loadDraftSignatures: SioSignaturePad.loadDraftSignatures
+    loadDraftSignatures: SioSignaturePad.loadDraftSignatures,
+    clearUnlockedSignatures: SioSignaturePad.clearUnlockedSignatures,
+    hasUnlockedCanvasForKeys: SioSignaturePad.hasUnlockedCanvasForKeys
   };
 })(window, document);

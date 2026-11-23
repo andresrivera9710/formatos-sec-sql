@@ -19,11 +19,11 @@ class LoginModel {
         EmpleadoId,
         ISNULL(EstaEliminado, 0) AS EstaEliminado
       FROM LogIn
-      WHERE UPPER(RTRIM(Password)) = UPPER(@pin)
+      WHERE UPPER(LTRIM(RTRIM(ISNULL(Password, '')))) = UPPER(@pin)
         AND ISNULL(EstaEliminado, 0) = 0
     `;
     const params = [
-      { name: 'pin', type: sql.NVarChar(50), value: pin.trim() }
+      { name: 'pin', type: sql.NVarChar(50), value: String(pin || '').trim() }
     ];
     const result = await executeQuery(query, params);
     return result.recordset[0] || null;
