@@ -300,6 +300,14 @@
         e.preventDefault();
         movePillToItem(btnLogout);
 
+        const performSecureLogout = () => {
+          if (window.SioNavigationManager) {
+            window.SioNavigationManager.clearProtectedSwCache();
+            window.SioNavigationManager.dismissAllOverlays({ reason: 'logout', abortRequests: true });
+          }
+          window.location.replace(targetHref);
+        };
+
         const targetHref = btnLogout.getAttribute('href') || '/logout';
         if (typeof Swal !== 'undefined' && Swal && typeof Swal.fire === 'function') {
           const isDark = getStoredTheme() === 'dark';
@@ -316,13 +324,13 @@
             color: isDark ? '#F4F7FB' : '#0F172A'
           }).then((result) => {
             if (result.isConfirmed) {
-              window.location.href = targetHref;
+              performSecureLogout();
             } else {
               resetPillToActive();
             }
           });
         } else {
-          window.location.href = targetHref;
+          performSecureLogout();
         }
       });
     }

@@ -396,19 +396,28 @@
       patch.detalles = detalles;
     }
 
-    // 4. Formatos EB y CEC (Matrices 10x10 #ebTbodyMatriz / #cecTbodyMatriz)
+    // 4. Formatos EB y CEC (Matrices 10 columnas #ebTbodyMatriz / #cecTbodyMatriz)
     if (fmt.endsWith('-eb') || fmt.endsWith('-cec')) {
-      const tbodyId = fmt.endsWith('-eb') ? 'ebTbodyMatriz' : 'cecTbodyMatriz';
+      const isEb = fmt.endsWith('-eb');
+      const tbodyId = isEb ? 'ebTbodyMatriz' : 'cecTbodyMatriz';
+      const idKey = isEb ? 'DetalleControlEBId' : 'DetalleCECDespId';
       const detalles = [];
       document.querySelectorAll(`#${tbodyId} td[data-cell-index]`).forEach((td) => {
-        const numSpan = td.querySelector('span');
-        const sec = parseInt(numSpan ? numSpan.textContent.trim() : td.textContent.trim(), 10) || 0;
-        if (sec > 0) {
-          const isTachado = td.textContent.includes('✗');
+        const attrSec = parseInt(td.getAttribute('data-secuencia') || '', 10);
+        const numSpan = td.querySelector('.sio-mx-seq-val, span');
+        const sec = Number.isInteger(attrSec) && attrSec > 0
+          ? attrSec
+          : (parseInt(numSpan ? numSpan.textContent.trim() : td.textContent.trim(), 10) || 0);
+        const attrValor = String(td.getAttribute('data-valor') || '').trim().toUpperCase();
+        const isTachado = attrValor === 'X' || td.classList.contains('sio-mx-cell-withdrawn') || td.textContent.includes('✗');
+        if (sec > 0 || isTachado) {
           detalles.push({
+            [idKey]: parseInt(td.getAttribute('data-record-id') || '0', 10) || 0,
             Casilla: detalles.length + 1,
             Secuencia: sec,
-            Valor: isTachado ? 'X' : String(sec)
+            Valor: isTachado ? 'X' : String(sec),
+            Motivo: td.getAttribute('data-motivo') || '',
+            EstaEliminado: isTachado
           });
         }
       });
@@ -426,7 +435,7 @@
       patch.registros = registros;
     }
 
-    // 6. Formato CIEC (.cp-registro-card[data-record-json])
+    // 6. Formato CIEC (.cp-registro-card + Matriz Equipaje en Puerta #ciecTbodyMatrizPuerta)
     if (fmt.endsWith('-ciec')) {
       const detalles = [];
       document.querySelectorAll('.cp-registro-card[data-record-json]').forEach((card) => {
@@ -434,7 +443,29 @@
           detalles.push(JSON.parse(card.getAttribute('data-record-json')));
         } catch (_) {}
       });
+      const equipajePuerta = [];
+      document.querySelectorAll('#ciecTbodyMatrizPuerta td[data-cell-index]').forEach((td) => {
+        const attrSec = parseInt(td.getAttribute('data-secuencia') || '', 10);
+        const numSpan = td.querySelector('.sio-mx-seq-val, span');
+        const sec = Number.isInteger(attrSec) && attrSec > 0
+          ? attrSec
+          : (parseInt(numSpan ? numSpan.textContent.trim() : td.textContent.trim(), 10) || 0);
+        const attrValor = String(td.getAttribute('data-valor') || '').trim().toUpperCase();
+        const isTachado = attrValor === 'X' || td.classList.contains('sio-mx-cell-withdrawn') || td.textContent.includes('✗');
+        if (sec > 0 || isTachado) {
+          equipajePuerta.push({
+            EquipajePuertaCIECId: parseInt(td.getAttribute('data-record-id') || '0', 10) || 0,
+            Casilla: equipajePuerta.length + 1,
+            Secuencia: sec,
+            Valor: isTachado ? 'X' : String(sec),
+            Motivo: td.getAttribute('data-motivo') || '',
+            EstaEliminado: isTachado
+          });
+        }
+      });
       patch.detalles = detalles;
+      patch.registros = detalles;
+      patch.equipajePuerta = equipajePuerta;
     }
 
     return patch;
@@ -563,6 +594,7 @@
     if (
       (Array.isArray(p.detalles) && p.detalles.length > 0) ||
       (Array.isArray(p.registros) && p.registros.length > 0) ||
+      (Array.isArray(p.equipajePuerta) && p.equipajePuerta.length > 0) ||
       (Array.isArray(p.revision) && p.revision.length > 0) ||
       (Array.isArray(p.conFirma) && p.conFirma.length > 0) ||
       (Array.isArray(p.sinFirma) && p.sinFirma.length > 0)
@@ -857,7 +889,9 @@
           <td style="border:1px solid black;padding:2px 3px;text-align:center;">${outHtml}</td>
         </tr>`);
       }
-      const eqList = Array.isArray(ciec.equipajePuerta) ? ciec.equipajePuerta : [];
+      const eqList = (Array.isArray(ciec.equipajePuerta) ? ciec.equipajePuerta : [])
+        .map((e) => String(e?.Valor ?? e?.Secuencia ?? e ?? '').trim())
+        .filter((v) => v && v.toUpperCase() !== 'X' && v !== '0');
       const alerosText = Array.isArray(ciec.alerosNombres) ? ciec.alerosNombres.join(', ') : '';
       const trac = [ciec.tractoristaNombre, ciec.noUnidadLabel].filter(Boolean).join(' / ');
       return {
@@ -884,7 +918,7 @@
         PaxEntrandoGUA: ciec.paxEntrando ?? '',
         Despegue: extractHHMM(ciec.despegue),
         TotalEquipajePuerta: eqList.length,
-        EquipajePuertaHTML: eqList.map((e) => escapeHtml(e?.Valor ?? e?.Secuencia ?? e ?? '')).filter(Boolean).join(', '),
+        EquipajePuertaHTML: eqList.map((v) => escapeHtml(v)).join(', '),
         AlerosText: alerosText,
         Aleros: alerosText,
         TractoristaUnidad: trac,
@@ -1323,6 +1357,9 @@
         }
         return netRes;
       } catch (fetchErr) {
+        if (fetchErr && fetchErr.name === 'AbortError') {
+          throw fetchErr;
+        }
         // Si falló la red justo durante el POST, degradar elegantemente a Modo Caché Offline
         _isOnline = false;
         emitNetworkStatus();

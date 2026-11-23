@@ -1504,8 +1504,9 @@ class FormatosService {
 
     const norm = validacion.normalized;
     const anulados = norm.registros.filter(r => r.Valor === 'X' && r.Motivo);
-    const obsFinal = anulados.length > 0
-      ? `${norm.observaciones ? `${norm.observaciones} | ` : ''}Motivos de anulación: ${anulados.map(a => `Sec. ${a.Secuencia}: ${a.Motivo}`).join(', ')}`
+    const missingAnulados = anulados.filter(a => !norm.observaciones.includes(`Sec. ${a.Secuencia}`));
+    const obsFinal = missingAnulados.length > 0 && !norm.observaciones.includes('Motivos de anulación:')
+      ? `${norm.observaciones ? `${norm.observaciones} | ` : ''}Motivos de anulación: ${missingAnulados.map(a => `Sec. ${a.Secuencia}: ${a.Motivo}`).join(', ')}`
       : norm.observaciones;
 
     const txResult = await FormatosModel.guardarControlEBTransaccional({
@@ -1571,6 +1572,12 @@ class FormatosService {
     }
 
     const norm = validacion.normalized;
+    const anuladosCec = norm.secuencias.filter(s => s.Valor === 'X' && s.Motivo);
+    const missingAnuladosCec = anuladosCec.filter(a => !norm.observaciones.includes(`Sec. ${a.Secuencia}`));
+    const obsCecFinal = missingAnuladosCec.length > 0 && !norm.observaciones.includes('Motivos de anulación:')
+      ? `${norm.observaciones ? `${norm.observaciones} | ` : ''}Motivos de anulación: ${missingAnuladosCec.map(a => `Sec. ${a.Secuencia}: ${a.Motivo}`).join(', ')}`
+      : norm.observaciones;
+
     let loginId = parseInt(user.loginId, 10) || 0;
     if (loginId <= 0) {
       loginId = (await LoginModel.obtenerLoginIdPorUsuario(user.usuario, user.empleadoId)) || 1;
@@ -1611,7 +1618,7 @@ class FormatosService {
       cocinasEntrada: norm.cocinasEntrada,
       cocinasSalida: norm.cocinasSalida,
       operadoresRampa: norm.operadoresRampa,
-      observaciones: norm.observaciones,
+      observaciones: obsCecFinal,
       cargaEmbarqueDelta: norm.cargaEmbarqueDelta,
       equipajeMostrador: norm.equipajeMostrador,
       equipajePuerta: norm.equipajePuerta,

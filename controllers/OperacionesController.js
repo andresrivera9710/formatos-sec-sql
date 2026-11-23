@@ -131,6 +131,10 @@ class OperacionesController {
 
       req.session.vueloSeleccionado = vuelo;
 
+      await new Promise((resolve, reject) => {
+        req.session.save((saveErr) => (saveErr ? reject(saveErr) : resolve()));
+      });
+
       return res.json({
         success: true,
         message: 'Operación seleccionada correctamente.',

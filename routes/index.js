@@ -19,6 +19,7 @@ const { loginLimiter, apiLimiter } = require('../middlewares/rateLimiter');
 router.get('/login', AuthController.renderLogin);
 router.post('/login', loginLimiter, verifyHoneypot, AuthController.postLogin);
 router.get('/logout', AuthController.logout);
+router.get('/api/session/check', AuthController.sessionCheck);
 
 // ============================================================================
 // 2. BARRERA GLOBAL DE SEGURIDAD (Capa 7 de Seguridad)
@@ -45,6 +46,7 @@ router.get('/formatos/:formatoId', FormatosController.renderDetalleFormato);
 router.get('/api/offline/plantilla/:formatoId', apiLimiter, FormatosController.apiObtenerPlantillaOffline);
 router.post('/api/formatos/procesar', apiLimiter, FormatosController.apiProcesarGuardado);
 router.post('/api/formatos/guardar', apiLimiter, FormatosController.apiProcesarGuardado);
+router.post('/api/formatos/matriz/anular-secuencia', apiLimiter, FormatosController.apiAnularSecuenciaMatriz);
 
 module.exports = router;
 

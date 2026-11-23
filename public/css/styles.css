@@ -1277,8 +1277,11 @@ body.dark-mode .cp-section-title {
    ============================================================================ */
 .er-fluid-grid-wrapper {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   max-height: 520px;
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background-color: var(--surface);
@@ -1523,7 +1526,7 @@ body.dark-mode .er-fluid-table tbody tr.er-row-invalid td {
 /* Panel Izquierdo / Superior Corporativo LAATS */
 .login-brand-panel {
   flex: 1.1;
-  background: linear-gradient(145deg, #0A1C33 0%, var(--brand-deep) 45%, var(--brand) 100%);
+  background: linear-gradient(135deg, var(--navy-deep, #0F2744) 0%, #1A3E66 50%, var(--navy-brand, #275B88) 100%);
   padding: 48px 40px;
   color: #FFFFFF;
   display: flex;
@@ -1847,6 +1850,1209 @@ body.dark-mode .login-input:focus {
   .login-input {
     letter-spacing: 4px;
     padding: 0 38px;
+  }
+}
+
+/* ==========================================================================
+   SISTEMA ESTANDARIZADO DE CLASES RWD PARA FORMATOS (AEROMEXICO, DELTA Y FUTUROS)
+   Escritorio (> 768px): Diseño multi-columna intacto.
+   Móvil (<= 768px y <= 480px): Colapso limpio a 1 columna, cero overflow horizontal.
+   ========================================================================== */
+form,
+main,
+section {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.sio-card-accent {
+  border-top: 3px solid var(--brand);
+}
+
+.sio-card-header-flex {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.sio-card-header-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.sio-grid-2,
+.sio-grid-auto-lg {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.sio-grid-auto {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.sio-grid-auto-compact {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(195px, 1fr));
+  gap: 14px;
+}
+
+.sio-grid-split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.sio-grid-span-2 {
+  grid-column: span 2;
+}
+
+.sio-grid-2 > *,
+.sio-grid-auto-lg > *,
+.sio-grid-auto > *,
+.sio-grid-auto-compact > *,
+.sio-grid-split > * {
+  min-width: 0;
+}
+
+.sio-date-narrow {
+  max-width: 340px;
+  width: 100%;
+}
+
+.sio-inline-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.sio-inline-bar-box {
+  margin-bottom: 16px;
+  background: var(--bg);
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-2);
+}
+
+.sio-inline-bar .form-group {
+  margin-bottom: 0;
+  min-width: 170px;
+  flex: 1;
+}
+
+.sio-inline-bar .form-group.sio-flex-2 {
+  flex: 2;
+  min-width: 220px;
+}
+
+.sio-search-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.sio-search-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.sio-search-input-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 220px;
+}
+
+.sio-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-3);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.sio-search-input {
+  padding-left: 36px;
+  width: 100%;
+}
+
+.sio-search-input-sm {
+  padding-left: 32px;
+  padding-top: 7px;
+  padding-bottom: 7px;
+  font-size: 12px;
+  width: 100%;
+}
+
+.sio-section-actions {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-2);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.sio-form-actions-end {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.sio-bottom-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 14px;
+  margin-bottom: 40px;
+}
+
+.sio-btn-sm {
+  padding: 6px 12px;
+  font-size: 11px;
+}
+
+.sio-btn-xs {
+  padding: 4px 10px;
+  font-size: 11px;
+}
+
+.sio-btn-bar {
+  height: 38px;
+}
+
+.sio-btn-wide {
+  min-width: 190px;
+}
+
+.sio-btn-wide-sm {
+  min-width: 160px;
+}
+
+.sio-btn-action {
+  padding: 12px 24px;
+}
+
+.sio-btn-action-primary {
+  padding: 12px 28px;
+}
+
+.sio-btn-danger-outline {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.sio-btn-danger-outline:hover {
+  background-color: var(--danger-light);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.sio-required-star {
+  color: var(--danger);
+}
+
+.sio-hint-text {
+  color: var(--text-3);
+  font-size: 11px;
+  display: block;
+}
+
+.sio-subsection-title {
+  font-size: 12px;
+  color: var(--brand-deep);
+  margin: 4px 0 10px 0;
+  text-transform: uppercase;
+}
+
+.sio-aleros-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  display: block;
+  margin-bottom: 8px;
+}
+
+.sio-sig-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.sio-sig-label {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sio-sig-caption {
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: center;
+  margin-top: 4px;
+}
+
+.sio-notice-success {
+  background-color: var(--success-light);
+  border: 1px solid #BBF7D0;
+  color: var(--success);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sio-divider-bottom {
+  margin-bottom: 20px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border-2);
+}
+
+.sio-panel-box {
+  margin-top: 8px;
+  padding: 14px;
+  background: var(--bg);
+  border: 1px solid var(--border-2);
+  border-radius: 8px;
+}
+
+.sio-mt-14 {
+  margin-top: 14px;
+}
+
+.sio-mt-16 {
+  margin-top: 16px;
+}
+
+.sio-mt-18 {
+  margin-top: 18px;
+}
+
+.sio-mb-14 {
+  margin-bottom: 14px;
+}
+
+.sio-mb-16 {
+  margin-bottom: 16px;
+}
+
+.sio-table-center {
+  text-align: center;
+}
+
+.sio-table-compact {
+  font-size: 11px;
+}
+
+.sio-th-center {
+  text-align: center;
+}
+
+.sio-th-no {
+  width: 55px;
+  text-align: center;
+}
+
+.sio-th-action {
+  width: 75px;
+  text-align: center;
+}
+
+.sio-th-pos {
+  width: 68px;
+  text-align: center;
+  font-size: 9px;
+  line-height: 1.15;
+}
+
+.sio-th-pos-num {
+  color: var(--gold);
+  font-weight: 800;
+}
+
+.sio-field-hidden {
+  display: none;
+}
+
+/* ==========================================================================
+   MATRICES INTERACTIVAS DE EQUIPAJES (SioBaggageMatrix — CIEC / EB / CEC)
+   Escritorio: amplio y legible; Móvil <= 768px: 11 columnas completas sin corte
+   ========================================================================== */
+.sio-mx-selection-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 9px 12px;
+  margin-bottom: 10px;
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--border);
+  background: var(--bg);
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.35;
+  transition: background-color 0.16s ease, border-color 0.16s ease;
+}
+
+.sio-mx-selection-bar.is-selected {
+  border-style: solid;
+  border-color: var(--gold);
+  background: var(--gold-light);
+  color: var(--brand-deep);
+}
+
+.sio-mx-selection-bar.is-selected.is-withdrawn {
+  border-color: #F87171;
+  background: #FEF2F2;
+  color: #991B1B;
+}
+
+.sio-mx-sel-info {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sio-mx-sel-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.sio-mx-sel-tag-gold {
+  background: var(--gold);
+  color: #0F2744;
+}
+
+.sio-mx-sel-tag-danger {
+  background: #DC2626;
+  color: #FFFFFF;
+}
+
+.sio-mx-sel-clear {
+  appearance: none;
+  border: 1px solid rgba(15, 39, 68, 0.22);
+  background: var(--surface);
+  color: var(--brand-deep);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sio-mx-sel-clear:hover {
+  background: var(--bg);
+}
+
+.sio-baggage-matrix-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.sio-baggage-matrix-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  text-align: center;
+}
+
+.sio-baggage-matrix-table thead th {
+  background: var(--brand-deep);
+  color: #FFFFFF;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 10px 4px;
+  border-right: 1px solid rgba(255, 255, 255, 0.14);
+  border-bottom: 2px solid var(--gold);
+  text-align: center;
+  vertical-align: middle;
+}
+
+.sio-baggage-matrix-table thead th:last-child {
+  border-right: none;
+}
+
+.sio-baggage-matrix-table .sio-mx-th-row {
+  width: 7%;
+}
+
+.sio-baggage-matrix-table .sio-mx-th-col {
+  width: 9.3%;
+}
+
+.sio-mx-th-short {
+  display: none;
+}
+
+.sio-mx-col-num {
+  margin-left: 3px;
+  opacity: 0.85;
+  font-weight: 600;
+}
+
+.sio-baggage-matrix-table tbody td {
+  border: 1px solid var(--border-2);
+  padding: 9px 4px;
+  vertical-align: middle;
+  text-align: center;
+  font-size: 13px;
+  height: 38px;
+}
+
+.sio-baggage-matrix-table .sio-mx-row-num {
+  font-weight: 800;
+  background: var(--bg);
+  color: var(--brand-deep);
+}
+
+.sio-mx-cell {
+  position: relative;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: background-color 0.14s ease, box-shadow 0.14s ease, color 0.14s ease;
+}
+
+.sio-mx-cell-empty {
+  color: var(--text-3);
+  font-size: 11px;
+  background: var(--surface);
+}
+
+.sio-mx-cell-occupied {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.sio-mx-cell-active {
+  background: #EFF6FF;
+  color: var(--brand-deep);
+}
+
+.sio-mx-cell-active:hover {
+  background: #DBEAFE;
+}
+
+.sio-mx-cell-withdrawn {
+  background: #FEE2E2;
+  color: #991B1B;
+}
+
+.sio-mx-cell-withdrawn .sio-mx-seq-val {
+  opacity: 0.52;
+  text-decoration: line-through;
+}
+
+.sio-mx-x-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(220, 38, 38, 0.92);
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.sio-mx-cell-selected {
+  background: #FEF3C7 !important;
+  color: #78350F !important;
+  box-shadow: inset 0 0 0 2.5px #D4AF37;
+  z-index: 2;
+}
+
+.sio-mx-cell-selected:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+
+/* Modal SweetAlert2 para Retirar / Anular Maleta */
+.sio-swal-mx-body {
+  text-align: left;
+  font-size: 13px;
+}
+
+.sio-swal-mx-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  background: #F8FAFC;
+  border: 1px solid #CBD5E1;
+  color: #0F2744;
+}
+
+.sio-swal-mx-label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: #0F2744;
+}
+
+.sio-swal-mx-input {
+  margin: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box;
+  font-size: 15px !important;
+}
+
+/* Adaptación Modo Noche para Matrices */
+[data-theme="dark"] .sio-mx-selection-bar {
+  background: rgba(15, 23, 42, 0.65);
+  border-color: rgba(148, 163, 184, 0.3);
+  color: #CBD5E1;
+}
+
+[data-theme="dark"] .sio-mx-selection-bar.is-selected {
+  background: rgba(212, 175, 55, 0.16);
+  border-color: #D4AF37;
+  color: #FDE68A;
+}
+
+[data-theme="dark"] .sio-mx-selection-bar.is-selected.is-withdrawn {
+  background: rgba(220, 38, 38, 0.18);
+  border-color: #EF4444;
+  color: #FECACA;
+}
+
+[data-theme="dark"] .sio-mx-sel-clear {
+  background: rgba(15, 23, 42, 0.85);
+  color: #F8FAFC;
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+[data-theme="dark"] .sio-mx-cell-active {
+  background: rgba(39, 91, 136, 0.28);
+  color: #E0F2FE;
+}
+
+[data-theme="dark"] .sio-mx-cell-active:hover {
+  background: rgba(39, 91, 136, 0.45);
+}
+
+[data-theme="dark"] .sio-mx-cell-withdrawn {
+  background: rgba(220, 38, 38, 0.24);
+  color: #FECACA;
+}
+
+[data-theme="dark"] .sio-mx-cell-selected {
+  background: rgba(212, 175, 55, 0.3) !important;
+  color: #FEF08A !important;
+  box-shadow: inset 0 0 0 2.5px #D4AF37;
+}
+
+[data-theme="dark"] .sio-baggage-matrix-table .sio-mx-row-num {
+  background: rgba(15, 23, 42, 0.7);
+  color: #E2E8F0;
+}
+
+[data-theme="dark"] .sio-swal-mx-summary {
+  background: #1E293B;
+  border-color: #334155;
+  color: #F8FAFC;
+}
+
+[data-theme="dark"] .sio-swal-mx-label {
+  color: #E2E8F0;
+}
+
+/* ==========================================================================
+   MEDIA QUERIES RWD GLOBALES (Móvil <= 768px y <= 480px)
+   Escritorio (> 768px) permanece 100% intacto.
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* 1. Contención Total de Ancho (Cero Overflow Horizontal) */
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  .app-container,
+  .app-container-full,
+  .workspace,
+  .workspace-full,
+  .content-body,
+  .content-body-operaciones,
+  .card,
+  form,
+  main {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  /* 4. Respeto del Espacio del Tab Bar Inferior (>= 110px de despeje) */
+  .content-body,
+  .content-body-operaciones {
+    padding: 14px 12px 120px !important;
+  }
+
+  .card {
+    padding: 14px 12px;
+    margin-bottom: 16px;
+  }
+
+  .card-header {
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+  }
+
+  .cp-section-title {
+    font-size: 14px;
+    line-height: 1.35;
+    flex-wrap: wrap;
+    word-break: break-word;
+  }
+
+  /* 2. Colapso Limpio a 1 Columna (Single-Column Stack) */
+  .sio-grid-2,
+  .sio-grid-auto-lg,
+  .sio-grid-auto,
+  .sio-grid-auto-compact,
+  .sio-grid-split,
+  .fmt-form-grid,
+  .operations-grid,
+  .formats-grid,
+  .cp-registros-grid,
+  .cp-aleros-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  .sio-grid-span-2 {
+    grid-column: 1 / -1 !important;
+  }
+
+  .form-group,
+  .form-group-date,
+  .sio-date-narrow {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    flex: 1 1 100%;
+  }
+
+  .form-group label,
+  label {
+    white-space: normal !important;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.35;
+  }
+
+  /* Inputs, selects y textareas a 100% con 16px para evitar auto-zoom iOS/Android */
+  .form-control,
+  input.form-control,
+  select.form-control,
+  textarea.form-control,
+  .sio-combo-trigger,
+  .sio-combo-search {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    font-size: 16px !important;
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+
+  textarea.form-control {
+    min-height: 84px;
+  }
+
+  .cp-time-row {
+    width: 100%;
+    max-width: 100%;
+    gap: 8px;
+  }
+
+  .cp-time-row .form-control {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+  }
+
+  .cp-clock-btn {
+    flex-shrink: 0;
+    min-height: 44px;
+    padding: 0 12px;
+    font-size: 13px;
+  }
+
+  /* /login móvil: mantener paridad visual con escritorio sin desbordamiento */
+  .login-body {
+    padding: 14px;
+    align-items: center;
+  }
+
+  .login-wrapper {
+    max-width: 440px;
+    width: 100%;
+    margin: auto;
+  }
+
+  .login-brand-footer {
+    display: block;
+    padding-top: 12px;
+    margin-top: 16px;
+  }
+
+  /* /operaciones móvil */
+  .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 14px 12px;
+    margin-bottom: 16px;
+  }
+
+  .filter-range-toggle {
+    margin-bottom: 0;
+    min-height: 36px;
+  }
+
+  .filter-submit-btn {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    font-size: 14px;
+  }
+
+  .operation-card {
+    padding: 14px;
+    min-width: 0;
+  }
+
+  .op-header,
+  .op-meta-row {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .op-route {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .route-city {
+    font-size: 15px;
+  }
+
+  .op-select-btn {
+    min-height: 44px;
+    font-size: 14px;
+  }
+
+  .op-active-flight-pill {
+    max-width: 100%;
+    white-space: normal;
+    border-radius: 12px;
+    line-height: 1.35;
+  }
+
+  /* /formatos móvil */
+  .flight-context-banner {
+    padding: 16px 14px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .flight-context-title,
+  .flight-context-info h3 {
+    font-size: 16px;
+    line-height: 1.3;
+    word-break: break-word;
+    flex-wrap: wrap;
+  }
+
+  .flight-context-actions,
+  .flight-context-actions .btn {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .flight-tag {
+    font-size: 11px;
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  .format-card {
+    padding: 16px 14px;
+    min-width: 0;
+  }
+
+  .format-card-footer {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .format-card-btn {
+    min-height: 40px;
+    padding: 8px 16px;
+    font-size: 12px;
+  }
+
+  /* /formatos/:id cabecera y metadatos compactos */
+  .fmt-top-nav {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .fmt-top-nav-left {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .fmt-page-title {
+    font-size: 15.5px;
+    line-height: 1.3;
+    word-break: break-word;
+  }
+
+  .fmt-ref-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 12px;
+  }
+
+  .fmt-ref-grid > div {
+    min-width: 0;
+    word-break: break-word;
+  }
+
+  .fmt-ref-operador,
+  .fmt-ref-vuelo,
+  .fmt-ref-correlativo,
+  .fmt-ref-val {
+    font-size: 13.5px;
+    word-break: break-word;
+  }
+
+  /* Barras de captura, buscadores y botones de acción */
+  .sio-inline-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .sio-inline-bar .form-group,
+  .sio-inline-bar .form-group.sio-flex-2 {
+    width: 100% !important;
+    min-width: 0 !important;
+    flex: none !important;
+  }
+
+  .sio-inline-bar .btn {
+    width: 100%;
+    height: auto;
+    min-height: 44px;
+    padding: 10px 14px;
+    white-space: normal;
+  }
+
+  .sio-search-bar,
+  .sio-search-inline {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .sio-search-input-wrap {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .sio-search-bar .btn,
+  .sio-search-inline .btn {
+    width: 100%;
+    min-height: 42px;
+  }
+
+  .sio-section-actions,
+  .sio-form-actions-end,
+  .sio-bottom-actions,
+  .fmt-bottom-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .sio-section-actions .btn,
+  .sio-form-actions-end .btn,
+  .sio-bottom-actions .btn,
+  .fmt-bottom-actions .btn {
+    width: 100%;
+    min-width: 0 !important;
+    min-height: 46px;
+    padding: 12px 16px;
+    white-space: normal;
+    text-align: center;
+  }
+
+  .er-total-counter-badge {
+    width: 100%;
+    max-width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    border-radius: 10px;
+    font-size: 11.5px;
+  }
+
+  /* 3. Tablas / Cuadrículas contenidas con scroll interno táctil */
+  .er-fluid-grid-wrapper {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .er-fluid-table .er-cell-input {
+    font-size: 16px !important;
+    min-height: 36px;
+  }
+
+  /* 3b. Matrices de Secuencias (FILA + A..J): 11 columnas completas y legibles sin corte horizontal */
+  .sio-baggage-matrix-wrap {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .sio-baggage-matrix-table {
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: fixed !important;
+  }
+
+  .sio-baggage-matrix-table .sio-mx-th-row {
+    width: 8%;
+  }
+
+  .sio-baggage-matrix-table .sio-mx-th-col {
+    width: 9.2%;
+  }
+
+  .sio-mx-th-full {
+    display: none;
+  }
+
+  .sio-mx-th-short {
+    display: inline;
+  }
+
+  .sio-baggage-matrix-table thead th {
+    padding: 6px 1px;
+    font-size: 11px;
+    line-height: 1.1;
+    white-space: normal;
+  }
+
+  .sio-mx-col-letter {
+    display: block;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .sio-mx-col-num {
+    display: block;
+    margin-left: 0;
+    font-size: 9px;
+    font-weight: 600;
+    opacity: 0.85;
+  }
+
+  .sio-baggage-matrix-table tbody td {
+    padding: 6px 1px;
+    font-size: 11.5px;
+    height: 36px;
+    line-height: 1.15;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .sio-baggage-matrix-table .sio-mx-row-num {
+    font-size: 11px;
+    padding: 6px 1px;
+  }
+
+  .sio-mx-x-overlay {
+    font-size: 18px;
+  }
+
+  .sio-mx-selection-bar {
+    padding: 8px 10px;
+    font-size: 11.5px;
+  }
+
+  .sio-mx-sel-clear {
+    width: 100%;
+    justify-content: center;
+    min-height: 34px;
+  }
+
+  /* Tarjetas CP / CIEC y Canvas de Firmas */
+  .cp-reg-header,
+  .cp-alero-card {
+    flex-wrap: wrap;
+  }
+
+  .cp-reg-times {
+    grid-template-columns: 1fr;
+  }
+
+  .signature-box {
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .signature-box canvas {
+    width: 100%;
+    height: 170px;
+    touch-action: none !important;
+  }
+
+  /* Modales responsivos */
+  .modal-content {
+    width: calc(100% - 24px);
+    max-height: 88dvh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .modal-body {
+    padding: 16px;
+    overflow-y: auto;
+  }
+
+  .modal-footer {
+    flex-direction: column-reverse;
+    padding: 12px 16px;
+  }
+
+  .modal-footer .btn {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  /* Banner borrador offline */
+  .sio-offline-draft-banner {
+    padding: 10px 12px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sio-offline-banner-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .sio-offline-banner-actions .btn {
+    flex: 1 1 auto;
+    min-height: 38px;
+  }
+}
+
+@media (max-width: 480px) {
+  .content-body,
+  .content-body-operaciones {
+    padding: 12px 10px 120px !important;
+  }
+
+  .card {
+    padding: 12px 10px;
+  }
+
+  .fmt-ref-grid {
+    gap: 8px;
+  }
+
+  .login-body {
+    padding: 10px;
+  }
+
+  .login-brand-panel {
+    padding: 22px 16px;
+  }
+
+  .login-brand-title {
+    font-size: 20px;
+  }
+
+  .login-form-panel {
+    padding: 24px 18px;
+  }
+
+  .sio-baggage-matrix-table thead th {
+    padding: 5px 1px;
+    font-size: 10.5px;
+  }
+
+  .sio-mx-col-letter {
+    font-size: 10.5px;
+  }
+
+  .sio-mx-col-num {
+    font-size: 8.5px;
+  }
+
+  .sio-baggage-matrix-table tbody td {
+    padding: 5px 1px;
+    font-size: 11px;
+    height: 34px;
+  }
+
+  .sio-mx-x-overlay {
+    font-size: 16px;
   }
 }
 

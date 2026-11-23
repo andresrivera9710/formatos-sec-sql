@@ -7,24 +7,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!form) return;
 
   const Validator = window.SioFormatValidator;
-  const COLS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
-
-  const esc = (val) => {
-    if (Validator && typeof Validator.escapeHtml === 'function') return Validator.escapeHtml(val);
-    return String(val ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  };
 
   const nowHHMM = () => {
     const d = new Date();
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   };
 
-  // Cargar estado inicial hidratado desde el servidor
+  // Cargar estado inicial hidratado desde el servidor (o restaurado por SioOfflineManager)
   let initialState = {};
   try {
     const rawJson = document.getElementById('ebInitialStateJson')?.textContent || '{}';
@@ -32,18 +21,6 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch (err) {
     console.error('[EB INIT JSON ERROR]', err);
   }
-
-  let detalles = Array.isArray(initialState.detalles)
-    ? initialState.detalles.map((d, idx) => ({
-        DetalleControlEBId: parseInt(d.DetalleControlEBId ?? d.DetalleEBId, 10) || 0,
-        DetalleEBId: parseInt(d.DetalleControlEBId ?? d.DetalleEBId, 10) || 0,
-        Casilla: parseInt(d.Casilla, 10) || idx + 1,
-        Fila: parseInt(d.Fila, 10) || Math.floor(idx / 10) + 1,
-        Columna: String(d.Columna || COLS[idx % 10]).trim().toUpperCase(),
-        Secuencia: parseInt(d.Secuencia, 10) || 0,
-        Valor: d.Valor ? String(d.Valor).trim().toUpperCase() : null
-      }))
-    : [];
 
   // Referencias del DOM
   const inputFormatoId = document.getElementById('ebFormatoId');
@@ -54,8 +31,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const selectSupervisor = document.getElementById('ebSupervisor');
   const inputNombreOperador = document.getElementById('ebNombreOperador');
   const inputSecuencia = document.getElementById('ebInputSecuencia');
+  const tablaMatriz = document.getElementById('ebTablaMatriz');
   const tbodyMatriz = document.getElementById('ebTbodyMatriz');
+  const selectionBarEl = document.getElementById('ebMatrizSelectionBar');
   const totalCountEl = document.getElementById('ebTotalEquipajeCount');
+  const totalReadoutEl = document.getElementById('ebTotalEquipajeReadout');
   const inputCorreos = document.getElementById('ebCorreos');
   const inputComat = document.getElementById('ebComat');
   const inputEqTransito = document.getElementById('ebEqTransito');
@@ -70,174 +50,38 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnVistaPreliminar = document.getElementById('btnVistaPreliminarEB');
   const btnGuardarDefinitivo = document.getElementById('btnGuardarDefinitivoEB');
 
-  // Recalcular coordenadas Casilla / Fila / Columna
-  function reindexDetalles() {
-    detalles = detalles.map((item, idx) => ({
-      ...item,
-      Casilla: idx + 1,
-      Fila: Math.floor(idx / 10) + 1,
-      Columna: COLS[idx % 10]
-    }));
-  }
-
-  function renderMatriz() {
-    reindexDetalles();
-    const activeCount = detalles.filter((d) => d.Secuencia > 0 && d.Valor !== 'X').length;
-    if (totalCountEl) totalCountEl.textContent = String(activeCount);
-
-    const maxFila = Math.max(10, Math.ceil(detalles.length / 10));
-    const rowsHtml = [];
-
-    for (let f = 1; f <= maxFila; f++) {
-      let tds = `<td style="font-weight: 700; background: var(--bg); color: var(--brand-deep);">${f}</td>`;
-      for (let c = 0; c < 10; c++) {
-        const colName = COLS[c];
-        const cellIdx = (f - 1) * 10 + c;
-        const item = detalles[cellIdx];
-        if (item && item.Secuencia > 0) {
-          const isTachado = item.Valor === 'X';
-          tds += `
-            <td data-cell-index="${cellIdx}" style="position: relative; cursor: pointer; font-weight: 700; ${isTachado ? 'background: #FEE2E2; color: #991B1B;' : 'background: #EFF6FF; color: var(--brand-deep);'}" title="Casilla #${item.Casilla} — Clic para alternar retiro (✗)">
-              <span>${esc(item.Secuencia)}</span>
-              ${isTachado ? '<span style="color: #DC2626; font-weight: 900; margin-left: 4px;">✗</span>' : ''}
-            </td>
-          `;
-        } else {
-          tds += `<td style="color: var(--text-3); font-size: 11px;">—</td>`;
-        }
-      }
-      rowsHtml.push(`<tr>${tds}</tr>`);
-    }
-
-    if (tbodyMatriz) {
-      tbodyMatriz.innerHTML = rowsHtml.join('');
-    }
-  }
-
-  // Agregar secuencia a la matriz
-  function agregarSecuencia() {
-    const valStr = String(inputSecuencia?.value || '').trim();
-    const num = parseInt(valStr, 10);
-    if (!valStr || !Number.isInteger(num) || num <= 0) {
-      if (Validator) Validator.markElementInvalid(inputSecuencia);
-      if (window.Swal) {
-        Swal.fire({
-          icon: 'warning',
-          title: 'Secuencia inválida',
-          text: 'Ingrese un número entero positivo de secuencia de equipaje.',
-          confirmButtonColor: '#0F2744'
-        });
-      }
-      inputSecuencia?.focus();
-      return;
-    }
-
-    const idx = detalles.length;
-    detalles.push({
-      DetalleEBId: 0,
-      Casilla: idx + 1,
-      Fila: Math.floor(idx / 10) + 1,
-      Columna: COLS[idx % 10],
-      Secuencia: num,
-      Valor: null
-    });
-
-    if (inputSecuencia) {
-      inputSecuencia.value = '';
-      inputSecuencia.focus();
-    }
-    if (Validator) Validator.clearValidationErrors( document.getElementById('ebCardMatriz'));
-    renderMatriz();
-  }
-
-  if (btnAgregarSecuencia) {
-    btnAgregarSecuencia.addEventListener('click', agregarSecuencia);
-  }
-  if (inputSecuencia) {
-    inputSecuencia.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        agregarSecuencia();
-      }
-    });
-  }
-
-  if (btnBorrarUltimo) {
-    btnBorrarUltimo.addEventListener('click', () => {
-      if (detalles.length === 0) return;
-      detalles.pop();
-      renderMatriz();
-    });
-  }
-
-  // Clic en celda para alternar estado retirado (✗)
-  if (tbodyMatriz) {
-    tbodyMatriz.addEventListener('click', (e) => {
-      const td = e.target.closest('td[data-cell-index]');
-      if (!td) return;
-      const idx = parseInt(td.getAttribute('data-cell-index'), 10);
-      if (!Number.isInteger(idx) || !detalles[idx]) return;
-      detalles[idx].Valor = detalles[idx].Valor === 'X' ? null : 'X';
-      renderMatriz();
-    });
-  }
-
-  // Modal para retirar maleta por secuencia y documentar motivo
-  if (btnRetirarMaleta) {
-    btnRetirarMaleta.addEventListener('click', async () => {
-      if (detalles.length === 0) {
-        Swal.fire({ icon: 'info', title: 'Sin equipajes', text: 'Primero agregue secuencias a la matriz.', confirmButtonColor: '#0F2744' });
-        return;
-      }
-      const { value: formValues } = await Swal.fire({
-        title: 'Retirar / Anular Maleta (✗)',
-        html: `
-          <div style="text-align:left; font-size:13px;">
-            <label style="font-weight:600; display:block; margin-bottom:4px;">Número de Secuencia a Retirar *</label>
-            <input id="swalEbSec" type="number" class="swal2-input" style="margin:0 0 12px 0; width:100%;" placeholder="Ej: 15">
-            <label style="font-weight:600; display:block; margin-bottom:4px;">Motivo / Observación *</label>
-            <input id="swalEbMotivo" type="text" class="swal2-input" style="margin:0; width:100%;" placeholder="Ej: Retirada por inspección AVSEC">
-          </div>
-        `,
-        focusConfirm: false,
-        showCancelButton: true,
-        confirmButtonText: 'Marcar con ✗',
-        cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#DC2626',
-        preConfirm: () => {
-          const sec = parseInt(document.getElementById('swalEbSec')?.value || '', 10);
-          const motivo = String(document.getElementById('swalEbMotivo')?.value || '').trim();
-          if (!sec || sec <= 0 || !motivo) {
-            Swal.showValidationMessage('Ingrese el número de secuencia y el motivo del retiro.');
-            return false;
-          }
-          return { sec, motivo };
-        }
-      });
-
-      if (formValues) {
-        const target = detalles.find((d) => d.Secuencia === formValues.sec && d.Valor !== 'X');
-        if (!target) {
-          Swal.fire({ icon: 'error', title: 'No encontrada', text: `No se encontró la secuencia activa #${formValues.sec} en la matriz.` });
-          return;
-        }
-        target.Valor = 'X';
-        const nota = `[Sec. ${formValues.sec} retirada: ${formValues.motivo}]`;
-        if (inputObservaciones) {
-          inputObservaciones.value = inputObservaciones.value.trim()
-            ? `${inputObservaciones.value.trim()} | ${nota}`
-            : nota;
-        }
-        renderMatriz();
-      }
-    });
-  }
+  // Instancia estandarizada SioBaggageMatrix (Selección táctil + Retirar/Anular ✗ + Soft Delete)
+  const matrix = window.SioBaggageMatrix.create({
+    family: 'eb',
+    idField: 'DetalleControlEBId',
+    secondaryIdField: 'DetalleEBId',
+    minRows: 10,
+    requireMotivo: true,
+    itemLabel: 'Maleta en Banda',
+    motivoPlaceholder: 'Ej: Retirada por inspección AVSEC',
+    formEl: form,
+    cardEl: document.getElementById('ebCardMatriz'),
+    tableEl: tablaMatriz,
+    tbodyEl: tbodyMatriz,
+    selectionBarEl,
+    totalCountEl,
+    secondaryTotalEl: totalReadoutEl,
+    inputSecuenciaEl: inputSecuencia,
+    btnAgregarEl: btnAgregarSecuencia,
+    btnBorrarUltimoEl: btnBorrarUltimo,
+    btnRetirarEl: btnRetirarMaleta,
+    observacionesEl: inputObservaciones,
+    formatoIdEl: inputFormatoId,
+    itinerarioIdEl: inputItinerarioId,
+    encabezadoIdEl: inputEncabezadoId,
+    initialItems: Array.isArray(initialState.detalles) ? initialState.detalles : []
+  });
 
   if (btnRelojInicio) {
     btnRelojInicio.addEventListener('click', () => {
       if (inputHoraInicio) {
         inputHoraInicio.value = nowHHMM();
-        inputHoraInicio.dispatchEvent(new Event('input'));
+        inputHoraInicio.dispatchEvent(new Event('input', { bubbles: true }));
       }
     });
   }
@@ -245,6 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnRelojCierre.addEventListener('click', () => {
       if (inputHoraCierre) {
         inputHoraCierre.value = nowHHMM();
+        inputHoraCierre.dispatchEvent(new Event('input', { bubbles: true }));
       }
     });
   }
@@ -252,6 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function recopilarPayload(guardarDefinitivo) {
     const supOpt = selectSupervisor?.options?.[selectSupervisor.selectedIndex];
     const supervisorNombre = supOpt ? (supOpt.getAttribute('data-usuario') || supOpt.textContent || '').trim() : '';
+    const detalles = matrix.getItems();
 
     return {
       formatoId: inputFormatoId?.value || 'amx-eb',
@@ -277,6 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function validarFormularioFrontend() {
     if (Validator) Validator.clearValidationErrors(form);
     const errors = [];
+    const detalles = matrix.getItems();
 
     if (!String(inputFecha?.value || '').trim()) {
       Validator?.markElementInvalid(inputFecha);
@@ -294,9 +141,14 @@ document.addEventListener('DOMContentLoaded', () => {
       Validator?.markElementInvalid(inputNombreOperador);
       errors.push({ rowNumber: null, label: 'Nombre del Operador', message: 'El Nombre del Operador es obligatorio.', element: inputNombreOperador });
     }
-    if (detalles.length === 0) {
+    if (detalles.length === 0 || matrix.getActiveCount() === 0) {
       Validator?.markElementInvalid(inputSecuencia);
-      errors.push({ rowNumber: null, label: 'Matriz de Equipajes', message: 'Debe registrar al menos 1 secuencia de equipaje en la matriz de Banda de Salida.', element: inputSecuencia });
+      errors.push({
+        rowNumber: null,
+        label: 'Matriz de Equipajes',
+        message: 'Debe registrar al menos 1 secuencia activa de equipaje en la matriz de Banda de Salida.',
+        element: inputSecuencia
+      });
     }
 
     if (errors.length > 0) {
@@ -413,6 +265,4 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnGuardarDefinitivo) {
     btnGuardarDefinitivo.addEventListener('click', () => enviarFormato(true));
   }
-
-  renderMatriz();
 });

@@ -361,6 +361,65 @@ class FormatosController {
   }
 
   /**
+   * Aplica Soft Delete (EstaEliminado = 1) parametrizado sobre una celda/secuencia
+   * de una matriz ya persistida (ControlEB / ControlCEC) con validación Anti-IDOR.
+   */
+  static async apiAnularSecuenciaMatriz(req, res) {
+    try {
+      resolveDepartmentId(req);
+      const vuelo = req.session?.vueloSeleccionado || null;
+      if (!vuelo || !vuelo.itinerarioId) {
+        return res.status(400).json({
+          success: false,
+          message: 'No hay una operación activa seleccionada en la sesión.'
+        });
+      }
+
+      const body = req.body || {};
+      const itinerarioPayload = parseInt(body.itinerarioId, 10) || 0;
+      const itinerarioSesion = parseInt(vuelo.itinerarioId, 10) || 0;
+      if (itinerarioPayload !== itinerarioSesion) {
+        return res.status(403).json({
+          success: false,
+          message: 'Acceso denegado (Anti-IDOR): El itinerario enviado no coincide con la operación activa.'
+        });
+      }
+
+      const family = String(body.family || '').trim().toLowerCase();
+      const encabezadoId = parseInt(body.encabezadoId, 10) || 0;
+      const detalleId = parseInt(body.detalleId, 10) || 0;
+
+      if (!['eb', 'cec'].includes(family) || encabezadoId <= 0 || detalleId <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Datos incompletos para aplicar la anulación lógica de la secuencia.'
+        });
+      }
+
+      const result = await FormatosModel.anularSecuenciaMatrizSoftDelete({
+        family,
+        itinerarioId: itinerarioSesion,
+        encabezadoId,
+        detalleId
+      });
+
+      return res.json({
+        success: true,
+        ...result
+      });
+    } catch (err) {
+      console.error('[API ANULAR SECUENCIA MATRIZ ERROR]', err);
+      const status = Number.isInteger(err.statusCode) && err.statusCode >= 400 && err.statusCode < 600
+        ? err.statusCode
+        : 500;
+      return res.status(status).json({
+        success: false,
+        message: err.message || 'No se pudo anular la secuencia en la base de datos.'
+      });
+    }
+  }
+
+  /**
    * Entrega la plantilla controlada HTML (con logos Base64 embebidos) y variables base
    * para pre-cacheo en IndexedDB y renderizado de Vista Preliminar 100% Offline.
    */

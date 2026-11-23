@@ -13,12 +13,16 @@
   flex-direction: column;
   min-height: 100vh;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   background-color: var(--bg);
 }
 
 .workspace-full {
   margin-left: 0;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -28,6 +32,7 @@
 .content-body-operaciones {
   width: 100%;
   max-width: 1440px;
+  min-width: 0;
   margin: 0 auto;
   padding: 24px 32px 110px;
   flex: 1;
@@ -733,13 +738,14 @@ body.dark-mode .op-hero-eyebrow {
   .tab-profile-tooltip {
     top: auto;
     bottom: calc(100% + 14px);
-    right: -12px;
-    width: 260px;
+    right: 0;
+    width: min(260px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
     transform: translateY(6px);
   }
 
   .content-body-operaciones {
-    padding: 16px 14px 104px;
+    padding: 14px 12px 120px;
   }
 
   .op-hero-header {
@@ -749,5 +755,35 @@ body.dark-mode .op-hero-eyebrow {
 
   .op-hero-title {
     font-size: 16px;
+  }
+}
+
+@media (max-width: 400px) {
+  .sio-tab-bar {
+    left: 6px;
+    right: 6px;
+    bottom: 8px;
+    padding: 4px;
+    gap: 1px;
+    border-radius: 18px;
+  }
+
+  .tab-bar-item {
+    padding: 6px 2px;
+    min-height: 50px;
+    font-size: 9px;
+  }
+
+  .tab-bar-label {
+    font-size: 9px;
+  }
+
+  .tab-profile-name,
+  .tab-profile-role {
+    max-width: 62px;
+  }
+
+  .content-body-operaciones {
+    padding: 12px 10px 120px;
   }
 }

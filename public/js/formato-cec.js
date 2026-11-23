@@ -7,17 +7,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!form) return;
 
   const Validator = window.SioFormatValidator;
-  const COLS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
-
-  const esc = (val) => {
-    if (Validator && typeof Validator.escapeHtml === 'function') return Validator.escapeHtml(val);
-    return String(val ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  };
 
   const nowHHMM = () => {
     const d = new Date();
@@ -31,18 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch (err) {
     console.error('[CEC INIT JSON ERROR]', err);
   }
-
-  let detalles = Array.isArray(initialState.detalles)
-    ? initialState.detalles.map((d, idx) => ({
-        DetalleCECDespId: parseInt(d.DetalleCECDespId ?? d.DetalleCECId, 10) || 0,
-        DetalleCECId: parseInt(d.DetalleCECDespId ?? d.DetalleCECId, 10) || 0,
-        Casilla: parseInt(d.Casilla, 10) || idx + 1,
-        Fila: parseInt(d.Fila, 10) || Math.floor(idx / 10) + 1,
-        Columna: String(d.Columna || COLS[idx % 10]).trim().toUpperCase(),
-        Secuencia: parseInt(d.Secuencia, 10) || 0,
-        Valor: d.Valor ? String(d.Valor).trim().toUpperCase() : null
-      }))
-    : [];
 
   // Referencias del DOM
   const inputFormatoId = document.getElementById('cecFormatoId');
@@ -59,7 +36,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const inputEmbarqueInicio = document.getElementById('cecEmbarqueInicio');
   const inputEmbarqueFinal = document.getElementById('cecEmbarqueFinal');
   const inputSecuencia = document.getElementById('cecInputSecuencia');
+  const tablaMatriz = document.getElementById('cecTablaMatriz');
   const tbodyMatriz = document.getElementById('cecTbodyMatriz');
+  const selectionBarEl = document.getElementById('cecMatrizSelectionBar');
   const totalEmbarqueEl = document.getElementById('cecTotalEmbarqueCount');
 
   const inputDesembarqueInicio = document.getElementById('cecDesembarqueInicio');
@@ -105,172 +84,48 @@ document.addEventListener('DOMContentLoaded', () => {
       const targetInput = document.getElementById(targetId);
       if (targetInput) {
         targetInput.value = nowHHMM();
-        targetInput.dispatchEvent(new Event('input'));
+        targetInput.dispatchEvent(new Event('input', { bubbles: true }));
       }
     });
   });
 
-  function reindexDetalles() {
-    detalles = detalles.map((item, idx) => ({
-      ...item,
-      Casilla: idx + 1,
-      Fila: Math.floor(idx / 10) + 1,
-      Columna: COLS[idx % 10]
-    }));
+  const isDeltaCEC = String(inputFormatoId?.value || '').trim().toLowerCase() === 'dl-cec';
+  let matrix = null;
+
+  function updateDeltaTotal() {
+    if (!isDeltaCEC) return;
+    const eqM = parseInt(document.getElementById('cecEquipajeMostrador')?.value || '0', 10) || 0;
+    const eqP = parseInt(document.getElementById('cecEquipajePuerta')?.value || '0', 10) || 0;
+    if (totalEmbarqueEl) totalEmbarqueEl.textContent = String(eqM + eqP);
   }
 
-  function renderMatriz() {
-    reindexDetalles();
-    const isDeltaCEC = String(inputFormatoId?.value || '').trim().toLowerCase() === 'dl-cec';
-    if (isDeltaCEC) {
-      const eqM = parseInt(document.getElementById('cecEquipajeMostrador')?.value || '0', 10) || 0;
-      const eqP = parseInt(document.getElementById('cecEquipajePuerta')?.value || '0', 10) || 0;
-      if (totalEmbarqueEl) totalEmbarqueEl.textContent = String(eqM + eqP);
-      return;
-    }
-    const activeCount = detalles.filter((d) => d.Secuencia > 0 && d.Valor !== 'X').length;
-    if (totalEmbarqueEl) totalEmbarqueEl.textContent = String(activeCount);
-
-    const maxFila = Math.max(10, Math.ceil(detalles.length / 10));
-    const rowsHtml = [];
-
-    for (let f = 1; f <= maxFila; f++) {
-      let tds = `<td style="font-weight: 700; background: var(--bg); color: var(--brand-deep);">${f}</td>`;
-      for (let c = 0; c < 10; c++) {
-        const cellIdx = (f - 1) * 10 + c;
-        const item = detalles[cellIdx];
-        if (item && item.Secuencia > 0) {
-          const isTachado = item.Valor === 'X';
-          tds += `
-            <td data-cell-index="${cellIdx}" style="position: relative; cursor: pointer; font-weight: 700; ${isTachado ? 'background: #FEE2E2; color: #991B1B;' : 'background: #EFF6FF; color: var(--brand-deep);'}" title="Casilla #${item.Casilla} — Clic para alternar retiro (✗)">
-              <span>${esc(item.Secuencia)}</span>
-              ${isTachado ? '<span style="color: #DC2626; font-weight: 900; margin-left: 4px;">✗</span>' : ''}
-            </td>
-          `;
-        } else {
-          tds += `<td style="color: var(--text-3); font-size: 11px;">—</td>`;
-        }
-      }
-      rowsHtml.push(`<tr>${tds}</tr>`);
-    }
-
-    if (tbodyMatriz) {
-      tbodyMatriz.innerHTML = rowsHtml.join('');
-    }
-  }
-
-  function agregarSecuencia() {
-    const valStr = String(inputSecuencia?.value || '').trim();
-    const num = parseInt(valStr, 10);
-    if (!valStr || !Number.isInteger(num) || num <= 0) {
-      Validator?.markElementInvalid(inputSecuencia);
-      Swal.fire({
-        icon: 'warning',
-        title: 'Secuencia inválida',
-        text: 'Ingrese un número entero positivo de secuencia de equipaje.',
-        confirmButtonColor: '#0F2744'
-      });
-      inputSecuencia?.focus();
-      return;
-    }
-
-    const idx = detalles.length;
-    detalles.push({
-      DetalleCECId: 0,
-      Casilla: idx + 1,
-      Fila: Math.floor(idx / 10) + 1,
-      Columna: COLS[idx % 10],
-      Secuencia: num,
-      Valor: null
+  if (!isDeltaCEC && tbodyMatriz && window.SioBaggageMatrix) {
+    matrix = window.SioBaggageMatrix.create({
+      family: 'cec',
+      idField: 'DetalleCECDespId',
+      secondaryIdField: 'DetalleCECId',
+      minRows: 10,
+      requireMotivo: true,
+      itemLabel: 'Maleta en Compartimento',
+      motivoPlaceholder: 'Ej: Bajada de compartimento por seguridad',
+      formEl: form,
+      cardEl: document.getElementById('cecCardMatriz'),
+      tableEl: tablaMatriz,
+      tbodyEl: tbodyMatriz,
+      selectionBarEl,
+      totalCountEl: totalEmbarqueEl,
+      inputSecuenciaEl: inputSecuencia,
+      btnAgregarEl: btnAgregarSecuencia,
+      btnBorrarUltimoEl: btnBorrarUltimo,
+      btnRetirarEl: btnRetirarMaleta,
+      observacionesEl: inputObservaciones,
+      formatoIdEl: inputFormatoId,
+      itinerarioIdEl: inputItinerarioId,
+      encabezadoIdEl: inputEncabezadoId,
+      initialItems: Array.isArray(initialState.detalles) ? initialState.detalles : []
     });
-
-    if (inputSecuencia) {
-      inputSecuencia.value = '';
-      inputSecuencia.focus();
-    }
-    Validator?.clearValidationErrors(document.getElementById('cecCardMatriz'));
-    renderMatriz();
-  }
-
-  if (btnAgregarSecuencia) {
-    btnAgregarSecuencia.addEventListener('click', agregarSecuencia);
-  }
-  if (inputSecuencia) {
-    inputSecuencia.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        agregarSecuencia();
-      }
-    });
-  }
-
-  if (btnBorrarUltimo) {
-    btnBorrarUltimo.addEventListener('click', () => {
-      if (detalles.length === 0) return;
-      detalles.pop();
-      renderMatriz();
-    });
-  }
-
-  if (tbodyMatriz) {
-    tbodyMatriz.addEventListener('click', (e) => {
-      const td = e.target.closest('td[data-cell-index]');
-      if (!td) return;
-      const idx = parseInt(td.getAttribute('data-cell-index'), 10);
-      if (!Number.isInteger(idx) || !detalles[idx]) return;
-      detalles[idx].Valor = detalles[idx].Valor === 'X' ? null : 'X';
-      renderMatriz();
-    });
-  }
-
-  if (btnRetirarMaleta) {
-    btnRetirarMaleta.addEventListener('click', async () => {
-      if (detalles.length === 0) {
-        Swal.fire({ icon: 'info', title: 'Sin equipajes', text: 'Primero agregue secuencias a la matriz.', confirmButtonColor: '#0F2744' });
-        return;
-      }
-      const { value: formValues } = await Swal.fire({
-        title: 'Retirar / Anular Maleta en Compartimento (✗)',
-        html: `
-          <div style="text-align:left; font-size:13px;">
-            <label style="font-weight:600; display:block; margin-bottom:4px;">Número de Secuencia a Retirar *</label>
-            <input id="swalCecSec" type="number" class="swal2-input" style="margin:0 0 12px 0; width:100%;" placeholder="Ej: 18">
-            <label style="font-weight:600; display:block; margin-bottom:4px;">Motivo / Observación *</label>
-            <input id="swalCecMotivo" type="text" class="swal2-input" style="margin:0; width:100%;" placeholder="Ej: Bajada de compartimento por seguridad">
-          </div>
-        `,
-        focusConfirm: false,
-        showCancelButton: true,
-        confirmButtonText: 'Marcar con ✗',
-        cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#DC2626',
-        preConfirm: () => {
-          const sec = parseInt(document.getElementById('swalCecSec')?.value || '', 10);
-          const motivo = String(document.getElementById('swalCecMotivo')?.value || '').trim();
-          if (!sec || sec <= 0 || !motivo) {
-            Swal.showValidationMessage('Ingrese el número de secuencia y el motivo del retiro.');
-            return false;
-          }
-          return { sec, motivo };
-        }
-      });
-
-      if (formValues) {
-        const target = detalles.find((d) => d.Secuencia === formValues.sec && d.Valor !== 'X');
-        if (!target) {
-          Swal.fire({ icon: 'error', title: 'No encontrada', text: `No se encontró la secuencia activa #${formValues.sec}.` });
-          return;
-        }
-        target.Valor = 'X';
-        const nota = `[Sec. ${formValues.sec} retirada: ${formValues.motivo}]`;
-        if (inputObservaciones) {
-          inputObservaciones.value = inputObservaciones.value.trim()
-            ? `${inputObservaciones.value.trim()} | ${nota}`
-            : nota;
-        }
-        renderMatriz();
-      }
-    });
+  } else {
+    updateDeltaTotal();
   }
 
   function parseOptionalInt(el) {
@@ -288,6 +143,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const agenteNombre = agOpt
       ? (agOpt.getAttribute('data-usuario') || agOpt.textContent || '').trim()
       : String(selectAgente?.getAttribute('data-usuario') || selectAgente?.value || '').trim();
+
+    const detalles = matrix ? matrix.getItems() : [];
 
     return {
       formatoId: inputFormatoId?.value || 'amx-cec',
@@ -344,6 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function validarFormularioFrontend() {
     Validator?.clearValidationErrors(form);
     const errors = [];
+    const detalles = matrix ? matrix.getItems() : [];
 
     if (!String(inputFecha?.value || '').trim()) {
       Validator?.markElementInvalid(inputFecha);
@@ -366,7 +224,6 @@ document.addEventListener('DOMContentLoaded', () => {
       errors.push({ rowNumber: null, label: 'Nombre del Agente', message: 'Debe seleccionar el Agente.', element: selectAgente });
     }
 
-    const isDeltaCEC = String(inputFormatoId?.value || '').trim().toLowerCase() === 'dl-cec';
     const tieneDesembarque =
       isDeltaCEC ||
       parseOptionalInt(inputEquipaje) > 0 ||
@@ -500,8 +357,6 @@ document.addEventListener('DOMContentLoaded', () => {
     btnGuardarDefinitivo.addEventListener('click', () => enviarFormato(true));
   }
 
-  document.getElementById('cecEquipajeMostrador')?.addEventListener('input', renderMatriz);
-  document.getElementById('cecEquipajePuerta')?.addEventListener('input', renderMatriz);
-
-  renderMatriz();
+  document.getElementById('cecEquipajeMostrador')?.addEventListener('input', updateDeltaTotal);
+  document.getElementById('cecEquipajePuerta')?.addEventListener('input', updateDeltaTotal);
 });

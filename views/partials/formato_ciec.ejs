@@ -91,11 +91,11 @@
 
   <!-- Bloque 1: Tiempos de Llegada y Desembarque (Orden Exacto Power Apps Y:196..781) -->
   <div class="card">
-    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+    <div class="card-header sio-card-header-flex">
       <h3 class="cp-section-title"><i class="fas fa-plane-arrival"></i> Tiempos Operativos de Llegada y Desembarque</h3>
-      <div style="display: flex; align-items: center; gap: 10px;">
+      <div class="sio-card-header-meta">
         <% if (!esNuevo && encabezadoId) { %>
-          <a href="/formatos/<%= encodeURIComponent(formato.id) %>?nuevo=1" class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;">
+          <a href="/formatos/<%= encodeURIComponent(formato.id) %>?nuevo=1" class="btn btn-secondary sio-btn-sm">
             <i class="fas fa-plus-circle"></i> Crear Nuevo Registro
           </a>
         <% } %>
@@ -105,7 +105,7 @@
       </div>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px;">
+    <div class="sio-grid-auto-compact">
       <div class="form-group">
         <label for="ciecArriboVuelo"><i class="far fa-clock"></i> Arribo del Vuelo <i class="fas fa-lock input-lock-icon" title="Hora ATA vinculada al itinerario (Solo lectura)"></i></label>
         <input type="text" id="ciecArriboVuelo" class="form-control input-locked" value="<%= arriboVal || '--:--' %>" readonly tabindex="-1">
@@ -156,14 +156,14 @@
       <h3 class="cp-section-title"><i class="fas fa-clipboard-list"></i> Ingrese los Datos</h3>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+    <div class="sio-grid-auto">
       <div class="form-group">
         <label for="ciecFecha"><i class="far fa-calendar-alt"></i> Fecha <i class="fas fa-lock input-lock-icon" title="Fecha vinculada al itinerario (Solo lectura)"></i></label>
         <input type="date" id="ciecFecha" class="form-control input-locked" value="<%= fechaValue %>" readonly tabindex="-1" required>
       </div>
 
       <div class="form-group">
-        <label for="ciecHoraInicio"><i class="far fa-clock"></i> Hora de Revisión <span style="color: var(--danger);">*</span></label>
+        <label for="ciecHoraInicio"><i class="far fa-clock"></i> Hora de Revisión <span class="sio-required-star">*</span></label>
         <div class="cp-time-row">
           <input type="time" id="ciecHoraInicio" class="form-control" value="<%= horaInicioVal %>" required>
           <button type="button" class="cp-clock-btn" data-clock-target="ciecHoraInicio">
@@ -188,7 +188,7 @@
       </div>
 
       <div class="form-group">
-        <label for="ciecSupervisor"><i class="fas fa-user-tie"></i> Supervisor <span style="color: var(--danger);">*</span></label>
+        <label for="ciecSupervisor"><i class="fas fa-user-tie"></i> Supervisor <span class="sio-required-star">*</span></label>
         <select id="ciecSupervisor" class="form-control" required>
           <option value="">-- Seleccione el Supervisor --</option>
           <% (supervisores || []).forEach(sup => { %>
@@ -214,19 +214,19 @@
       <h3 class="cp-section-title"><i class="fas fa-user-plus"></i> REGISTRO (Ingreso de Personal a Cabina)</h3>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+    <div class="sio-grid-auto">
       <div class="form-group">
-        <label for="ciecRegNombre">Nombre <span style="color: var(--danger);">*</span></label>
+        <label for="ciecRegNombre">Nombre <span class="sio-required-star">*</span></label>
         <input type="text" id="ciecRegNombre" class="form-control" placeholder="Ingrese Nombre" autocomplete="off">
       </div>
 
       <div class="form-group">
-        <label for="ciecRegNoTIA">No. TIA <span style="color: var(--danger);">*</span></label>
+        <label for="ciecRegNoTIA">No. TIA <span class="sio-required-star">*</span></label>
         <input type="text" id="ciecRegNoTIA" class="form-control" placeholder="Ingrese No. TIA" autocomplete="off">
       </div>
 
       <div class="form-group">
-        <label for="ciecRegHoraIngreso">Hora de Ingreso <span style="color: var(--danger);">*</span></label>
+        <label for="ciecRegHoraIngreso">Hora de Ingreso <span class="sio-required-star">*</span></label>
         <div class="cp-time-row">
           <input type="time" id="ciecRegHoraIngreso" class="form-control">
           <button type="button" class="cp-clock-btn" data-clock-target="ciecRegHoraIngreso">
@@ -236,7 +236,7 @@
       </div>
 
       <div class="form-group">
-        <label for="ciecRegEmpresa">Empresa <span style="color: var(--danger);">*</span></label>
+        <label for="ciecRegEmpresa">Empresa <span class="sio-required-star">*</span></label>
         <select id="ciecRegEmpresa" class="form-control">
           <option value="">-- Seleccione la Empresa --</option>
           <% empresasCIEC.forEach(emp => { %>
@@ -245,19 +245,19 @@
         </select>
       </div>
 
-      <div class="form-group" id="grupoCiecEmpresaOtros" style="display: none;">
-        <label for="ciecRegEmpresaOtros">Especificar Nueva Empresa <span style="color: var(--danger);">*</span></label>
+      <div class="form-group sio-field-hidden" id="grupoCiecEmpresaOtros">
+        <label for="ciecRegEmpresaOtros">Especificar Nueva Empresa <span class="sio-required-star">*</span></label>
         <input type="text" id="ciecRegEmpresaOtros" class="form-control" placeholder="Ingrese la nueva empresa" autocomplete="off">
       </div>
     </div>
 
-    <div class="form-group" style="margin-top: 14px;">
-      <label for="ciecRegMotivo">Motivo <span style="color: var(--danger);">*</span></label>
+    <div class="form-group sio-mt-14">
+      <label for="ciecRegMotivo">Motivo <span class="sio-required-star">*</span></label>
       <textarea id="ciecRegMotivo" rows="2" class="form-control" placeholder="Ingrese Motivo de ingreso a cabina..."></textarea>
     </div>
 
-    <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
-      <button type="button" id="btnCiecAgregarRegistro" class="btn btn-primary" style="min-width: 190px;">
+    <div class="sio-form-actions-end">
+      <button type="button" id="btnCiecAgregarRegistro" class="btn btn-primary sio-btn-wide">
         <i class="fas fa-plus-circle"></i> GUARDAR REGISTRO
       </button>
     </div>
@@ -265,19 +265,18 @@
 
   <!-- Bloque 4: Buscador y Lista de Registros en Cabina -->
   <div class="card">
-    <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
+    <div class="card-header sio-card-header-flex">
       <h3 class="cp-section-title"><i class="fas fa-users"></i> Registros en Cabina (Control Ingreso y Egreso)</h3>
       <div id="ciecRegistrosEstadoBadge"></div>
     </div>
 
-    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 12px;">
-      <div style="position: relative; flex: 1;">
-        <i class="fas fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-3);"></i>
+    <div class="sio-search-bar">
+      <div class="sio-search-input-wrap">
+        <i class="fas fa-search sio-search-icon"></i>
         <input
           type="text"
           id="ciecBuscador"
-          class="form-control"
-          style="padding-left: 36px; width: 100%;"
+          class="form-control sio-search-input"
           placeholder="Buscador: Ingrese nombre, empresa, TIA, motivo u hora a buscar..."
           autocomplete="off"
         >
@@ -290,15 +289,15 @@
     <div id="ciecRegistrosLista" class="cp-registros-grid"></div>
   </div>
 
-  <!-- Bloque 5: Equipajes Entregados en Puerta del Avión (Matriz A..J) -->
-  <div class="card">
-    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+  <!-- Bloque 5: Equipajes Entregados en Puerta del Avión (Matriz A..J — Orden Power Apps Y:3299..4053) -->
+  <div class="card sio-card-accent" id="ciecCardMatrizPuerta">
+    <div class="card-header sio-card-header-flex">
       <div>
         <h3 class="cp-section-title">
           <i class="fas fa-suitcase"></i> Control de Equipajes en Puerta del Avión (Secuencias)
         </h3>
-        <small style="color: var(--text-3); font-size: 11px;">
-          Opcional: Registre las secuencias de equipaje de mano / carriolas entregadas en puerta del avión.
+        <small class="sio-hint-text">
+          Opcional: Ingrese secuencias de equipaje entregadas en puerta del avión. Toque una celda registrada para seleccionarla y poder retirarla o anularla (<strong>✗</strong>).
         </small>
       </div>
 
@@ -308,40 +307,46 @@
       </div>
     </div>
 
-    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-bottom: 16px; background: var(--bg); padding: 14px; border-radius: 8px; border: 1px solid var(--border-2);">
-      <div class="form-group" style="margin-bottom: 0; min-width: 220px; flex: 1;">
-        <label for="ciecInputSecuenciaPuerta"><i class="fas fa-barcode"></i> Secuencia Equipaje en Puerta</label>
-        <input type="number" id="ciecInputSecuenciaPuerta" class="form-control" min="1" step="1" placeholder="Ej: 12 (Presione Enter para agregar)">
+    <div class="sio-inline-bar sio-inline-bar-box">
+      <div class="form-group">
+        <label for="ciecInputSecuenciaPuerta"><i class="fas fa-barcode"></i> Secuencia:</label>
+        <input type="number" id="ciecInputSecuenciaPuerta" class="form-control" min="1" step="1" inputmode="numeric" placeholder="Ingrese Secuencia (Enter para agregar)">
       </div>
 
-      <button type="button" id="btnAgregarSecuenciaPuertaCIEC" class="btn btn-primary" style="height: 38px;">
+      <button type="button" id="btnAgregarSecuenciaPuertaCIEC" class="btn btn-primary sio-btn-bar">
         <i class="fas fa-plus-circle"></i> Agregar Equipaje Puerta
       </button>
 
-      <button type="button" id="btnBorrarUltimoPuertaCIEC" class="btn btn-secondary" style="height: 38px;">
+      <button type="button" id="btnBorrarUltimoPuertaCIEC" class="btn btn-secondary sio-btn-bar">
         <i class="fas fa-undo"></i> Borrar Último
+      </button>
+
+      <button type="button" id="btnRetirarMaletaPuertaCIEC" class="btn btn-secondary sio-btn-bar sio-btn-danger-outline">
+        <i class="fas fa-times-circle"></i> Retirar / Anular Maleta (✗)
       </button>
     </div>
 
-    <div class="er-fluid-grid-wrapper">
-      <table class="er-fluid-table" id="ciecTablaMatrizPuerta" style="text-align: center;">
+    <div id="ciecMatrizPuertaSelectionBar" class="sio-mx-selection-bar" role="status" aria-live="polite"></div>
+
+    <div class="sio-baggage-matrix-wrap">
+      <table class="sio-baggage-matrix-table" id="ciecTablaMatrizPuerta">
         <thead>
           <tr>
-            <th style="width: 55px; text-align: center;">FILA</th>
-            <th style="text-align: center;">A (1)</th>
-            <th style="text-align: center;">B (2)</th>
-            <th style="text-align: center;">C (3)</th>
-            <th style="text-align: center;">D (4)</th>
-            <th style="text-align: center;">E (5)</th>
-            <th style="text-align: center;">F (6)</th>
-            <th style="text-align: center;">G (7)</th>
-            <th style="text-align: center;">H (8)</th>
-            <th style="text-align: center;">I (9)</th>
-            <th style="text-align: center;">J (10)</th>
+            <th class="sio-mx-th-row"><span class="sio-mx-th-full">FILA</span><span class="sio-mx-th-short">#</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">A</span><span class="sio-mx-col-num">(1)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">B</span><span class="sio-mx-col-num">(2)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">C</span><span class="sio-mx-col-num">(3)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">D</span><span class="sio-mx-col-num">(4)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">E</span><span class="sio-mx-col-num">(5)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">F</span><span class="sio-mx-col-num">(6)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">G</span><span class="sio-mx-col-num">(7)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">H</span><span class="sio-mx-col-num">(8)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">I</span><span class="sio-mx-col-num">(9)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">J</span><span class="sio-mx-col-num">(10)</span></th>
           </tr>
         </thead>
         <tbody id="ciecTbodyMatrizPuerta">
-          <!-- Renderizado dinámico por public/js/formato-ciec.js -->
+          <!-- Renderizado dinámico por public/js/baggage-matrix.js -->
         </tbody>
       </table>
     </div>
@@ -353,7 +358,7 @@
       <h3 class="cp-section-title"><i class="fas fa-plane-departure"></i> Tiempos Operativos de Embarque y Salida, Maquinaria PushBack y Aleros</h3>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-bottom: 20px; padding-bottom: 18px; border-bottom: 1px solid var(--border-2);">
+    <div class="sio-grid-auto-compact sio-divider-bottom">
       <div class="form-group">
         <label for="ciecIngresoTripulacion">Ingreso Tripulación</label>
         <div class="cp-time-row">
@@ -417,7 +422,7 @@
     </div>
 
     <% if (formato && formato.id === 'dl-ciec') { %>
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
+      <div class="sio-grid-auto-lg">
         <div class="form-group">
           <label for="ciecTractoristaDelta"><i class="fas fa-hard-hat"></i> Tractorista</label>
           <input
@@ -455,7 +460,7 @@
         </div>
       </div>
     <% } else { %>
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
+      <div class="sio-grid-auto-lg">
         <div class="form-group">
           <label for="ciecTractorista"><i class="fas fa-hard-hat"></i> Tractorista</label>
           <select id="ciecTractorista" class="form-control">
@@ -493,15 +498,15 @@
         </div>
       </div>
 
-      <div style="margin-top: 18px;">
-        <label style="font-size: 12px; font-weight: 600; color: var(--text-2); display: block; margin-bottom: 8px;">
+      <div class="sio-mt-18">
+        <label class="sio-aleros-label">
           <i class="fas fa-users"></i> Aleros Seleccionados:
         </label>
         <div id="ciecAlerosLista"></div>
       </div>
     <% } %>
 
-    <div class="form-group" style="margin-top: 18px;">
+    <div class="form-group sio-mt-18">
       <label for="ciecObservaciones"><i class="fas fa-comment-alt"></i> Observaciones</label>
       <textarea
         id="ciecObservaciones"
@@ -513,11 +518,11 @@
   </div>
 
   <!-- Botones Finales -->
-  <div style="display: flex; justify-content: flex-end; gap: 14px; margin-bottom: 40px; flex-wrap: wrap;">
-    <button type="button" id="btnVistaPreliminarCIEC" class="btn btn-secondary" style="padding: 12px 24px;">
+  <div class="sio-bottom-actions">
+    <button type="button" id="btnVistaPreliminarCIEC" class="btn btn-secondary sio-btn-action">
       <i class="fas fa-eye"></i> Vista Preliminar (Formato Oficial <%= vuelo.operador %>)
     </button>
-    <button type="button" id="btnGuardarDefinitivoCIEC" class="btn btn-primary" style="padding: 12px 28px;">
+    <button type="button" id="btnGuardarDefinitivoCIEC" class="btn btn-primary sio-btn-action-primary">
       <i class="fas fa-save"></i> <%= esNuevo ? 'Guardar Formato Definitivo' : 'Actualizar Formato Definitivo' %>
     </button>
   </div>

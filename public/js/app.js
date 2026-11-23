@@ -7,6 +7,7 @@ let _sioLoadingInterval = null;
 let _sioLoadingTimeout = null;
 let _sioLoadingStart = 0;
 let _comboOperador = null;
+let _selectingOperation = false;
 const _operacionesCache = new Map();
 
 /**
@@ -42,10 +43,14 @@ function mostrarPantallaCarga(titulo = 'Procesando solicitud...', subtitulo = 'C
     }
   }, 100);
 
-  // Auto-cierre de seguridad tras 20s para jamás bloquear al usuario si se interrumpe la navegación
-  _sioLoadingTimeout = setTimeout(() => {
-    ocultarPantallaCarga();
-  }, 20000);
+  // Auto-cierre de seguridad (failsafe) sincronizado con SioNavigationManager
+  if (window.SioNavigationManager && typeof window.SioNavigationManager.scheduleOverlayFailsafe === 'function') {
+    window.SioNavigationManager.scheduleOverlayFailsafe(18000);
+  } else {
+    _sioLoadingTimeout = setTimeout(() => {
+      ocultarPantallaCarga();
+    }, 18000);
+  }
 
   if (overlay) {
     overlay.classList.add('active');
@@ -56,7 +61,7 @@ function mostrarPantallaCarga(titulo = 'Procesando solicitud...', subtitulo = 'C
 /**
  * Oculta la pantalla global de carga
  */
-function ocultarPantallaCarga() {
+function ocultarPantallaCarga(opts) {
   if (_sioLoadingInterval) {
     clearInterval(_sioLoadingInterval);
     _sioLoadingInterval = null;
@@ -65,20 +70,35 @@ function ocultarPantallaCarga() {
     clearTimeout(_sioLoadingTimeout);
     _sioLoadingTimeout = null;
   }
+  if (window.SioNavigationManager && typeof window.SioNavigationManager.clearOverlayFailsafe === 'function') {
+    window.SioNavigationManager.clearOverlayFailsafe();
+  }
   const overlay = document.getElementById('sioLoadingOverlay');
   if (overlay) {
     overlay.classList.remove('active');
     overlay.setAttribute('aria-hidden', 'true');
   }
+  if (!(opts && opts._fromNavManager)) {
+    _selectingOperation = false;
+  }
 }
 
-// Solución al Bug de Navegación Atrás (BFCache en dispositivos móviles: Safari iOS / Chrome Android)
-window.addEventListener('pageshow', () => {
-  ocultarPantallaCarga();
-});
-window.addEventListener('popstate', () => {
-  ocultarPantallaCarga();
-});
+window.mostrarPantallaCarga = mostrarPantallaCarga;
+window.ocultarPantallaCarga = ocultarPantallaCarga;
+
+function resetNavigationLocks() {
+  _selectingOperation = false;
+  if (typeof window.dismissAllOverlays === 'function') {
+    window.dismissAllOverlays({ reason: 'app-nav-reset', abortRequests: false });
+  } else {
+    ocultarPantallaCarga();
+  }
+}
+
+// Solución integral al Bug de Navegación Atrás (BFCache en dispositivos móviles y botón atrás de ratón)
+window.addEventListener('pageshow', resetNavigationLocks);
+window.addEventListener('popstate', resetNavigationLocks);
+window.addEventListener('pagehide', resetNavigationLocks);
 
 /**
  * Obtiene la fecha actual en formato YYYY-MM-DD según la zona horaria local
@@ -128,7 +148,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (overlayEl) {
     overlayEl.addEventListener('click', (e) => {
       if (e.target === overlayEl) {
-        ocultarPantallaCarga();
+        _selectingOperation = false;
+        if (window.SioNavigationManager) {
+          window.SioNavigationManager.dismissAllOverlays({ reason: 'overlay-backdrop-click', abortRequests: true });
+        } else {
+          ocultarPantallaCarga();
+        }
       }
     });
   }
@@ -343,6 +368,8 @@ async function consultarOperaciones() {
   }
 
   const t0 = performance.now();
+  const navMgr = window.SioNavigationManager;
+  const reqCtrl = navMgr ? navMgr.createAbortController('consultar-operaciones') : { signal: undefined, release: () => {} };
 
   try {
     const response = await fetch('/api/operaciones/consultar', {
@@ -351,17 +378,19 @@ async function consultarOperaciones() {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      body: JSON.stringify({ fecha, operadorId, fecha2 })
+      body: JSON.stringify({ fecha, operadorId, fecha2 }),
+      signal: reqCtrl.signal
     });
 
     if (response.status === 401) {
+      ocultarPantallaCarga();
       Swal.fire({
         icon: 'warning',
         title: 'Sesión Expirada',
         text: 'Su sesión ha caducado. Será redirigido al inicio de sesión.',
         confirmButtonColor: '#275B88'
       }).then(() => {
-        window.location.href = '/login';
+        window.location.replace('/login');
       });
       return;
     }
@@ -384,6 +413,9 @@ async function consultarOperaciones() {
 
     renderizarTarjetas(res.data);
   } catch (err) {
+    if (navMgr && navMgr.isAbortError(err)) {
+      return;
+    }
     console.error('[CONSULTAR OPERACIONES ERROR]', err);
     if (barraResumen) barraResumen.classList.add('is-hidden');
     if (container) {
@@ -402,6 +434,7 @@ async function consultarOperaciones() {
       confirmButtonColor: '#275B88'
     });
   } finally {
+    reqCtrl.release();
     ocultarPantallaCarga();
     if (btnConsultar) {
       btnConsultar.disabled = false;
@@ -509,6 +542,8 @@ function renderizarTarjetas(lista = []) {
  * Selecciona una operación y avanza hacia los formatos de seguridad
  */
 async function seleccionarOperacion(vuelo) {
+  if (_selectingOperation) return;
+
   const opNombre = (vuelo.operador || '').toUpperCase();
   if ((opNombre.includes('DELTA') || opNombre.includes('AVIANCA')) && (!vuelo.Matricula || String(vuelo.Matricula).trim() === '')) {
     Swal.fire({
@@ -520,6 +555,10 @@ async function seleccionarOperacion(vuelo) {
     return;
   }
 
+  _selectingOperation = true;
+  const navMgr = window.SioNavigationManager;
+  const reqCtrl = navMgr ? navMgr.createAbortController('seleccionar-operacion') : { signal: undefined, epoch: 0, release: () => {} };
+
   mostrarPantallaCarga('Seleccionando Operación...', `Cargando vuelo ${vuelo.novuelo || ''} de ${vuelo.operador || ''} y preparando formatos...`);
 
   try {
@@ -529,18 +568,38 @@ async function seleccionarOperacion(vuelo) {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      body: JSON.stringify({ operacion: vuelo })
+      body: JSON.stringify({ operacion: vuelo }),
+      signal: reqCtrl.signal
     });
+
+    if (navMgr && reqCtrl.epoch !== navMgr.getEpoch()) {
+      ocultarPantallaCarga();
+      return;
+    }
+
+    if (res.status === 401) {
+      ocultarPantallaCarga();
+      window.location.replace('/login');
+      return;
+    }
+
     const data = await res.json();
     if (data.success) {
-      window.location.href = data.redirectUrl || '/formatos';
+      window.location.assign(data.redirectUrl || '/formatos');
     } else {
       ocultarPantallaCarga();
       Swal.fire({ icon: 'error', title: 'Error', text: data.message, confirmButtonColor: '#275B88' });
     }
   } catch (err) {
+    if (navMgr && navMgr.isAbortError(err)) {
+      ocultarPantallaCarga();
+      return;
+    }
     ocultarPantallaCarga();
     Swal.fire({ icon: 'error', title: 'Error de Red', text: 'No se pudo seleccionar el itinerario.', confirmButtonColor: '#275B88' });
+  } finally {
+    reqCtrl.release();
+    _selectingOperation = false;
   }
 }
 
@@ -550,9 +609,13 @@ async function seleccionarOperacion(vuelo) {
 async function abrirFormato(formatoId, formatoNombre, itinerarioId) {
   if (String(formatoId || '').endsWith('-er')) {
     mostrarPantallaCarga('Cargando Formato...', `Consultando y cargando "${formatoNombre}" desde Azure SQL...`);
-    window.location.href = `/formatos/${encodeURIComponent(formatoId)}`;
+    window.location.assign(`/formatos/${encodeURIComponent(formatoId)}`);
     return;
   }
+
+  const navMgr = window.SioNavigationManager;
+  const reqCtrl = navMgr ? navMgr.createAbortController('verificar-formatos') : { signal: undefined, epoch: 0, release: () => {} };
+
   mostrarPantallaCarga('Verificando Formatos...', `Consultando registros previos para "${formatoNombre}" en Azure SQL...`);
   try {
     const res = await fetch('/api/formatos/verificar', {
@@ -561,18 +624,37 @@ async function abrirFormato(formatoId, formatoNombre, itinerarioId) {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      body: JSON.stringify({ itinerarioId, tipoFormato: formatoNombre })
+      body: JSON.stringify({ itinerarioId, tipoFormato: formatoNombre }),
+      signal: reqCtrl.signal
     });
+
+    if (navMgr && reqCtrl.epoch !== navMgr.getEpoch()) {
+      ocultarPantallaCarga();
+      return;
+    }
+
+    if (res.status === 401) {
+      ocultarPantallaCarga();
+      window.location.replace('/login');
+      return;
+    }
+
     const result = await res.json();
 
     if (result.success && result.requiereDecision && result.data.length > 0) {
       ocultarPantallaCarga();
       mostrarModalReanudar(formatoId, formatoNombre, result.data);
     } else {
-      window.location.href = `/formatos/${formatoId}`;
+      window.location.assign(`/formatos/${encodeURIComponent(formatoId)}`);
     }
   } catch (err) {
-    window.location.href = `/formatos/${formatoId}`;
+    if (navMgr && navMgr.isAbortError(err)) {
+      ocultarPantallaCarga();
+      return;
+    }
+    window.location.assign(`/formatos/${encodeURIComponent(formatoId)}`);
+  } finally {
+    reqCtrl.release();
   }
 }
 

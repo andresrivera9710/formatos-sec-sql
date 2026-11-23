@@ -52,13 +52,13 @@
 
   <!-- 1. CABECERA DEL FORMATO (ControlEquipajeBandaSalidaAMX) -->
   <div class="card">
-    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+    <div class="card-header sio-card-header-flex">
       <h3 class="cp-section-title">
         <i class="fas fa-conveyor-belt"></i> Datos Generales — Control de Equipajes en Banda de Salida (Rayos X)
       </h3>
-      <div style="display: flex; align-items: center; gap: 10px;">
+      <div class="sio-card-header-meta">
         <% if (!esNuevo && encabezadoId) { %>
-          <a href="/formatos/<%= encodeURIComponent(formato.id) %>?nuevo=1" class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;">
+          <a href="/formatos/<%= encodeURIComponent(formato.id) %>?nuevo=1" class="btn btn-secondary sio-btn-sm">
             <i class="fas fa-plus-circle"></i> Crear Nuevo Registro
           </a>
         <% } %>
@@ -68,7 +68,7 @@
       </div>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+    <div class="sio-grid-auto">
       <div class="form-group">
         <label for="ebFecha"><i class="far fa-calendar-alt"></i> Fecha <i class="fas fa-lock input-lock-icon" title="Fecha vinculada al itinerario (Solo lectura)"></i></label>
         <input type="date" id="ebFecha" class="form-control input-locked" value="<%= fechaInicial %>" readonly tabindex="-1" required>
@@ -80,7 +80,7 @@
       </div>
 
       <div class="form-group">
-        <label for="ebHoraInicio"><i class="far fa-clock"></i> Hora de Inicio <span style="color: var(--danger);">*</span></label>
+        <label for="ebHoraInicio"><i class="far fa-clock"></i> Hora de Inicio <span class="sio-required-star">*</span></label>
         <div class="cp-time-row">
           <input type="time" id="ebHoraInicio" class="form-control" value="<%= horaInicioVal %>" required>
           <button type="button" id="btnRelojHoraInicioEB" class="cp-clock-btn" title="Capturar hora actual">
@@ -90,7 +90,7 @@
       </div>
 
       <div class="form-group">
-        <label for="ebSupervisor"><i class="fas fa-user-tie"></i> Nombre del Supervisor (LoginSEC) <span style="color: var(--danger);">*</span></label>
+        <label for="ebSupervisor"><i class="fas fa-user-tie"></i> Nombre del Supervisor (LoginSEC) <span class="sio-required-star">*</span></label>
         <select id="ebSupervisor" class="form-control" required>
           <option value="">-- Seleccione Supervisor --</option>
           <% (supervisores || []).forEach(sup => { %>
@@ -110,95 +110,102 @@
     </div>
   </div>
 
-  <!-- 2. MATRIZ DE EQUIPAJES EN BANDA DE SALIDA (10 Columnas A..J x Filas) -->
-  <div class="card" style="border-top: 3px solid var(--brand);" id="ebCardMatriz">
-    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+  <!-- 2. MATRIZ DE EQUIPAJES EN BANDA DE SALIDA (10 Columnas A..J x Filas — Orden Power Apps Y:922..1672) -->
+  <div class="card sio-card-accent" id="ebCardMatriz">
+    <div class="card-header sio-card-header-flex">
       <div>
         <h3 class="cp-section-title">
-          <i class="fas fa-th"></i> Matriz de Control de Secuencias en Banda de Salida (Rayos X)
+          <i class="fas fa-th"></i> MATRIZ — Control de Secuencias en Banda de Salida (Rayos X)
         </h3>
-        <small style="color: var(--text-3); font-size: 11px;">
-          Ingrese el número de secuencia de cada equipaje (se asigna automáticamente a la casilla 1..100). Puede anular/retirar una maleta con tache (<strong>✗</strong>).
+        <small class="sio-hint-text">
+          Ingrese el número de secuencia de cada equipaje (se asigna automáticamente en orden A..J). Toque una celda registrada para seleccionarla y poder retirarla o anularla (<strong>✗</strong>).
         </small>
       </div>
 
-      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
+      <div class="sio-card-header-meta">
         <div class="er-total-counter-badge">
-          <span>Total Equipaje Activo:</span>
+          <span>Total Equipajes Activos:</span>
           <strong id="ebTotalEquipajeCount">0</strong>
         </div>
       </div>
     </div>
 
     <!-- Barra de captura rápida de secuencia -->
-    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-bottom: 16px; background: var(--bg); padding: 14px; border-radius: 8px; border: 1px solid var(--border-2);">
-      <div class="form-group" style="margin-bottom: 0; min-width: 220px; flex: 1;">
-        <label for="ebInputSecuencia"><i class="fas fa-barcode"></i> Número de Secuencia / Etiqueta <span style="color: var(--danger);">*</span></label>
-        <input type="number" id="ebInputSecuencia" class="form-control" min="1" step="1" placeholder="Ej: 15 (Presione Enter para agregar)">
+    <div class="sio-inline-bar sio-inline-bar-box">
+      <div class="form-group">
+        <label for="ebInputSecuencia"><i class="fas fa-barcode"></i> Secuencia: <span class="sio-required-star">*</span></label>
+        <input type="number" id="ebInputSecuencia" class="form-control" min="1" step="1" inputmode="numeric" placeholder="Ingrese No. (Presione Enter para agregar)">
       </div>
 
-      <button type="button" id="btnAgregarSecuenciaEB" class="btn btn-primary" style="height: 38px;">
+      <button type="button" id="btnAgregarSecuenciaEB" class="btn btn-primary sio-btn-bar">
         <i class="fas fa-plus-circle"></i> Agregar Maleta
       </button>
 
-      <button type="button" id="btnBorrarUltimoEB" class="btn btn-secondary" style="height: 38px;">
+      <button type="button" id="btnBorrarUltimoEB" class="btn btn-secondary sio-btn-bar">
         <i class="fas fa-undo"></i> Borrar Último
       </button>
 
-      <button type="button" id="btnRetirarMaletaEB" class="btn btn-secondary" style="height: 38px; border-color: var(--danger); color: var(--danger);">
+      <button type="button" id="btnRetirarMaletaEB" class="btn btn-secondary sio-btn-bar sio-btn-danger-outline">
         <i class="fas fa-times-circle"></i> Retirar / Anular Maleta (✗)
       </button>
     </div>
 
-    <!-- Cuadrícula 10 columnas A..J -->
-    <div class="er-fluid-grid-wrapper">
-      <table class="er-fluid-table" id="ebTablaMatriz" style="text-align: center;">
+    <div id="ebMatrizSelectionBar" class="sio-mx-selection-bar" role="status" aria-live="polite"></div>
+
+    <!-- Cuadrícula 10 columnas A..J (compacta completa en móvil) -->
+    <div class="sio-baggage-matrix-wrap">
+      <table class="sio-baggage-matrix-table" id="ebTablaMatriz">
         <thead>
           <tr>
-            <th style="width: 55px; text-align: center;">FILA</th>
-            <th style="text-align: center;">A (1)</th>
-            <th style="text-align: center;">B (2)</th>
-            <th style="text-align: center;">C (3)</th>
-            <th style="text-align: center;">D (4)</th>
-            <th style="text-align: center;">E (5)</th>
-            <th style="text-align: center;">F (6)</th>
-            <th style="text-align: center;">G (7)</th>
-            <th style="text-align: center;">H (8)</th>
-            <th style="text-align: center;">I (9)</th>
-            <th style="text-align: center;">J (10)</th>
+            <th class="sio-mx-th-row"><span class="sio-mx-th-full">FILA</span><span class="sio-mx-th-short">#</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">A</span><span class="sio-mx-col-num">(1)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">B</span><span class="sio-mx-col-num">(2)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">C</span><span class="sio-mx-col-num">(3)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">D</span><span class="sio-mx-col-num">(4)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">E</span><span class="sio-mx-col-num">(5)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">F</span><span class="sio-mx-col-num">(6)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">G</span><span class="sio-mx-col-num">(7)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">H</span><span class="sio-mx-col-num">(8)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">I</span><span class="sio-mx-col-num">(9)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">J</span><span class="sio-mx-col-num">(10)</span></th>
           </tr>
         </thead>
         <tbody id="ebTbodyMatriz">
-          <!-- Renderizado dinámico por public/js/formato-eb.js -->
+          <!-- Renderizado dinámico por public/js/baggage-matrix.js -->
         </tbody>
       </table>
     </div>
   </div>
 
-  <!-- 3. CONTEOS ADICIONALES, HORA DE CIERRE Y OBSERVACIONES -->
+  <!-- 3. CONTEOS ADICIONALES, TOTAL EQUIPAJES, HORA DE CIERRE Y OBSERVACIONES (Orden Exacto Power Apps Y:1791..2410) -->
   <div class="card">
     <div class="card-header">
       <h3 class="cp-section-title"><i class="fas fa-boxes"></i> Conteos Complementarios, Cierre de Banda y Observaciones</h3>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+    <div class="sio-grid-auto-compact">
       <div class="form-group">
-        <label for="ebCorreos"><i class="fas fa-envelope"></i> Correos (Opcional)</label>
-        <input type="number" id="ebCorreos" class="form-control" min="0" step="1" value="<%= correosVal %>" placeholder="0">
+        <label for="ebCorreos"><i class="fas fa-envelope"></i> Correos:</label>
+        <input type="number" id="ebCorreos" class="form-control" min="0" step="1" inputmode="numeric" value="<%= correosVal %>" placeholder="Ingrese Cantidad">
       </div>
 
       <div class="form-group">
-        <label for="ebComat"><i class="fas fa-box"></i> COMAT (Opcional)</label>
-        <input type="number" id="ebComat" class="form-control" min="0" step="1" value="<%= comatVal %>" placeholder="0">
+        <label for="ebComat"><i class="fas fa-box"></i> COMAT:</label>
+        <input type="number" id="ebComat" class="form-control" min="0" step="1" inputmode="numeric" value="<%= comatVal %>" placeholder="Ingrese Cantidad">
       </div>
 
       <div class="form-group">
-        <label for="ebEqTransito"><i class="fas fa-exchange-alt"></i> Equipajes en Tránsito (Opcional)</label>
-        <input type="number" id="ebEqTransito" class="form-control" min="0" step="1" value="<%= eqTransitoVal %>" placeholder="0">
+        <label for="ebEqTransito"><i class="fas fa-exchange-alt"></i> EQ. Tránsito:</label>
+        <input type="number" id="ebEqTransito" class="form-control" min="0" step="1" inputmode="numeric" value="<%= eqTransitoVal %>" placeholder="Indique el equipo">
       </div>
 
       <div class="form-group">
-        <label for="ebHoraCierre"><i class="far fa-clock"></i> Hora de Cierre de Banda</label>
+        <label for="ebTotalEquipajeReadout"><i class="fas fa-calculator"></i> Total Equipajes <i class="fas fa-lock input-lock-icon" title="Calculado automáticamente de la matriz activa"></i></label>
+        <input type="text" id="ebTotalEquipajeReadout" class="form-control input-locked" value="0" readonly tabindex="-1">
+      </div>
+
+      <div class="form-group">
+        <label for="ebHoraCierre"><i class="far fa-clock"></i> Hora de Cierre:</label>
         <div class="cp-time-row">
           <input type="time" id="ebHoraCierre" class="form-control" value="<%= horaCierreVal %>">
           <button type="button" id="btnRelojHoraCierreEB" class="cp-clock-btn" title="Capturar hora actual">
@@ -208,18 +215,18 @@
       </div>
     </div>
 
-    <div class="form-group" style="margin-top: 16px;">
-      <label for="ebObservaciones"><i class="fas fa-comment-alt"></i> Observaciones (Maletas retiradas y novedades)</label>
-      <textarea id="ebObservaciones" class="form-control" rows="3" maxlength="2000" placeholder="Ingrese observaciones operativas..."><%= observacionVal %></textarea>
+    <div class="form-group sio-mt-16">
+      <label for="ebObservaciones"><i class="fas fa-comment-alt"></i> Observaciones (Opcional — incluye motivos de maletas retiradas)</label>
+      <textarea id="ebObservaciones" class="form-control" rows="3" maxlength="2000" placeholder="(Opcional)"><%= observacionVal %></textarea>
     </div>
   </div>
 
   <!-- 4. BOTONES DE ACCIÓN -->
-  <div style="display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 14px; margin-bottom: 40px;">
-    <button type="button" id="btnVistaPreliminarEB" class="btn btn-secondary" style="padding: 12px 24px;">
+  <div class="sio-bottom-actions">
+    <button type="button" id="btnVistaPreliminarEB" class="btn btn-secondary sio-btn-action">
       <i class="fas fa-eye"></i> Vista Preliminar (Formato Oficial <%= vuelo.operador %>)
     </button>
-    <button type="button" id="btnGuardarDefinitivoEB" class="btn btn-primary" style="padding: 12px 28px;">
+    <button type="button" id="btnGuardarDefinitivoEB" class="btn btn-primary sio-btn-action-primary">
       <i class="fas fa-save"></i> <%= esNuevo ? 'Guardar Formato Definitivo' : 'Actualizar Formato Definitivo' %>
     </button>
   </div>

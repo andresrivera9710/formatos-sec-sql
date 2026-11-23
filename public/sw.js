@@ -1,15 +1,17 @@
 /**
  * Service Worker Corporativo — SIO LAATS Formatos SEC (Offline-First / Resiliencia en Rampa)
  * 100% compatible con Helmet CSP:
- * - Cachea activos base (CSS, JS, iconos) y vistas SSR visitadas (/operaciones, /formatos, /formatos/*).
+ * - Cachea activos base (CSS, JS, iconos) con estrategia Network-First para entregas inmediatas y respaldo offline.
+ * - Cachea vistas SSR autenticadas visitadas (/operaciones, /formatos, /formatos/*) con respaldo offline.
  * - Sirve Vistas Preliminares generadas en modo offline (/formatos/:id/vista-preliminar?offline=1).
- * - Excluye estrictamente /api/health para garantizar que el Heartbeat de conectividad sea 100% real.
+ * - Excluye estrictamente /api/health, /api/session/check, /login, /logout y / para garantizar
+ *   navegación de sesión real y evitar estados congelados al retroceder.
  */
 
 'use strict';
 
-const STATIC_CACHE = 'sio-laats-static-v1';
-const PAGES_CACHE = 'sio-laats-pages-v1';
+const STATIC_CACHE = 'sio-laats-static-v3';
+const PAGES_CACHE = 'sio-laats-pages-v3';
 const PREVIEW_CACHE = 'sio-offline-previews-v1';
 
 const CORE_ASSETS = [
@@ -18,11 +20,14 @@ const CORE_ASSETS = [
   '/css/styles.css',
   '/css/preview-toolbar.css',
   '/js/theme-init.js',
+  '/js/navigation-manager.js',
+  '/js/login.js',
   '/js/tab-bar.js',
   '/js/signature-pad.js',
   '/js/searchable-combo.js',
   '/js/offline-manager.js',
   '/js/formato-validator.js',
+  '/js/baggage-matrix.js',
   '/js/app.js',
   '/js/formato-cp.js',
   '/js/formato-ciec.js',
@@ -95,6 +100,8 @@ self.addEventListener('message', (event) => {
         return cache.put(data.url, response);
       })
     );
+  } else if (data.type === 'CLEAR_PROTECTED_CACHE') {
+    event.waitUntil(caches.delete(PAGES_CACHE));
   }
 });
 
@@ -105,8 +112,14 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  // 1. NUNCA interceptar /api/health ni /logout (el ping de conectividad debe ir directo a red)
-  if (url.pathname === '/api/health' || url.pathname === '/logout') {
+  // 1. NUNCA interceptar rutas de salud, sesión, login, logout ni raíz
+  if (
+    url.pathname === '/api/health' ||
+    url.pathname === '/api/session/check' ||
+    url.pathname === '/login' ||
+    url.pathname === '/logout' ||
+    url.pathname === '/'
+  ) {
     return;
   }
 
@@ -122,7 +135,7 @@ self.addEventListener('fetch', (event) => {
         }
         try {
           const netRes = await fetch(req);
-          if (netRes && netRes.ok) {
+          if (netRes && netRes.ok && !netRes.redirected && netRes.type === 'basic') {
             previewCache.put(url.pathname, netRes.clone());
           }
           return netRes;
@@ -164,7 +177,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 4. Activos estáticos (/css/*, /js/*, /images/*): Stale-While-Revalidate
+  // 4. Activos estáticos (/css/*, /js/*, /images/*): Network-First con fallback a Caché
+  // Garantiza entregas inmediatas en actualizaciones web/móvil manteniendo resiliencia offline.
   if (
     url.pathname.startsWith('/css/') ||
     url.pathname.startsWith('/js/') ||
@@ -173,17 +187,16 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       (async () => {
         const cache = await caches.open(STATIC_CACHE);
-        const cached = await cache.match(url.pathname) || await cache.match(req);
-        const networkPromise = fetch(req)
-          .then((netRes) => {
-            if (netRes && netRes.ok) {
-              cache.put(url.pathname, netRes.clone());
-            }
-            return netRes;
-          })
-          .catch(() => null);
-
-        return cached || (await networkPromise) || new Response('', { status: 504 });
+        try {
+          const netRes = await fetch(req);
+          if (netRes && netRes.ok) {
+            cache.put(url.pathname, netRes.clone());
+          }
+          return netRes;
+        } catch (_err) {
+          const cached = await cache.match(req) || await cache.match(url.pathname);
+          return cached || new Response('', { status: 504 });
+        }
       })()
     );
     return;
@@ -199,12 +212,20 @@ self.addEventListener('fetch', (event) => {
         const cache = await caches.open(PAGES_CACHE);
         try {
           const netRes = await fetch(req);
-          if (netRes && netRes.ok) {
-            cache.put(url.pathname + url.search, netRes.clone());
-            cache.put(url.pathname, netRes.clone());
+          // Solo cachear respuestas SSR exitosas y no redirigidas (nunca cachear redirecciones a /login)
+          if (netRes && netRes.ok && !netRes.redirected && netRes.type === 'basic') {
+            const finalPath = netRes.url ? new URL(netRes.url).pathname : url.pathname;
+            if (finalPath !== '/login' && finalPath !== '/logout') {
+              cache.put(url.pathname + url.search, netRes.clone());
+              cache.put(url.pathname, netRes.clone());
+            }
           }
           return netRes;
-        } catch (_err) {
+        } catch (err) {
+          // Si la navegación fue abortada (ej. retroceso rápido), no inyectar HTML obsoleto
+          if (err && err.name === 'AbortError') {
+            throw err;
+          }
           const exactMatch = await cache.match(url.pathname + url.search);
           if (exactMatch) return exactMatch;
           const pathMatch = await cache.match(url.pathname);

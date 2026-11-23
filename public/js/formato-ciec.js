@@ -41,7 +41,11 @@ document.addEventListener('DOMContentLoaded', () => {
     console.error('[CIEC INIT JSON ERROR]', err);
   }
 
-  let registros = (Array.isArray(initialState.registros) ? initialState.registros : []).map((r) => ({
+  const rawRegs = Array.isArray(initialState.registros) && initialState.registros.length > 0
+    ? initialState.registros
+    : (Array.isArray(initialState.detalles) ? initialState.detalles : []);
+
+  let registros = rawRegs.map((r) => ({
     DetalleCIECId: parseInt(r.DetalleCIECId, 10) || 0,
     Nombre: String(r.Nombre || '').trim(),
     NoTIA: String(r.NoTIA || '').trim(),
@@ -51,14 +55,9 @@ document.addEventListener('DOMContentLoaded', () => {
     HoraSalida: extractHHMM(r.HoraSalida || r.HoraSalidaReal || r.HoraSalidaEstimada)
   }));
 
-  let equipajePuerta = (Array.isArray(initialState.equipajePuerta) ? initialState.equipajePuerta : []).map((e, idx) => ({
-    EquipajePuertaCIECId: parseInt(e.EquipajePuertaCIECId, 10) || 0,
-    Casilla: parseInt(e.Casilla, 10) || idx + 1,
-    Fila: parseInt(e.Fila, 10) || Math.floor(idx / 10) + 1,
-    Columna: String(e.Columna || COLS[idx % 10]).trim().toUpperCase(),
-    Secuencia: parseInt(e.Secuencia, 10) || 0,
-    Valor: e.Valor ? String(e.Valor).trim().toUpperCase() : null
-  }));
+  const initialEquipajePuertaRaw = Array.isArray(initialState.equipajePuerta)
+    ? initialState.equipajePuerta
+    : [];
 
   let aleros = (Array.isArray(initialState.aleros) ? initialState.aleros : [])
     .map((a) => ({
@@ -110,7 +109,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const inputSecuenciaPuerta = document.getElementById('ciecInputSecuenciaPuerta');
   const btnAgregarSecuenciaPuerta = document.getElementById('btnAgregarSecuenciaPuertaCIEC');
   const btnBorrarUltimoPuerta = document.getElementById('btnBorrarUltimoPuertaCIEC');
+  const btnRetirarMaletaPuerta = document.getElementById('btnRetirarMaletaPuertaCIEC');
+  const tablaMatrizPuerta = document.getElementById('ciecTablaMatrizPuerta');
   const tbodyMatrizPuerta = document.getElementById('ciecTbodyMatrizPuerta');
+  const selectionBarPuerta = document.getElementById('ciecMatrizPuertaSelectionBar');
   const totalPuertaCountEl = document.getElementById('ciecTotalPuertaCount');
 
   const selectTractorista = document.getElementById('ciecTractorista');
@@ -334,80 +336,30 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Matriz Equipaje en Puerta
-  function reindexEquipajePuerta() {
-    equipajePuerta = equipajePuerta.map((item, idx) => ({
-      ...item,
-      Casilla: idx + 1,
-      Fila: Math.floor(idx / 10) + 1,
-      Columna: COLS[idx % 10]
-    }));
-  }
-
-  function renderMatrizPuerta() {
-    reindexEquipajePuerta();
-    const activeCount = equipajePuerta.filter((d) => d.Secuencia > 0 && d.Valor !== 'X').length;
-    if (totalPuertaCountEl) totalPuertaCountEl.textContent = String(activeCount);
-
-    const maxFila = Math.max(4, Math.ceil(equipajePuerta.length / 10));
-    const rowsHtml = [];
-    for (let f = 1; f <= maxFila; f++) {
-      let tds = `<td style="font-weight: 700; background: var(--bg); color: var(--brand-deep);">${f}</td>`;
-      for (let c = 0; c < 10; c++) {
-        const cellIdx = (f - 1) * 10 + c;
-        const item = equipajePuerta[cellIdx];
-        if (item && item.Secuencia > 0) {
-          tds += `<td style="background:var(--surface-elevated); font-weight:700; color:var(--brand-deep);">${esc(item.Secuencia)}</td>`;
-        } else {
-          tds += `<td style="color:var(--text-3); font-size:11px;">—</td>`;
-        }
-      }
-      rowsHtml.push(`<tr>${tds}</tr>`);
-    }
-    if (tbodyMatrizPuerta) tbodyMatrizPuerta.innerHTML = rowsHtml.join('');
-  }
-
-  function agregarEquipajePuerta() {
-    const valStr = String(inputSecuenciaPuerta?.value || '').trim();
-    const num = parseInt(valStr, 10);
-    if (!valStr || !Number.isInteger(num) || num <= 0) {
-      inputSecuenciaPuerta?.focus();
-      return;
-    }
-    const idx = equipajePuerta.length;
-    equipajePuerta.push({
-      EquipajePuertaCIECId: 0,
-      Casilla: idx + 1,
-      Fila: Math.floor(idx / 10) + 1,
-      Columna: COLS[idx % 10],
-      Secuencia: num,
-      Valor: null
-    });
-    if (inputSecuenciaPuerta) {
-      inputSecuenciaPuerta.value = '';
-      inputSecuenciaPuerta.focus();
-    }
-    renderMatrizPuerta();
-  }
-
-  if (btnAgregarSecuenciaPuerta) {
-    btnAgregarSecuenciaPuerta.addEventListener('click', agregarEquipajePuerta);
-  }
-  if (inputSecuenciaPuerta) {
-    inputSecuenciaPuerta.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        agregarEquipajePuerta();
-      }
-    });
-  }
-  if (btnBorrarUltimoPuerta) {
-    btnBorrarUltimoPuerta.addEventListener('click', () => {
-      if (equipajePuerta.length === 0) return;
-      equipajePuerta.pop();
-      renderMatrizPuerta();
-    });
-  }
+  // Matriz Equipaje en Puerta (SioBaggageMatrix — Selección táctil + Retirar/Anular ✗ + IndexedDB)
+  const matrizPuerta = window.SioBaggageMatrix.create({
+    family: 'ciec',
+    idField: 'EquipajePuertaCIECId',
+    minRows: 4,
+    requireMotivo: false,
+    itemLabel: 'Equipaje en Puerta',
+    motivoPlaceholder: 'Opcional: Ej. Pasajero llevó el equipaje a cabina',
+    formEl: form,
+    cardEl: document.getElementById('ciecCardMatrizPuerta'),
+    tableEl: tablaMatrizPuerta,
+    tbodyEl: tbodyMatrizPuerta,
+    selectionBarEl: selectionBarPuerta,
+    totalCountEl: totalPuertaCountEl,
+    inputSecuenciaEl: inputSecuenciaPuerta,
+    btnAgregarEl: btnAgregarSecuenciaPuerta,
+    btnBorrarUltimoEl: btnBorrarUltimoPuerta,
+    btnRetirarEl: btnRetirarMaletaPuerta,
+    observacionesEl: inputObservaciones,
+    formatoIdEl: inputFormatoId,
+    itinerarioIdEl: inputItinerarioId,
+    encabezadoIdEl: inputEncabezadoId,
+    initialItems: initialEquipajePuertaRaw
+  });
 
   // Aleros
   function renderAleros() {
@@ -522,7 +474,7 @@ document.addEventListener('DOMContentLoaded', () => {
         alerosNombres: aleros.map((a) => a.Nombre),
         observaciones: String(inputObservaciones?.value || '').trim(),
         registros,
-        equipajePuerta
+        equipajePuerta: matrizPuerta.getItems()
       }
     };
   }
@@ -678,6 +630,5 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   renderRegistros();
-  renderMatrizPuerta();
   renderAleros();
 });

@@ -68,6 +68,26 @@
   const operadoresRampaVal = comp.OperadoresRampa || '';
   const observacionVal = String(comp.Observaciones || comp.Observacion || '').trim();
 
+  const isDeltaCEC = Boolean(formato && formato.id === 'dl-cec');
+  const vueloPartsCec = String((vuelo && vuelo.novuelo) || '').split('/').map(s => s.trim()).filter(Boolean);
+  const vueloDesembarqueVal = comp.VueloDesembarque || vueloPartsCec[0] || (vuelo && vuelo.novuelo) || '--';
+  const vueloEmbarqueVal = comp.VueloEmbarque || vueloPartsCec[vueloPartsCec.length - 1] || (vuelo && vuelo.novuelo) || '--';
+  const eqMostradorVal = comp.EquipajeMostrador ?? 0;
+  const eqPuertaDeltaVal = comp.EquipajePuerta ?? 0;
+  const cargaEmbarqueDeltaVal = comp.CargaEmbarqueDelta ?? comp.CargaDelta ?? 0;
+
+  let resolvedAgenteNombre = (user && user.usuario) ? String(user.usuario).trim() : agenteRawVal;
+  const matchedAgUser = (usuariosSEC || []).find(u =>
+    agenteRawVal && (
+      String(u.LoginId) === agenteRawVal ||
+      String(u.EmpleadoId || '') === agenteRawVal ||
+      String(u.Usuario || '').trim().toUpperCase() === agenteRawVal.toUpperCase()
+    )
+  );
+  if (matchedAgUser && matchedAgUser.Usuario) {
+    resolvedAgenteNombre = String(matchedAgUser.Usuario).trim();
+  }
+
   const initialCecPayload = {
     formatoId: formato.id,
     formatoNombre: formato.nombre,
@@ -83,15 +103,15 @@
   <input type="hidden" id="cecItinerarioId" value="<%= vuelo.itinerarioId %>">
   <input type="hidden" id="cecEncabezadoId" value="<%= encabezadoId || '' %>">
 
-  <!-- 1. ENCABEZADO DEL FORMATO (ControlEquipajeCompartimientoAMX) -->
+  <!-- 1. INGRESE LOS DATOS (Orden Exacto Power Apps grpInfoGeneral Y:201..1181) -->
   <div class="card">
-    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+    <div class="card-header sio-card-header-flex">
       <h3 class="cp-section-title">
-        <i class="fas fa-luggage-cart"></i> Datos Generales — Control de Equipajes en Compartimentos
+        <i class="fas fa-luggage-cart"></i> Ingrese los Datos — Control de Equipajes en Compartimentos
       </h3>
-      <div style="display: flex; align-items: center; gap: 10px;">
+      <div class="sio-card-header-meta">
         <% if (!esNuevo && encabezadoId) { %>
-          <a href="/formatos/<%= encodeURIComponent(formato.id) %>?nuevo=1" class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;">
+          <a href="/formatos/<%= encodeURIComponent(formato.id) %>?nuevo=1" class="btn btn-secondary sio-btn-sm">
             <i class="fas fa-plus-circle"></i> Crear Nuevo Registro
           </a>
         <% } %>
@@ -101,14 +121,9 @@
       </div>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px;">
+    <div class="sio-grid-auto">
       <div class="form-group">
-        <label for="cecFecha"><i class="far fa-calendar-alt"></i> Fecha <i class="fas fa-lock input-lock-icon" title="Fecha vinculada al itinerario (Solo lectura)"></i></label>
-        <input type="date" id="cecFecha" class="form-control input-locked" value="<%= fechaInicial %>" readonly tabindex="-1" required>
-      </div>
-
-      <div class="form-group">
-        <label for="cecHoraInicio"><i class="far fa-clock"></i> Hora de Inicio <span style="color: var(--danger);">*</span></label>
+        <label for="cecHoraInicio"><i class="far fa-clock"></i> Hora (Inicia Puesto) <span class="sio-required-star">*</span></label>
         <div class="cp-time-row">
           <input type="time" id="cecHoraInicio" class="form-control" value="<%= horaInicioVal %>" required>
           <button type="button" class="cp-clock-btn" data-clock-target="cecHoraInicio">
@@ -118,49 +133,9 @@
       </div>
 
       <div class="form-group">
-        <label for="cecNoVuelo"><i class="fas fa-plane"></i> No. Vuelo <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
-        <input type="text" id="cecNoVuelo" class="form-control input-locked" value="<%= vuelo.novuelo || '--' %>" readonly tabindex="-1">
-      </div>
-
-      <div class="form-group">
-        <label for="cecMatricula"><i class="fas fa-barcode"></i> Matrícula <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
-        <input type="text" id="cecMatricula" class="form-control input-locked" value="<%= vuelo.Matricula || 'Pendiente' %>" readonly tabindex="-1">
-      </div>
-
-      <div class="form-group">
-        <label for="cecPuerta"><i class="fas fa-door-open"></i> Puerta <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
-        <input type="text" id="cecPuerta" class="form-control input-locked" value="<%= vuelo.puertaposicion || '--' %>" readonly tabindex="-1">
-      </div>
-
-      <div class="form-group">
-        <label for="cecCompartimiento"><i class="fas fa-warehouse"></i> Compartimento No. <span style="color: var(--danger);">*</span></label>
-        <input type="number" id="cecCompartimiento" class="form-control" min="0" max="10" step="1" value="<%= compartimientoVal %>" required>
-      </div>
-
-      <div class="form-group">
-        <label for="cecCompAbierto"><i class="fas fa-door-open"></i> Hora Compartimento Abierto</label>
-        <div class="cp-time-row">
-          <input type="time" id="cecCompAbierto" class="form-control" value="<%= compAbiertoVal %>">
-          <button type="button" class="cp-clock-btn" data-clock-target="cecCompAbierto">
-            <i class="far fa-clock"></i> Ahora
-          </button>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="cecCompCerrado"><i class="fas fa-door-closed"></i> Hora Compartimento Cerrado</label>
-        <div class="cp-time-row">
-          <input type="time" id="cecCompCerrado" class="form-control" value="<%= compCerradoVal %>">
-          <button type="button" class="cp-clock-btn" data-clock-target="cecCompCerrado">
-            <i class="far fa-clock"></i> Ahora
-          </button>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="cecSupervisor"><i class="fas fa-user-tie"></i> Nombre del Supervisor <span style="color: var(--danger);">*</span></label>
+        <label for="cecSupervisor"><i class="fas fa-user-tie"></i> Supervisor <span class="sio-required-star">*</span></label>
         <select id="cecSupervisor" class="form-control" required>
-          <option value="">-- Seleccione Supervisor --</option>
+          <option value="">-- Seleccione el Supervisor --</option>
           <% (supervisores || []).forEach(sup => {
                const matchSup = supRawVal && (
                  String(sup.LoginId) === supRawVal ||
@@ -178,20 +153,7 @@
       </div>
 
       <div class="form-group">
-        <label for="cecAgente"><i class="fas fa-user-shield"></i> Nombre del Agente <i class="fas fa-lock input-lock-icon" title="Agente autenticado en sesión (Solo lectura)"></i></label>
-        <%
-          let resolvedAgenteNombre = (user && user.usuario) ? String(user.usuario).trim() : agenteRawVal;
-          const matchedAgUser = (usuariosSEC || []).find(u =>
-            agenteRawVal && (
-              String(u.LoginId) === agenteRawVal ||
-              String(u.EmpleadoId || '') === agenteRawVal ||
-              String(u.Usuario || '').trim().toUpperCase() === agenteRawVal.toUpperCase()
-            )
-          );
-          if (matchedAgUser && matchedAgUser.Usuario) {
-            resolvedAgenteNombre = String(matchedAgUser.Usuario).trim();
-          }
-        %>
+        <label for="cecAgente"><i class="fas fa-user-shield"></i> Agente <i class="fas fa-lock input-lock-icon" title="Agente autenticado en sesión (Solo lectura)"></i></label>
         <input
           type="text"
           id="cecAgente"
@@ -203,143 +165,166 @@
           required
         >
       </div>
-    </div>
-  </div>
 
-  <%
-    const isDeltaCEC = Boolean(formato && formato.id === 'dl-cec');
-    const vueloPartsCec = String((vuelo && vuelo.novuelo) || '').split('/').map(s => s.trim()).filter(Boolean);
-    const vueloDesembarqueVal = comp.VueloDesembarque || vueloPartsCec[0] || (vuelo && vuelo.novuelo) || '--';
-    const vueloEmbarqueVal = comp.VueloEmbarque || vueloPartsCec[vueloPartsCec.length - 1] || (vuelo && vuelo.novuelo) || '--';
-    const eqMostradorVal = comp.EquipajeMostrador ?? 0;
-    const eqPuertaDeltaVal = comp.EquipajePuerta ?? 0;
-    const cargaEmbarqueDeltaVal = comp.CargaEmbarqueDelta ?? comp.CargaDelta ?? 0;
-  %>
-  <!-- 2. EMBARQUE -->
-  <div class="card" style="border-top: 3px solid var(--brand);" id="cecCardMatriz">
-    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
-      <div>
-        <h3 class="cp-section-title">
-          <i class="fas fa-th"></i> 1. Embarque — <%= isDeltaCEC ? 'Control de Equipaje y Carga Embarcada (DELTA)' : 'Matriz de Equipajes en Compartimento' %>
-        </h3>
-        <small style="color: var(--text-3); font-size: 11px;">
-          <%= isDeltaCEC ? 'Registre los horarios y totales de Equipaje Mostrador, Equipaje por Puerta y Carga de Embarque.' : 'Ingrese la secuencia del equipaje embarcado. Puede anular una maleta con tache (✗).' %>
-        </small>
-      </div>
-
-      <div class="er-total-counter-badge">
-        <span>Total Equipaje Embarcado:</span>
-        <strong id="cecTotalEmbarqueCount"><%= isDeltaCEC ? ((Number(eqMostradorVal) || 0) + (Number(eqPuertaDeltaVal) || 0)) : 0 %></strong>
-      </div>
-    </div>
-
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 14px;">
-      <% if (isDeltaCEC) { %>
       <div class="form-group">
-        <label for="cecVueloEmbarque"><i class="fas fa-plane-departure"></i> Embarque, No. Vuelo <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
-        <input type="text" id="cecVueloEmbarque" class="form-control input-locked" value="<%= vueloEmbarqueVal %>" readonly tabindex="-1">
+        <label for="cecFecha"><i class="far fa-calendar-alt"></i> Fecha <i class="fas fa-lock input-lock-icon" title="Fecha vinculada al itinerario (Solo lectura)"></i></label>
+        <input type="date" id="cecFecha" class="form-control input-locked" value="<%= fechaInicial %>" readonly tabindex="-1" required>
       </div>
-      <% } %>
+
       <div class="form-group">
-        <label for="cecEmbarqueInicio"><i class="far fa-clock"></i> Hora Inicio Embarque</label>
+        <label for="cecNoVuelo"><i class="fas fa-plane"></i> No. Vuelo <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <input type="text" id="cecNoVuelo" class="form-control input-locked" value="<%= vuelo.novuelo || '--' %>" readonly tabindex="-1">
+      </div>
+
+      <div class="form-group">
+        <label for="cecMatricula"><i class="fas fa-barcode"></i> Matrícula <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <input type="text" id="cecMatricula" class="form-control input-locked" value="<%= vuelo.Matricula || 'Pendiente' %>" readonly tabindex="-1">
+      </div>
+
+      <div class="form-group">
+        <label for="cecCompartimiento"><i class="fas fa-warehouse"></i> Compartimiento No. <span class="sio-required-star">*</span></label>
+        <input type="number" id="cecCompartimiento" class="form-control" min="0" max="10" step="1" inputmode="numeric" value="<%= compartimientoVal %>" placeholder="Ingrese No." required>
+      </div>
+
+      <div class="form-group">
+        <label for="cecPuerta"><i class="fas fa-door-open"></i> Puerta <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <input type="text" id="cecPuerta" class="form-control input-locked" value="<%= vuelo.puertaposicion || '--' %>" readonly tabindex="-1">
+      </div>
+
+      <div class="form-group">
+        <label for="cecCompAbierto"><i class="fas fa-door-open"></i> COMP. Abierto</label>
         <div class="cp-time-row">
-          <input type="time" id="cecEmbarqueInicio" class="form-control" value="<%= embarqueInicioVal %>">
-          <button type="button" class="cp-clock-btn" data-clock-target="cecEmbarqueInicio">
-            <i class="far fa-clock"></i> Ahora
-          </button>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="cecEmbarqueFinal"><i class="far fa-clock"></i> Hora Final Embarque</label>
-        <div class="cp-time-row">
-          <input type="time" id="cecEmbarqueFinal" class="form-control" value="<%= embarqueFinalVal %>">
-          <button type="button" class="cp-clock-btn" data-clock-target="cecEmbarqueFinal">
+          <input type="time" id="cecCompAbierto" class="form-control" value="<%= compAbiertoVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="cecCompAbierto">
             <i class="far fa-clock"></i> Ahora
           </button>
         </div>
       </div>
     </div>
-
-    <% if (!isDeltaCEC) { %>
-    <!-- Barra de captura de secuencia -->
-    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-bottom: 16px; background: var(--bg); padding: 14px; border-radius: 8px; border: 1px solid var(--border-2);">
-      <div class="form-group" style="margin-bottom: 0; min-width: 220px; flex: 1;">
-        <label for="cecInputSecuencia"><i class="fas fa-barcode"></i> Número de Secuencia / Etiqueta <span style="color: var(--danger);">*</span></label>
-        <input type="number" id="cecInputSecuencia" class="form-control" min="1" step="1" placeholder="Ej: 18 (Presione Enter para agregar)">
-      </div>
-
-      <button type="button" id="btnAgregarSecuenciaCEC" class="btn btn-primary" style="height: 38px;">
-        <i class="fas fa-plus-circle"></i> Agregar Maleta
-      </button>
-
-      <button type="button" id="btnBorrarUltimoCEC" class="btn btn-secondary" style="height: 38px;">
-        <i class="fas fa-undo"></i> Borrar Último
-      </button>
-
-      <button type="button" id="btnRetirarMaletaCEC" class="btn btn-secondary" style="height: 38px; border-color: var(--danger); color: var(--danger);">
-        <i class="fas fa-times-circle"></i> Retirar / Anular Maleta (✗)
-      </button>
-    </div>
-
-    <!-- Cuadrícula 10 columnas A..J -->
-    <div class="er-fluid-grid-wrapper">
-      <table class="er-fluid-table" id="cecTablaMatriz" style="text-align: center;">
-        <thead>
-          <tr>
-            <th style="width: 55px; text-align: center;">FILA</th>
-            <th style="text-align: center;">A (1)</th>
-            <th style="text-align: center;">B (2)</th>
-            <th style="text-align: center;">C (3)</th>
-            <th style="text-align: center;">D (4)</th>
-            <th style="text-align: center;">E (5)</th>
-            <th style="text-align: center;">F (6)</th>
-            <th style="text-align: center;">G (7)</th>
-            <th style="text-align: center;">H (8)</th>
-            <th style="text-align: center;">I (9)</th>
-            <th style="text-align: center;">J (10)</th>
-          </tr>
-        </thead>
-        <tbody id="cecTbodyMatriz">
-          <!-- Renderizado dinámico por public/js/formato-cec.js -->
-        </tbody>
-      </table>
-    </div>
-    <% } else { %>
-      <div style="margin-top: 8px; padding: 14px; background: var(--bg); border: 1px solid var(--border-2); border-radius: 8px;">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px;">
-          <div class="form-group" style="margin-bottom: 0;">
-            <label for="cecEquipajeMostrador">Equipaje Mostrador</label>
-            <input type="number" id="cecEquipajeMostrador" class="form-control" min="0" step="1" value="<%= eqMostradorVal %>" placeholder="0">
-          </div>
-          <div class="form-group" style="margin-bottom: 0;">
-            <label for="cecEquipajePuerta">Equipaje por Puerta</label>
-            <input type="number" id="cecEquipajePuerta" class="form-control" min="0" step="1" value="<%= eqPuertaDeltaVal %>" placeholder="0">
-          </div>
-          <div class="form-group" style="margin-bottom: 0;">
-            <label for="cecCargaEmbarqueDelta">Carga (Embarque)</label>
-            <input type="number" id="cecCargaEmbarqueDelta" class="form-control" min="0" step="1" value="<%= cargaEmbarqueDeltaVal %>" placeholder="0">
-          </div>
-        </div>
-      </div>
-    <% } %>
   </div>
 
-  <!-- 3. DESEMBARQUE -->
+  <!-- 2. PERSONAL EN PLATAFORMA (Orden Exacto Power Apps grpPersonasEnPlataforma Y:1370..3282) -->
   <div class="card">
     <div class="card-header">
-      <h3 class="cp-section-title"><i class="fas fa-dolly-flatbed"></i> 2. <%= isDeltaCEC ? 'Desembarque (DELTA)' : 'Desembarque y Equipaje Maltratado' %></h3>
+      <h3 class="cp-section-title"><i class="fas fa-hard-hat"></i> 1. Personal en Plataforma</h3>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
-      <% if (isDeltaCEC) { %>
+    <h4 class="sio-subsection-title">OIRSA</h4>
+    <div class="sio-grid-auto sio-mb-16">
       <div class="form-group">
-        <label for="cecVueloDesembarque"><i class="fas fa-plane-arrival"></i> Desembarque, No. Vuelo <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <label for="cecNombreOirsa">OIRSA:</label>
+        <input type="text" id="cecNombreOirsa" class="form-control" value="<%= nombreOirsaVal %>" placeholder="Ingrese el nombre del personal OIRSA">
+      </div>
+      <div class="form-group">
+        <label for="cecTiaOirsa">TIA:</label>
+        <input type="text" id="cecTiaOirsa" class="form-control" value="<%= tiaOirsaVal %>" placeholder="Ingrese No. de TIA OIRSA">
+      </div>
+    </div>
+
+    <h4 class="sio-subsection-title">Combustible</h4>
+    <div class="sio-grid-auto-compact sio-mb-16">
+      <div class="form-group">
+        <label for="cecPilotoCombustible">Piloto</label>
+        <input type="text" id="cecPilotoCombustible" class="form-control" value="<%= pilotoCombVal %>" placeholder="Nombre Piloto">
+      </div>
+      <div class="form-group">
+        <label for="cecTiaPilotoCombustible">TIA (Piloto):</label>
+        <input type="text" id="cecTiaPilotoCombustible" class="form-control" value="<%= tiaPilotoCombVal %>" placeholder="Ingrese No. de TIA Piloto">
+      </div>
+      <div class="form-group">
+        <label for="cecAyudanteCombustible">Ayudante:</label>
+        <input type="text" id="cecAyudanteCombustible" class="form-control" value="<%= ayudanteCombVal %>" placeholder="Nombre Ayudante">
+      </div>
+      <div class="form-group">
+        <label for="cecTiaAyudanteCombustible">TIA (Ayudante):</label>
+        <input type="text" id="cecTiaAyudanteCombustible" class="form-control" value="<%= tiaAyudanteCombVal %>" placeholder="Ingrese No. de TIA Ayudante">
+      </div>
+      <div class="form-group">
+        <label for="cecNoUnidadCombustible">No. Unidad:</label>
+        <input type="text" id="cecNoUnidadCombustible" class="form-control" value="<%= noUnidadCombVal %>" placeholder="Ingrese el No. de Unidad">
+      </div>
+      <div class="form-group">
+        <label for="cecCombustibleEntrada">Llega:</label>
+        <div class="cp-time-row">
+          <input type="time" id="cecCombustibleEntrada" class="form-control" value="<%= combEntradaVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="cecCombustibleEntrada">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="cecCombustibleSalida">Sale:</label>
+        <div class="cp-time-row">
+          <input type="time" id="cecCombustibleSalida" class="form-control" value="<%= combSalidaVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="cecCombustibleSalida">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <h4 class="sio-subsection-title">Cocinas</h4>
+    <div class="sio-grid-auto-compact sio-mb-16">
+      <div class="form-group">
+        <label for="cecPilotoCocinas">Piloto</label>
+        <input type="text" id="cecPilotoCocinas" class="form-control" value="<%= pilotoCocVal %>" placeholder="Nombre Piloto">
+      </div>
+      <div class="form-group">
+        <label for="cecTiaPilotoCocinas">TIA (Piloto):</label>
+        <input type="text" id="cecTiaPilotoCocinas" class="form-control" value="<%= tiaPilotoCocVal %>" placeholder="Ingrese No. de TIA">
+      </div>
+      <div class="form-group">
+        <label for="cecAyudanteCocinas">Ayudante:</label>
+        <input type="text" id="cecAyudanteCocinas" class="form-control" value="<%= ayudanteCocVal %>" placeholder="Nombre Ayudante">
+      </div>
+      <div class="form-group">
+        <label for="cecTiaAyudanteCocinas">TIA (Ayudante):</label>
+        <input type="text" id="cecTiaAyudanteCocinas" class="form-control" value="<%= tiaAyudanteCocVal %>" placeholder="Ingrese No. de TIA">
+      </div>
+      <div class="form-group">
+        <label for="cecNoUnidadCocinas">No. Unidad:</label>
+        <input type="text" id="cecNoUnidadCocinas" class="form-control" value="<%= noUnidadCocVal %>" placeholder="Ingrese No. de Unidad">
+      </div>
+      <div class="form-group">
+        <label for="cecCocinasEntrada">Llega:</label>
+        <div class="cp-time-row">
+          <input type="time" id="cecCocinasEntrada" class="form-control" value="<%= cocEntradaVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="cecCocinasEntrada">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="cecCocinasSalida">Sale:</label>
+        <div class="cp-time-row">
+          <input type="time" id="cecCocinasSalida" class="form-control" value="<%= cocSalidaVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="cecCocinasSalida">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="cecOperadoresRampa"><i class="fas fa-users-cog"></i> Operadores en RAMPA (Nombres separados por coma)</label>
+      <input type="text" id="cecOperadoresRampa" class="form-control" value="<%= operadoresRampaVal %>" placeholder="Ej: CARLOS PEREZ, MARIO LOPEZ">
+    </div>
+  </div>
+
+  <!-- 3. DESEMBARQUE (Orden Exacto Power Apps grpDesembarque Y:3439..5167) -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="cp-section-title"><i class="fas fa-dolly-flatbed"></i> 2. <%= isDeltaCEC ? 'Desembarque (DELTA)' : 'DESEMBARQUE y Equipajes Dañados Llegando' %></h3>
+    </div>
+
+    <div class="sio-grid-auto-compact">
+      <div class="form-group">
+        <label for="cecVueloDesembarque"><i class="fas fa-plane-arrival"></i> No. Vuelo (Desembarque) <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
         <input type="text" id="cecVueloDesembarque" class="form-control input-locked" value="<%= vueloDesembarqueVal %>" readonly tabindex="-1">
       </div>
-      <% } %>
+
       <div class="form-group">
-        <label for="cecDesembarqueInicio"><i class="far fa-clock"></i> Hora Inicio Desembarque</label>
+        <label for="cecDesembarqueInicio"><i class="far fa-clock"></i> Inicio Desembarque:</label>
         <div class="cp-time-row">
           <input type="time" id="cecDesembarqueInicio" class="form-control" value="<%= desembarqueInicioVal %>">
           <button type="button" class="cp-clock-btn" data-clock-target="cecDesembarqueInicio">
@@ -349,7 +334,41 @@
       </div>
 
       <div class="form-group">
-        <label for="cecDesembarqueFinal"><i class="far fa-clock"></i> Hora Final Desembarque</label>
+        <label for="cecEquipaje">Equipajes:</label>
+        <input type="number" id="cecEquipaje" class="form-control" min="0" step="1" inputmode="numeric" value="<%= equipajeVal %>" placeholder="Ingrese Cantidad">
+      </div>
+
+      <div class="form-group">
+        <label for="cecCarruajes">Carruajes:</label>
+        <input type="number" id="cecCarruajes" class="form-control" min="0" step="1" inputmode="numeric" value="<%= carruajesVal %>" placeholder="Ingrese Cantidad">
+      </div>
+
+      <% if (!isDeltaCEC) { %>
+      <div class="form-group">
+        <label for="cecCorreos">Correos:</label>
+        <input type="number" id="cecCorreos" class="form-control" min="0" step="1" inputmode="numeric" value="<%= correosVal %>" placeholder="Ingrese Cantidad">
+      </div>
+      <% } %>
+
+      <div class="form-group">
+        <label for="cecCarga">Carga:</label>
+        <input type="number" id="cecCarga" class="form-control" min="0" step="1" inputmode="numeric" value="<%= cargaVal %>" placeholder="Ingrese Cantidad">
+      </div>
+
+      <% if (!isDeltaCEC) { %>
+      <div class="form-group">
+        <label for="cecCantidadSinEtiqueta">Dañados — Sin Etiqueta y sin Firma:</label>
+        <input type="number" id="cecCantidadSinEtiqueta" class="form-control" min="0" step="1" inputmode="numeric" value="<%= cantSinEtiqVal %>" placeholder="Ingrese Cantidad">
+      </div>
+
+      <div class="form-group">
+        <label for="cecCantidadConEtiqueta">Dañados — Con Etiqueta y Firma:</label>
+        <input type="number" id="cecCantidadConEtiqueta" class="form-control" min="0" step="1" inputmode="numeric" value="<%= cantConEtiqVal %>" placeholder="Ingrese Cantidad">
+      </div>
+      <% } %>
+
+      <div class="form-group">
+        <label for="cecDesembarqueFinal"><i class="far fa-clock"></i> Fin Desembarque:</label>
         <div class="cp-time-row">
           <input type="time" id="cecDesembarqueFinal" class="form-control" value="<%= desembarqueFinalVal %>">
           <button type="button" class="cp-clock-btn" data-clock-target="cecDesembarqueFinal">
@@ -357,142 +376,152 @@
           </button>
         </div>
       </div>
-
-      <div class="form-group">
-        <label for="cecEquipaje">Equipajes Desembarcados</label>
-        <input type="number" id="cecEquipaje" class="form-control" min="0" step="1" value="<%= equipajeVal %>" placeholder="0">
-      </div>
-
-      <div class="form-group">
-        <label for="cecCarruajes">Carruajes</label>
-        <input type="number" id="cecCarruajes" class="form-control" min="0" step="1" value="<%= carruajesVal %>" placeholder="0">
-      </div>
-
-      <% if (!isDeltaCEC) { %>
-      <div class="form-group">
-        <label for="cecCorreos">Correos</label>
-        <input type="number" id="cecCorreos" class="form-control" min="0" step="1" value="<%= correosVal %>" placeholder="0">
-      </div>
-      <% } %>
-
-      <div class="form-group">
-        <label for="cecCarga">Carga</label>
-        <input type="number" id="cecCarga" class="form-control" min="0" step="1" value="<%= cargaVal %>" placeholder="0">
-      </div>
-
-      <% if (!isDeltaCEC) { %>
-      <div class="form-group">
-        <label for="cecCantidadSinEtiqueta">Maltratado SIN Etiqueta Limited Release</label>
-        <input type="number" id="cecCantidadSinEtiqueta" class="form-control" min="0" step="1" value="<%= cantSinEtiqVal %>" placeholder="0">
-      </div>
-
-      <div class="form-group">
-        <label for="cecCantidadConEtiqueta">Maltratado CON Etiqueta Limited Release</label>
-        <input type="number" id="cecCantidadConEtiqueta" class="form-control" min="0" step="1" value="<%= cantConEtiqVal %>" placeholder="0">
-      </div>
-      <% } %>
     </div>
   </div>
 
-  <!-- 4. PERSONAL EN PLATAFORMA (OIRSA, COMBUSTIBLE, COCINAS, OPERADORES EN RAMPA) -->
+  <!-- 4. EMBARQUE (Orden Exacto Power Apps grpEmbarque Y:5231..6391) -->
+  <div class="card sio-card-accent" id="cecCardMatriz">
+    <div class="card-header sio-card-header-flex">
+      <div>
+        <h3 class="cp-section-title">
+          <i class="fas fa-th"></i> 3. EMBARQUE — <%= isDeltaCEC ? 'Control de Equipaje y Carga Embarcada (DELTA)' : 'Matriz de Equipajes en Compartimento' %>
+        </h3>
+        <small class="sio-hint-text">
+          <%= isDeltaCEC ? 'Registre los horarios y totales de Equipaje Mostrador, Equipaje por Puerta y Carga de Embarque.' : 'Ingrese la secuencia del equipaje embarcado. Toque una celda registrada para seleccionarla y poder retirarla o anularla (✗).' %>
+        </small>
+      </div>
+
+      <div class="er-total-counter-badge">
+        <span>Total Equipaje Embarcado:</span>
+        <strong id="cecTotalEmbarqueCount"><%= isDeltaCEC ? ((Number(eqMostradorVal) || 0) + (Number(eqPuertaDeltaVal) || 0)) : 0 %></strong>
+      </div>
+    </div>
+
+    <div class="sio-grid-auto sio-mb-14">
+      <div class="form-group">
+        <label for="cecVueloEmbarque"><i class="fas fa-plane-departure"></i> No. Vuelo (Embarque) <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <input type="text" id="cecVueloEmbarque" class="form-control input-locked" value="<%= vueloEmbarqueVal %>" readonly tabindex="-1">
+      </div>
+
+      <div class="form-group">
+        <label for="cecEmbarqueInicio"><i class="far fa-clock"></i> Inicio Embarque:</label>
+        <div class="cp-time-row">
+          <input type="time" id="cecEmbarqueInicio" class="form-control" value="<%= embarqueInicioVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="cecEmbarqueInicio">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <% if (!isDeltaCEC) { %>
+    <!-- Barra de captura de secuencia -->
+    <div class="sio-inline-bar sio-inline-bar-box">
+      <div class="form-group">
+        <label for="cecInputSecuencia"><i class="fas fa-barcode"></i> Secuencia: <span class="sio-required-star">*</span></label>
+        <input type="number" id="cecInputSecuencia" class="form-control" min="1" step="1" inputmode="numeric" placeholder="Ingrese Secuencia (Enter para agregar)">
+      </div>
+
+      <button type="button" id="btnAgregarSecuenciaCEC" class="btn btn-primary sio-btn-bar">
+        <i class="fas fa-plus-circle"></i> Agregar Maleta
+      </button>
+
+      <button type="button" id="btnBorrarUltimoCEC" class="btn btn-secondary sio-btn-bar">
+        <i class="fas fa-undo"></i> Borrar Último
+      </button>
+
+      <button type="button" id="btnRetirarMaletaCEC" class="btn btn-secondary sio-btn-bar sio-btn-danger-outline">
+        <i class="fas fa-times-circle"></i> Retirar / Anular Maleta (✗)
+      </button>
+    </div>
+
+    <div id="cecMatrizSelectionBar" class="sio-mx-selection-bar" role="status" aria-live="polite"></div>
+
+    <!-- Cuadrícula 10 columnas A..J (compacta completa en móvil) -->
+    <div class="sio-baggage-matrix-wrap">
+      <table class="sio-baggage-matrix-table" id="cecTablaMatriz">
+        <thead>
+          <tr>
+            <th class="sio-mx-th-row"><span class="sio-mx-th-full">FILA</span><span class="sio-mx-th-short">#</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">A</span><span class="sio-mx-col-num">(1)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">B</span><span class="sio-mx-col-num">(2)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">C</span><span class="sio-mx-col-num">(3)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">D</span><span class="sio-mx-col-num">(4)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">E</span><span class="sio-mx-col-num">(5)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">F</span><span class="sio-mx-col-num">(6)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">G</span><span class="sio-mx-col-num">(7)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">H</span><span class="sio-mx-col-num">(8)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">I</span><span class="sio-mx-col-num">(9)</span></th>
+            <th class="sio-mx-th-col"><span class="sio-mx-col-letter">J</span><span class="sio-mx-col-num">(10)</span></th>
+          </tr>
+        </thead>
+        <tbody id="cecTbodyMatriz">
+          <!-- Renderizado dinámico por public/js/baggage-matrix.js -->
+        </tbody>
+      </table>
+    </div>
+    <% } else { %>
+      <div class="sio-panel-box">
+        <div class="sio-grid-auto-compact">
+          <div class="form-group">
+            <label for="cecEquipajeMostrador">Equipaje Mostrador</label>
+            <input type="number" id="cecEquipajeMostrador" class="form-control" min="0" step="1" inputmode="numeric" value="<%= eqMostradorVal %>" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label for="cecEquipajePuerta">Equipaje por Puerta</label>
+            <input type="number" id="cecEquipajePuerta" class="form-control" min="0" step="1" inputmode="numeric" value="<%= eqPuertaDeltaVal %>" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label for="cecCargaEmbarqueDelta">Carga (Embarque)</label>
+            <input type="number" id="cecCargaEmbarqueDelta" class="form-control" min="0" step="1" inputmode="numeric" value="<%= cargaEmbarqueDeltaVal %>" placeholder="0">
+          </div>
+        </div>
+      </div>
+    <% } %>
+
+    <div class="sio-grid-auto sio-mt-16">
+      <div class="form-group">
+        <label for="cecEmbarqueFinal"><i class="far fa-clock"></i> Fin Embarque:</label>
+        <div class="cp-time-row">
+          <input type="time" id="cecEmbarqueFinal" class="form-control" value="<%= embarqueFinalVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="cecEmbarqueFinal">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. CIERRE DE COMPARTIMENTO Y OBSERVACIONES (Orden Exacto Power Apps Y:6489..6621) -->
   <div class="card">
     <div class="card-header">
-      <h3 class="cp-section-title"><i class="fas fa-hard-hat"></i> 3. Personal de Apoyo en Plataforma y Observaciones</h3>
+      <h3 class="cp-section-title"><i class="fas fa-door-closed"></i> 4. Cierre de Compartimento y Observaciones</h3>
     </div>
 
-    <h4 style="font-size: 12px; color: var(--brand-deep); margin: 4px 0 10px 0; text-transform: uppercase;">OIRSA</h4>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 16px;">
+    <div class="sio-grid-auto sio-mb-14">
       <div class="form-group">
-        <label for="cecNombreOirsa">Nombre OIRSA</label>
-        <input type="text" id="cecNombreOirsa" class="form-control" value="<%= nombreOirsaVal %>" placeholder="Nombre de inspector OIRSA">
+        <label for="cecCompCerrado"><i class="fas fa-door-closed"></i> COMP. Cerrado:</label>
+        <div class="cp-time-row">
+          <input type="time" id="cecCompCerrado" class="form-control" value="<%= compCerradoVal %>">
+          <button type="button" class="cp-clock-btn" data-clock-target="cecCompCerrado">
+            <i class="far fa-clock"></i> Ahora
+          </button>
+        </div>
       </div>
-      <div class="form-group">
-        <label for="cecTiaOirsa">No. TIA OIRSA</label>
-        <input type="text" id="cecTiaOirsa" class="form-control" value="<%= tiaOirsaVal %>" placeholder="No. TIA">
-      </div>
-    </div>
-
-    <h4 style="font-size: 12px; color: var(--brand-deep); margin: 4px 0 10px 0; text-transform: uppercase;">Combustible</h4>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 16px;">
-      <div class="form-group">
-        <label for="cecPilotoCombustible">Piloto Combustible</label>
-        <input type="text" id="cecPilotoCombustible" class="form-control" value="<%= pilotoCombVal %>">
-      </div>
-      <div class="form-group">
-        <label for="cecTiaPilotoCombustible">TIA Piloto Combustible</label>
-        <input type="text" id="cecTiaPilotoCombustible" class="form-control" value="<%= tiaPilotoCombVal %>">
-      </div>
-      <div class="form-group">
-        <label for="cecAyudanteCombustible">Ayudante Combustible</label>
-        <input type="text" id="cecAyudanteCombustible" class="form-control" value="<%= ayudanteCombVal %>">
-      </div>
-      <div class="form-group">
-        <label for="cecTiaAyudanteCombustible">TIA Ayudante Combustible</label>
-        <input type="text" id="cecTiaAyudanteCombustible" class="form-control" value="<%= tiaAyudanteCombVal %>">
-      </div>
-      <div class="form-group">
-        <label for="cecNoUnidadCombustible">No. Unidad Combustible</label>
-        <input type="text" id="cecNoUnidadCombustible" class="form-control" value="<%= noUnidadCombVal %>">
-      </div>
-      <div class="form-group">
-        <label for="cecCombustibleEntrada">Hora Entrada Comb.</label>
-        <input type="time" id="cecCombustibleEntrada" class="form-control" value="<%= combEntradaVal %>">
-      </div>
-      <div class="form-group">
-        <label for="cecCombustibleSalida">Hora Salida Comb.</label>
-        <input type="time" id="cecCombustibleSalida" class="form-control" value="<%= combSalidaVal %>">
-      </div>
-    </div>
-
-    <h4 style="font-size: 12px; color: var(--brand-deep); margin: 4px 0 10px 0; text-transform: uppercase;">Cocinas (Catering)</h4>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 16px;">
-      <div class="form-group">
-        <label for="cecPilotoCocinas">Piloto Cocinas</label>
-        <input type="text" id="cecPilotoCocinas" class="form-control" value="<%= pilotoCocVal %>">
-      </div>
-      <div class="form-group">
-        <label for="cecTiaPilotoCocinas">TIA Piloto Cocinas</label>
-        <input type="text" id="cecTiaPilotoCocinas" class="form-control" value="<%= tiaPilotoCocVal %>">
-      </div>
-      <div class="form-group">
-        <label for="cecAyudanteCocinas">Ayudante Cocinas</label>
-        <input type="text" id="cecAyudanteCocinas" class="form-control" value="<%= ayudanteCocVal %>">
-      </div>
-      <div class="form-group">
-        <label for="cecTiaAyudanteCocinas">TIA Ayudante Cocinas</label>
-        <input type="text" id="cecTiaAyudanteCocinas" class="form-control" value="<%= tiaAyudanteCocVal %>">
-      </div>
-      <div class="form-group">
-        <label for="cecNoUnidadCocinas">No. Unidad Cocinas</label>
-        <input type="text" id="cecNoUnidadCocinas" class="form-control" value="<%= noUnidadCocVal %>">
-      </div>
-      <div class="form-group">
-        <label for="cecCocinasEntrada">Hora Entrada Cocinas</label>
-        <input type="time" id="cecCocinasEntrada" class="form-control" value="<%= cocEntradaVal %>">
-      </div>
-      <div class="form-group">
-        <label for="cecCocinasSalida">Hora Salida Cocinas</label>
-        <input type="time" id="cecCocinasSalida" class="form-control" value="<%= cocSalidaVal %>">
-      </div>
-    </div>
-
-    <div class="form-group" style="margin-bottom: 14px;">
-      <label for="cecOperadoresRampa"><i class="fas fa-users-cog"></i> Operadores en Rampa (Nombres separados por coma)</label>
-      <input type="text" id="cecOperadoresRampa" class="form-control" value="<%= operadoresRampaVal %>" placeholder="Ej: CARLOS PEREZ, MARIO LOPEZ">
     </div>
 
     <div class="form-group">
-      <label for="cecObservaciones"><i class="fas fa-comment-alt"></i> Observaciones Generales</label>
-      <textarea id="cecObservaciones" class="form-control" rows="3" maxlength="2000" placeholder="Ingrese observaciones de compartimento..."><%= observacionVal %></textarea>
+      <label for="cecObservaciones"><i class="fas fa-comment-alt"></i> Observaciones:</label>
+      <textarea id="cecObservaciones" class="form-control" rows="3" maxlength="2000" placeholder="Observaciones:"><%= observacionVal %></textarea>
     </div>
   </div>
 
-  <!-- 5. BOTONES DE ACCIÓN -->
-  <div style="display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 14px; margin-bottom: 40px;">
-    <button type="button" id="btnVistaPreliminarCEC" class="btn btn-secondary" style="padding: 12px 24px;">
+  <!-- 6. BOTONES DE ACCIÓN -->
+  <div class="sio-bottom-actions">
+    <button type="button" id="btnVistaPreliminarCEC" class="btn btn-secondary sio-btn-action">
       <i class="fas fa-eye"></i> Vista Preliminar (Formato Oficial <%= vuelo.operador %>)
     </button>
-    <button type="button" id="btnGuardarDefinitivoCEC" class="btn btn-primary" style="padding: 12px 28px;">
+    <button type="button" id="btnGuardarDefinitivoCEC" class="btn btn-primary sio-btn-action-primary">
       <i class="fas fa-save"></i> <%= esNuevo ? 'Guardar Formato Definitivo' : 'Actualizar Formato Definitivo' %>
     </button>
   </div>

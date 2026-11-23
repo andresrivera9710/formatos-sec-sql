@@ -48,13 +48,13 @@
 
   <!-- 1. CABECERA DEL FORMATO (EquipajeMalEstadoAMX) -->
   <div class="card">
-    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+    <div class="card-header sio-card-header-flex">
       <h3 class="cp-section-title">
         <i class="fas fa-suitcase-rolling"></i> Datos Generales — Equipajes en Mal Estado y Carga Dañada
       </h3>
-      <div style="display: flex; align-items: center; gap: 10px;">
+      <div class="sio-card-header-meta">
         <% if (!esNuevo && encabezadoId) { %>
-          <a href="/formatos/<%= encodeURIComponent(formato.id) %>?nuevo=1" class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;">
+          <a href="/formatos/<%= encodeURIComponent(formato.id) %>?nuevo=1" class="btn btn-secondary sio-btn-sm">
             <i class="fas fa-plus-circle"></i> Crear Nuevo Registro
           </a>
         <% } %>
@@ -64,7 +64,7 @@
       </div>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+    <div class="sio-grid-auto">
       <div class="form-group">
         <label for="mecdFecha"><i class="far fa-calendar-alt"></i> Fecha <i class="fas fa-lock input-lock-icon" title="Fecha vinculada al itinerario (Solo lectura)"></i></label>
         <input type="date" id="mecdFecha" class="form-control input-locked" value="<%= fechaInicial %>" readonly tabindex="-1" required>
@@ -76,7 +76,7 @@
       </div>
 
       <div class="form-group">
-        <label for="mecdCCO"><i class="fas fa-headset"></i> Representante CCO / Operaciones <span style="color: var(--danger);">*</span></label>
+        <label for="mecdCCO"><i class="fas fa-headset"></i> Representante CCO / Operaciones <span class="sio-required-star">*</span></label>
         <select id="mecdCCO" class="form-control" required>
           <option value="">-- Seleccione CCO --</option>
           <% (usuariosLogin || []).forEach(u => { %>
@@ -90,7 +90,7 @@
       </div>
 
       <div class="form-group">
-        <label for="mecdAgente"><i class="fas fa-user-shield"></i> Agente de Seguridad <span style="color: var(--danger);">*</span></label>
+        <label for="mecdAgente"><i class="fas fa-user-shield"></i> Agente de Seguridad <span class="sio-required-star">*</span></label>
         <select id="mecdAgente" class="form-control" required>
           <option value="">-- Seleccione Agente SEC --</option>
           <% (usuariosSEC || []).forEach(u => { %>
@@ -104,7 +104,7 @@
       </div>
 
       <div class="form-group">
-        <label for="mecdSupervisor"><i class="fas fa-user-tie"></i> Supervisor de Seguridad <span style="color: var(--danger);">*</span></label>
+        <label for="mecdSupervisor"><i class="fas fa-user-tie"></i> Supervisor de Seguridad <span class="sio-required-star">*</span></label>
         <select id="mecdSupervisor" class="form-control" required>
           <option value="">-- Seleccione Supervisor SEC --</option>
           <% (supervisores || []).forEach(sup => { %>
@@ -120,24 +120,24 @@
   </div>
 
   <!-- 2. SECCIÓN A: EQUIPAJE EN REVISIÓN AVSEC (Control + Colilla) -->
-  <div class="card" style="border-top: 3px solid var(--brand);" id="mecdCardSecciones">
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+  <div class="card sio-card-accent" id="mecdCardSecciones">
+    <div class="card-header sio-card-header-flex">
       <h3 class="cp-section-title">
         <i class="fas fa-search"></i> 1. Equipaje en Revisión (No. de Control y No. de Colilla)
       </h3>
       <span class="badge badge-gold" id="mecdCountRevBadge">0 registros</span>
     </div>
 
-    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-bottom: 14px;">
-      <div class="form-group" style="margin-bottom: 0; min-width: 180px; flex: 1;">
-        <label for="mecdInputRevControl">No. de Control / Secuencia <span style="color: var(--danger);">*</span></label>
+    <div class="sio-inline-bar">
+      <div class="form-group">
+        <label for="mecdInputRevControl">No. de Control / Secuencia <span class="sio-required-star">*</span></label>
         <input type="number" id="mecdInputRevControl" class="form-control" min="1" step="1" placeholder="Ej: 24">
       </div>
-      <div class="form-group" style="margin-bottom: 0; min-width: 220px; flex: 1;">
-        <label for="mecdInputRevColilla">No. de Colilla / Marbete <span style="color: var(--danger);">*</span></label>
+      <div class="form-group">
+        <label for="mecdInputRevColilla">No. de Colilla / Marbete <span class="sio-required-star">*</span></label>
         <input type="text" id="mecdInputRevColilla" class="form-control" placeholder="Ej: 0139485712">
       </div>
-      <button type="button" id="btnAgregarRevMECD" class="btn btn-primary" style="height: 38px;">
+      <button type="button" id="btnAgregarRevMECD" class="btn btn-primary sio-btn-bar">
         <i class="fas fa-plus-circle"></i> Agregar a Revisión
       </button>
     </div>
@@ -146,10 +146,10 @@
       <table class="er-fluid-table" id="mecdTablaRev">
         <thead>
           <tr>
-            <th style="width: 60px; text-align: center;">NO.</th>
+            <th class="sio-th-no">NO.</th>
             <th>NO. DE CONTROL <span class="er-req-star">*</span></th>
             <th>NO. DE COLILLA <span class="er-req-star">*</span></th>
-            <th style="width: 75px; text-align: center;">ACCIÓN</th>
+            <th class="sio-th-action">ACCIÓN</th>
           </tr>
         </thead>
         <tbody id="mecdTbodyRev"></tbody>
@@ -159,31 +159,31 @@
 
   <!-- 3. SECCIÓN B: MALETA CON FIRMA DESDE MOSTRADOR -->
   <div class="card">
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+    <div class="card-header sio-card-header-flex">
       <h3 class="cp-section-title">
         <i class="fas fa-file-signature"></i> 2. Maleta CON Firma desde Mostrador (Limited Release)
       </h3>
       <span class="badge badge-gold" id="mecdCountCFBadge">0 registros</span>
     </div>
 
-    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-bottom: 14px;">
-      <div class="form-group" style="margin-bottom: 0; min-width: 220px; flex: 2;">
-        <label for="mecdInputCFPasajero">Nombre del Pasajero <span style="color: var(--danger);">*</span></label>
+    <div class="sio-inline-bar">
+      <div class="form-group sio-flex-2">
+        <label for="mecdInputCFPasajero">Nombre del Pasajero <span class="sio-required-star">*</span></label>
         <input type="text" id="mecdInputCFPasajero" class="form-control" placeholder="Ej: ANA MARÍA GÓMEZ">
       </div>
-      <div class="form-group" style="margin-bottom: 0; min-width: 170px; flex: 1;">
-        <label for="mecdInputCFColilla">No. de Colilla <span style="color: var(--danger);">*</span></label>
+      <div class="form-group">
+        <label for="mecdInputCFColilla">No. de Colilla <span class="sio-required-star">*</span></label>
         <input type="text" id="mecdInputCFColilla" class="form-control" placeholder="Ej: 0139887766">
       </div>
-      <div class="form-group" style="margin-bottom: 0; min-width: 140px; flex: 1;">
-        <label for="mecdInputCFControl">No. de Control <span style="color: var(--danger);">*</span></label>
+      <div class="form-group">
+        <label for="mecdInputCFControl">No. de Control <span class="sio-required-star">*</span></label>
         <input type="number" id="mecdInputCFControl" class="form-control" min="1" step="1" placeholder="Ej: 31">
       </div>
-      <div class="form-group" style="margin-bottom: 0; min-width: 130px; flex: 1;">
+      <div class="form-group">
         <label for="mecdInputCFDestino">Destino</label>
         <input type="text" id="mecdInputCFDestino" class="form-control" value="<%= destinoDefault %>">
       </div>
-      <button type="button" id="btnAgregarCFMECD" class="btn btn-primary" style="height: 38px;">
+      <button type="button" id="btnAgregarCFMECD" class="btn btn-primary sio-btn-bar">
         <i class="fas fa-plus-circle"></i> Agregar Con Firma
       </button>
     </div>
@@ -192,12 +192,12 @@
       <table class="er-fluid-table" id="mecdTablaCF">
         <thead>
           <tr>
-            <th style="width: 55px; text-align: center;">NO.</th>
+            <th class="sio-th-no">NO.</th>
             <th>NOMBRE DEL PASAJERO <span class="er-req-star">*</span></th>
             <th>NO. DE COLILLA <span class="er-req-star">*</span></th>
             <th>NO. DE CONTROL <span class="er-req-star">*</span></th>
             <th>DESTINO</th>
-            <th style="width: 75px; text-align: center;">ACCIÓN</th>
+            <th class="sio-th-action">ACCIÓN</th>
           </tr>
         </thead>
         <tbody id="mecdTbodyCF"></tbody>
@@ -207,31 +207,31 @@
 
   <!-- 4. SECCIÓN C: MALETA DAÑADA EN TOBOGÁN SIN FIRMA -->
   <div class="card">
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+    <div class="card-header sio-card-header-flex">
       <h3 class="cp-section-title">
         <i class="fas fa-suitcase"></i> 3. Maleta Dañada en Tobogán SIN Firma
       </h3>
       <span class="badge badge-gold" id="mecdCountSFBadge">0 registros</span>
     </div>
 
-    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-bottom: 14px;">
-      <div class="form-group" style="margin-bottom: 0; min-width: 220px; flex: 2;">
-        <label for="mecdInputSFPasajero">Nombre del Pasajero <span style="color: var(--danger);">*</span></label>
+    <div class="sio-inline-bar">
+      <div class="form-group sio-flex-2">
+        <label for="mecdInputSFPasajero">Nombre del Pasajero <span class="sio-required-star">*</span></label>
         <input type="text" id="mecdInputSFPasajero" class="form-control" placeholder="Ej: ROBERTO DÍAZ">
       </div>
-      <div class="form-group" style="margin-bottom: 0; min-width: 170px; flex: 1;">
-        <label for="mecdInputSFColilla">No. de Colilla <span style="color: var(--danger);">*</span></label>
+      <div class="form-group">
+        <label for="mecdInputSFColilla">No. de Colilla <span class="sio-required-star">*</span></label>
         <input type="text" id="mecdInputSFColilla" class="form-control" placeholder="Ej: 0139554433">
       </div>
-      <div class="form-group" style="margin-bottom: 0; min-width: 140px; flex: 1;">
-        <label for="mecdInputSFControl">No. de Control <span style="color: var(--danger);">*</span></label>
+      <div class="form-group">
+        <label for="mecdInputSFControl">No. de Control <span class="sio-required-star">*</span></label>
         <input type="number" id="mecdInputSFControl" class="form-control" min="1" step="1" placeholder="Ej: 49">
       </div>
-      <div class="form-group" style="margin-bottom: 0; min-width: 130px; flex: 1;">
+      <div class="form-group">
         <label for="mecdInputSFDestino">Destino</label>
         <input type="text" id="mecdInputSFDestino" class="form-control" value="<%= destinoDefault %>">
       </div>
-      <button type="button" id="btnAgregarSFMECD" class="btn btn-primary" style="height: 38px;">
+      <button type="button" id="btnAgregarSFMECD" class="btn btn-primary sio-btn-bar">
         <i class="fas fa-plus-circle"></i> Agregar Sin Firma
       </button>
     </div>
@@ -240,12 +240,12 @@
       <table class="er-fluid-table" id="mecdTablaSF">
         <thead>
           <tr>
-            <th style="width: 55px; text-align: center;">NO.</th>
+            <th class="sio-th-no">NO.</th>
             <th>NOMBRE DEL PASAJERO <span class="er-req-star">*</span></th>
             <th>NO. DE COLILLA <span class="er-req-star">*</span></th>
             <th>NO. DE CONTROL <span class="er-req-star">*</span></th>
             <th>DESTINO</th>
-            <th style="width: 75px; text-align: center;">ACCIÓN</th>
+            <th class="sio-th-action">ACCIÓN</th>
           </tr>
         </thead>
         <tbody id="mecdTbodySF"></tbody>
@@ -259,11 +259,11 @@
       <h3 class="cp-section-title"><i class="fas fa-pen-nib"></i> Firmas Digitales para el Documento Controlado (Opcional en edición)</h3>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px;">
+    <div class="sio-grid-auto-lg">
       <div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-          <label style="font-size: 12px; font-weight: 700;">Firma Representante CCO</label>
-          <button type="button" class="btn btn-secondary" data-clear-canvas="mecdCanvasFirmaCCO" style="padding: 3px 8px; font-size: 10px;">Limpiar</button>
+        <div class="sio-sig-header">
+          <label class="sio-sig-label">Firma Representante CCO</label>
+          <button type="button" class="btn btn-secondary sio-btn-xs" data-clear-canvas="mecdCanvasFirmaCCO">Limpiar</button>
         </div>
         <div class="signature-box">
           <canvas id="mecdCanvasFirmaCCO"></canvas>
@@ -271,9 +271,9 @@
       </div>
 
       <div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-          <label style="font-size: 12px; font-weight: 700;">Firma Agente de Seguridad</label>
-          <button type="button" class="btn btn-secondary" data-clear-canvas="mecdCanvasFirmaAgente" style="padding: 3px 8px; font-size: 10px;">Limpiar</button>
+        <div class="sio-sig-header">
+          <label class="sio-sig-label">Firma Agente de Seguridad</label>
+          <button type="button" class="btn btn-secondary sio-btn-xs" data-clear-canvas="mecdCanvasFirmaAgente">Limpiar</button>
         </div>
         <div class="signature-box">
           <canvas id="mecdCanvasFirmaAgente"></canvas>
@@ -281,9 +281,9 @@
       </div>
 
       <div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-          <label style="font-size: 12px; font-weight: 700;">Firma Supervisor SEC</label>
-          <button type="button" class="btn btn-secondary" data-clear-canvas="mecdCanvasFirmaSupervisor" style="padding: 3px 8px; font-size: 10px;">Limpiar</button>
+        <div class="sio-sig-header">
+          <label class="sio-sig-label">Firma Supervisor SEC</label>
+          <button type="button" class="btn btn-secondary sio-btn-xs" data-clear-canvas="mecdCanvasFirmaSupervisor">Limpiar</button>
         </div>
         <div class="signature-box">
           <canvas id="mecdCanvasFirmaSupervisor"></canvas>
@@ -293,11 +293,11 @@
   </div>
 
   <!-- 6. BOTONES DE ACCIÓN -->
-  <div style="display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 14px; margin-bottom: 40px;">
-    <button type="button" id="btnVistaPreliminarMECD" class="btn btn-secondary" style="padding: 12px 24px;">
+  <div class="sio-bottom-actions">
+    <button type="button" id="btnVistaPreliminarMECD" class="btn btn-secondary sio-btn-action">
       <i class="fas fa-eye"></i> Vista Preliminar (Formato Oficial AMX)
     </button>
-    <button type="button" id="btnGuardarDefinitivoMECD" class="btn btn-primary" style="padding: 12px 28px;">
+    <button type="button" id="btnGuardarDefinitivoMECD" class="btn btn-primary sio-btn-action-primary">
       <i class="fas fa-save"></i> <%= esNuevo ? 'Guardar Formato Definitivo' : 'Actualizar Formato Definitivo' %>
     </button>
   </div>

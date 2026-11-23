@@ -836,6 +836,78 @@ class FormatosModel {
   }
 
   /**
+   * Aplica Soft Delete (EstaEliminado = 1) parametrizado sobre una secuencia individual
+   * de una matriz ya persistida en Azure SQL (ControlEB o ControlCEC).
+   * Cumple estrictamente Anti-IDOR + prohibición de DELETE físico.
+   */
+  static async anularSecuenciaMatrizSoftDelete({
+    family,
+    itinerarioId,
+    encabezadoId,
+    detalleId
+  }) {
+    const fam = String(family || '').trim().toLowerCase();
+    const encId = parseInt(encabezadoId, 10) || 0;
+    const detId = parseInt(detalleId, 10) || 0;
+    const itiId = parseInt(itinerarioId, 10) || 0;
+
+    if (encId <= 0 || detId <= 0 || itiId <= 0) {
+      const badErr = new Error('Parámetros inválidos para anular secuencia en matriz.');
+      badErr.statusCode = 400;
+      throw badErr;
+    }
+
+    const tableMap = {
+      eb: {
+        detailTable: 'dbo.DetalleControlEB',
+        pkCol: 'DetalleControlEBId',
+        fkCol: 'EncabezadoControlEB'
+      },
+      cec: {
+        detailTable: 'dbo.DetalleCECDesp',
+        pkCol: 'DetalleCECDespId',
+        fkCol: 'EncabezadoCECId'
+      }
+    };
+
+    const cfg = tableMap[fam];
+    if (!cfg) {
+      const famErr = new Error(`Familia de matriz no soportada para anulación individual: ${fam}`);
+      famErr.statusCode = 400;
+      throw famErr;
+    }
+
+    const owner = await FormatosModel.verificarPropiedadFormato(fam, encId, itiId);
+    if (!owner) {
+      const idorErr = new Error(`Acceso denegado (Anti-IDOR): El encabezado #${encId} no pertenece a la operación activa.`);
+      idorErr.statusCode = 403;
+      throw idorErr;
+    }
+
+    const res = await executeQuery(
+      `
+        UPDATE ${cfg.detailTable}
+        SET EstaEliminado = 1
+        WHERE ${cfg.pkCol} = @detalleId
+          AND ${cfg.fkCol} = @encabezadoId
+          AND ISNULL(EstaEliminado, 0) = 0
+      `,
+      [
+        { name: 'detalleId', type: sql.Int, value: detId },
+        { name: 'encabezadoId', type: sql.Int, value: encId }
+      ]
+    );
+
+    const affectedRows = Array.isArray(res.rowsAffected) ? (res.rowsAffected[0] || 0) : 0;
+    return {
+      softDeleted: true,
+      affectedRows,
+      detalleId: detId,
+      encabezadoId: encId
+    };
+  }
+
+  /**
    * 2. Guarda/actualiza atómicamente "Control de Equipajes en Compartimentos" (CEC)
    */
   static async guardarControlCECTransaccional({

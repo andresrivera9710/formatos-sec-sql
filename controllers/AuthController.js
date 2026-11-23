@@ -4,12 +4,15 @@
  */
 
 const LoginModel = require('../models/LoginModel');
+const { setNoCacheHeaders } = require('../middlewares/auth');
 
 class AuthController {
   /**
    * Muestra la pantalla de inicio de sesión
    */
   static async renderLogin(req, res) {
+    setNoCacheHeaders(res);
+
     if (req.session && req.session.user) {
       return res.redirect('/operaciones');
     }
@@ -35,6 +38,7 @@ class AuthController {
    * Procesa la autenticación por PIN (AJAX o POST tradicional)
    */
   static async postLogin(req, res) {
+    setNoCacheHeaders(res);
     const { pin } = req.body;
     const isApiRequest = req.xhr || req.path.startsWith('/api') || (req.headers.accept && req.headers.accept.includes('application/json'));
 
@@ -78,6 +82,11 @@ class AuthController {
         departamentoNombre: datosEmpleado?.DepartamentoNombre || 'E8. SEGURIDAD AEROPORTUARIA'
       };
 
+      // Persistir explícitamente la sesión antes de responder para evitar condiciones de carrera en redirecciones
+      await new Promise((resolve, reject) => {
+        req.session.save((saveErr) => (saveErr ? reject(saveErr) : resolve()));
+      });
+
       if (isApiRequest) {
         return res.json({
           success: true,
@@ -97,13 +106,39 @@ class AuthController {
   }
 
   /**
-   * Cierra la sesión activa
+   * Verificación ligera de vigencia de sesión (usada tras restauraciones BFCache)
+   */
+  static sessionCheck(req, res) {
+    setNoCacheHeaders(res);
+    return res.json({
+      authenticated: Boolean(req.session && req.session.user)
+    });
+  }
+
+  /**
+   * Cierra la sesión activa con invalidación estricta de caché y cookie
    */
   static logout(req, res) {
+    setNoCacheHeaders(res);
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    const finalizeLogout = () => {
+      res.clearCookie('sio_session', {
+        path: '/',
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: isProduction
+      });
+      return res.redirect('/login');
+    };
+
+    if (!req.session) {
+      return finalizeLogout();
+    }
+
     req.session.destroy(err => {
       if (err) console.error('[LOGOUT ERROR]', err);
-      res.clearCookie('sio_session');
-      res.redirect('/login');
+      finalizeLogout();
     });
   }
 }

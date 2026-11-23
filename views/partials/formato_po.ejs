@@ -51,13 +51,13 @@
 
   <!-- 1. CABECERA DEL FORMATO (PuestosPorOperacionAMX) -->
   <div class="card">
-    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+    <div class="card-header sio-card-header-flex">
       <h3 class="cp-section-title">
         <i class="fas fa-users-cog"></i> Datos Generales — Puestos por Operación
       </h3>
-      <div style="display: flex; align-items: center; gap: 10px;">
+      <div class="sio-card-header-meta">
         <% if (!esNuevo && encabezadoId) { %>
-          <a href="/formatos/<%= encodeURIComponent(formato.id) %>?nuevo=1" class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;">
+          <a href="/formatos/<%= encodeURIComponent(formato.id) %>?nuevo=1" class="btn btn-secondary sio-btn-sm">
             <i class="fas fa-plus-circle"></i> Crear Nuevo Registro
           </a>
         <% } %>
@@ -67,7 +67,7 @@
       </div>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+    <div class="sio-grid-auto">
       <div class="form-group">
         <label for="poFecha"><i class="far fa-calendar-alt"></i> Fecha <i class="fas fa-lock input-lock-icon" title="Fecha vinculada al itinerario (Solo lectura)"></i></label>
         <input type="date" id="poFecha" class="form-control input-locked" value="<%= fechaInicial %>" readonly tabindex="-1" required>
@@ -84,7 +84,7 @@
       </div>
 
       <div class="form-group">
-        <label for="poSupervisor"><i class="fas fa-user-tie"></i> Supervisor de Seguridad (LoginSEC) <span style="color: var(--danger);">*</span></label>
+        <label for="poSupervisor"><i class="fas fa-user-tie"></i> Supervisor de Seguridad (LoginSEC) <span class="sio-required-star">*</span></label>
         <select id="poSupervisor" class="form-control" required>
           <option value="">-- Seleccione el Supervisor --</option>
           <% (supervisores || []).forEach(sup => { %>
@@ -100,13 +100,13 @@
   </div>
 
   <!-- 2. ASIGNACIÓN DE AGENTES Y POSICIONES (1..11) -->
-  <div class="card" style="border-top: 3px solid var(--brand);" id="poCardMatriz">
-    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+  <div class="card sio-card-accent" id="poCardMatriz">
+    <div class="card-header sio-card-header-flex">
       <div>
         <h3 class="cp-section-title">
           <i class="fas fa-th-list"></i> Matriz de Distribución de Puestos por Operación
         </h3>
-        <small style="color: var(--text-3); font-size: 11px;">
+        <small class="sio-hint-text">
           Seleccione al agente y su puesto operativo (o haga clic directamente sobre cualquier casilla 1..11 de la fila para cambiar su posición marcada con <strong>X</strong>).
         </small>
       </div>
@@ -117,9 +117,9 @@
       </div>
     </div>
 
-    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-bottom: 16px; background: var(--bg); padding: 14px; border-radius: 8px; border: 1px solid var(--border-2);">
-      <div class="form-group" style="margin-bottom: 0; min-width: 240px; flex: 2;">
-        <label for="poSelectAgente"><i class="fas fa-user-plus"></i> Agente de Seguridad <span style="color: var(--danger);">*</span></label>
+    <div class="sio-inline-bar sio-inline-bar-box">
+      <div class="form-group sio-flex-2">
+        <label for="poSelectAgente"><i class="fas fa-user-plus"></i> Agente de Seguridad <span class="sio-required-star">*</span></label>
         <select id="poSelectAgente" class="form-control">
           <option value="">-- Seleccione Agente SEC --</option>
           <% (usuariosSEC || []).forEach(u => { %>
@@ -131,8 +131,8 @@
         </select>
       </div>
 
-      <div class="form-group" style="margin-bottom: 0; min-width: 240px; flex: 2;">
-        <label for="poSelectPosicion"><i class="fas fa-map-signs"></i> Puesto Operativo Asignado <span style="color: var(--danger);">*</span></label>
+      <div class="form-group sio-flex-2">
+        <label for="poSelectPosicion"><i class="fas fa-map-signs"></i> Puesto Operativo Asignado <span class="sio-required-star">*</span></label>
         <select id="poSelectPosicion" class="form-control">
           <option value="">-- Seleccione Puesto (1..11) --</option>
           <% posicionesCatalog.forEach(p => { %>
@@ -141,25 +141,25 @@
         </select>
       </div>
 
-      <button type="button" id="btnAgregarAgentePO" class="btn btn-primary" style="height: 38px;">
+      <button type="button" id="btnAgregarAgentePO" class="btn btn-primary sio-btn-bar">
         <i class="fas fa-plus-circle"></i> Asignar Agente a la Matriz
       </button>
     </div>
 
     <!-- Tabla de 13 Columnas idéntica al Formato Oficial AMX -->
     <div class="er-fluid-grid-wrapper">
-      <table class="er-fluid-table" id="poTablaMatriz" style="font-size: 11px;">
+      <table class="er-fluid-table sio-table-compact" id="poTablaMatriz">
         <thead>
           <tr>
-            <th style="width: 45px; text-align: center;">No.</th>
-            <th style="min-width: 170px;">AGENTE DE SEGURIDAD <span class="er-req-star">*</span></th>
+            <th class="sio-th-no">No.</th>
+            <th>AGENTE DE SEGURIDAD <span class="er-req-star">*</span></th>
             <% posicionesCatalog.forEach(p => { %>
-              <th style="width: 68px; text-align: center; font-size: 9px; line-height: 1.15;" title="<%= p.Posicion %>">
-                <div style="color: var(--gold); font-weight: 800;">#<%= p.PosicionId %></div>
+              <th class="sio-th-pos" title="<%= p.Posicion %>">
+                <div class="sio-th-pos-num">#<%= p.PosicionId %></div>
                 <%= p.Posicion %>
               </th>
             <% }) %>
-            <th style="width: 60px; text-align: center;">ACCIÓN</th>
+            <th class="sio-th-action">ACCIÓN</th>
           </tr>
         </thead>
         <tbody id="poTbodyMatriz">
@@ -170,7 +170,7 @@
   </div>
 
   <!-- 3. OBSERVACIONES Y FIRMA DEL SUPERVISOR -->
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+  <div class="sio-grid-split">
     <div class="card">
       <div class="card-header">
         <h3 class="cp-section-title"><i class="fas fa-comment-alt"></i> Observaciones Operativas</h3>
@@ -182,27 +182,27 @@
     </div>
 
     <div class="card">
-      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <div class="card-header sio-card-header-flex">
         <h3 class="cp-section-title"><i class="fas fa-signature"></i> Firma del Supervisor SEC</h3>
-        <button type="button" id="btnLimpiarFirmaPO" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;">
+        <button type="button" id="btnLimpiarFirmaPO" class="btn btn-secondary sio-btn-xs">
           <i class="fas fa-eraser"></i> Limpiar Firma
         </button>
       </div>
       <div class="signature-box" id="poSignatureBox">
         <canvas id="poCanvasFirmaSupervisor"></canvas>
       </div>
-      <p style="font-size: 11px; color: var(--text-3); text-align: center; margin-top: 4px;">
+      <p class="sio-sig-caption">
         Trace la firma del Supervisor para proyectarla en el Formato Controlado AMX.
       </p>
     </div>
   </div>
 
   <!-- 4. BOTONES DE ACCIÓN -->
-  <div style="display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 14px; margin-bottom: 40px;">
-    <button type="button" id="btnVistaPreliminarPO" class="btn btn-secondary" style="padding: 12px 24px;">
+  <div class="sio-bottom-actions">
+    <button type="button" id="btnVistaPreliminarPO" class="btn btn-secondary sio-btn-action">
       <i class="fas fa-eye"></i> Vista Preliminar (Formato Oficial AMX)
     </button>
-    <button type="button" id="btnGuardarDefinitivoPO" class="btn btn-primary" style="padding: 12px 28px;">
+    <button type="button" id="btnGuardarDefinitivoPO" class="btn btn-primary sio-btn-action-primary">
       <i class="fas fa-save"></i> <%= esNuevo ? 'Guardar Formato Definitivo' : 'Actualizar Formato Definitivo' %>
     </button>
   </div>

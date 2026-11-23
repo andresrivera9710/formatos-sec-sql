@@ -4,11 +4,26 @@
  */
 
 /**
+ * Aplica cabeceras anti-caché estrictas para evitar que navegadores móviles/web
+ * almacenen vistas protegidas o de sesión en HTTP cache o BFCache.
+ */
+function setNoCacheHeaders(res) {
+  res.set({
+    'Cache-Control': 'no-store, no-cache, must-revalidate, private, max-age=0',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    'Vary': 'Cookie'
+  });
+}
+
+/**
  * Barrera Global de Autenticación Dual (HTML + JSON)
  * Protege todas las rutas privadas. Si no hay sesión, redirige a /login (vistas)
  * o devuelve 401 JSON (APIs / Fetch).
  */
 function requireAuth(req, res, next) {
+  setNoCacheHeaders(res);
+
   if (req.session && req.session.user) {
     // Inyecta datos del usuario a nivel de vistas locales EJS
     res.locals.currentUser = req.session.user;
@@ -106,6 +121,7 @@ function requireRole(allowedRoles = []) {
 }
 
 module.exports = {
+  setNoCacheHeaders,
   requireAuth,
   verifyHoneypot,
   resolveDepartmentId,

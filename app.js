@@ -118,7 +118,9 @@ app.use(express.static(path.join(__dirname, 'public'), {
   }
 }));
 
-// 8. Healthcheck Ligero / Heartbeat Real (Previo a la barrera de autenticación)
+// 8. Healthcheck Ligero / Heartbeat Real y Favicon (Previo a la barrera de autenticación)
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+
 app.get('/api/health', (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
