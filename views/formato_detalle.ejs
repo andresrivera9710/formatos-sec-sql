@@ -21,22 +21,6 @@
           </div>
         </div>
 
-        <!-- Banner Discreto de Resiliencia Offline / Borrador Restaurado desde IndexedDB -->
-        <div id="sioOfflineDraftBanner" class="sio-offline-draft-banner" hidden role="status" aria-live="polite">
-          <div class="sio-offline-banner-text">
-            <i class="fas fa-database"></i>
-            <span id="sioOfflineDraftBannerMsg">Borrador local restaurado desde caché IndexedDB.</span>
-          </div>
-          <div class="sio-offline-banner-actions">
-            <button type="button" id="btnOfflinePreviewBanner" class="btn btn-secondary sio-btn-xs" hidden>
-              <i class="fas fa-eye"></i> Vista Preliminar Offline
-            </button>
-            <button type="button" id="btnOfflineDiscardDraft" class="btn btn-secondary sio-btn-xs">
-              <i class="fas fa-undo"></i> Descartar borrador local
-            </button>
-          </div>
-        </div>
-
         <!-- Encabezado de Vuelo de Referencia -->
         <div class="card fmt-flight-ref-card">
           <div class="fmt-ref-grid">
@@ -224,18 +208,18 @@
     </div>
   </div>
 
-  <script src="/js/formato-validator.js?v=1.0.15"></script>
-  <script src="/js/baggage-matrix.js?v=1.0.15"></script>
+  <script src="/js/formato-validator.js?v=1.0.17"></script>
+  <script src="/js/baggage-matrix.js?v=1.0.17"></script>
   <% if (formato && formato.id && formato.id.endsWith('-cp')) { %>
-    <script src="/js/formato-cp.js?v=1.0.15"></script>
+    <script src="/js/formato-cp.js?v=1.0.17"></script>
   <% } else if (formato && formato.id && formato.id.endsWith('-er')) { %>
-    <script src="/js/formato-er.js?v=1.0.15"></script>
+    <script src="/js/formato-er.js?v=1.0.17"></script>
   <% } else if (formato && formato.id && formato.id.endsWith('-eb')) { %>
-    <script src="/js/formato-eb.js?v=1.0.15"></script>
+    <script src="/js/formato-eb.js?v=1.0.17"></script>
   <% } else if (formato && formato.id && formato.id.endsWith('-cec')) { %>
-    <script src="/js/formato-cec.js?v=1.0.15"></script>
+    <script src="/js/formato-cec.js?v=1.0.17"></script>
   <% } else if (formato && formato.id && formato.id.endsWith('-ciec')) { %>
-    <script src="/js/formato-ciec.js?v=1.0.15"></script>
+    <script src="/js/formato-ciec.js?v=1.0.17"></script>
   <% } else if (formato && formato.id && formato.id.endsWith('-mecd')) { %>
     <script src="/js/formato-mecd.js"></script>
   <% } else if (formato && formato.id && formato.id.endsWith('-po')) { %>

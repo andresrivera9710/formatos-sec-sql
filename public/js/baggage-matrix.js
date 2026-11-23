@@ -4,7 +4,10 @@
  *
  * Estándar Corporativo LAATS:
  * - 100% compatible con Helmet CSP (cero estilos inline, cero manejadores onclick inline).
- * - Selección táctil / clic sobre celdas ocupadas con resaltado visual corporativo (#D4AF37).
+ * - Captura rápida continua en móvil y escritorio: soporta Enter, Tab, tecla móvil "Sig." /
+ *   "Listo" / "Ir" (keydown/keypress + change/blur), limpia el campo y conserva el foco.
+ * - Selección táctil limpia directamente sobre la celda ocupada (resaltado dorado #D4AF37
+ *   sin banners ni badges extra arriba de la matriz para maximizar el espacio vertical móvil).
  * - Acción "Retirar / Anular Maleta (✗)" con validación de selección previa vía SweetAlert2,
  *   confirmación rápida, actualización inmediata de contador activo, sincronización con
  *   IndexedDB (SioOfflineManager) y Soft Delete seguro (EstaEliminado = 1) en Azure SQL
@@ -85,7 +88,6 @@
     const cardEl = options.cardEl || null;
     const tableEl = options.tableEl || null;
     const tbodyEl = options.tbodyEl || null;
-    const selectionBarEl = options.selectionBarEl || null;
     const totalCountEl = options.totalCountEl || null;
     const secondaryTotalEl = options.secondaryTotalEl || null;
     const inputSecuenciaEl = options.inputSecuenciaEl || null;
@@ -105,9 +107,31 @@
       .filter(Boolean);
 
     let selectedIdx = -1;
+    let lastPointerTarget = null;
+    let lastPointerTimestamp = 0;
 
     if (tableEl) {
       tableEl.classList.add('sio-baggage-matrix-table');
+    }
+
+    // Garantizar atributos táctiles óptimos en el input de secuencia para teclado móvil
+    if (inputSecuenciaEl) {
+      inputSecuenciaEl.setAttribute('inputmode', 'numeric');
+      inputSecuenciaEl.setAttribute('enterkeyhint', 'done');
+      inputSecuenciaEl.setAttribute('autocomplete', 'off');
+    }
+
+    function refocusInput() {
+      if (!inputSecuenciaEl) return;
+      const doFocus = () => {
+        try {
+          inputSecuenciaEl.focus({ preventScroll: true });
+        } catch (_) {
+          inputSecuenciaEl.focus();
+        }
+      };
+      doFocus();
+      window.setTimeout(doFocus, 0);
     }
 
     function reindex() {
@@ -149,40 +173,6 @@
           window.SioOfflineManager.saveCurrentDraft().catch(() => {});
         }
       }
-    }
-
-    function renderSelectionBar() {
-      if (!selectionBarEl) return;
-
-      if (selectedIdx < 0 || !items[selectedIdx]) {
-        selectionBarEl.classList.remove('is-selected', 'is-withdrawn');
-        selectionBarEl.innerHTML =
-          '<span class="sio-mx-sel-info">' +
-          '<i class="fas fa-hand-pointer"></i> ' +
-          '<span>Toque una celda con secuencia en la matriz para seleccionarla antes de retirar o anular (<strong>✗</strong>).</span>' +
-          '</span>';
-        return;
-      }
-
-      const item = items[selectedIdx];
-      const isWithdrawn = String(item.Valor || '').toUpperCase() === 'X' || Boolean(item.EstaEliminado);
-      const coord = `${item.Columna}${item.Fila}`;
-      const statusBadge = isWithdrawn
-        ? '<span class="sio-mx-sel-tag sio-mx-sel-tag-danger">ANULADA (✗)</span>'
-        : '<span class="sio-mx-sel-tag sio-mx-sel-tag-gold">ACTIVA — LISTA PARA RETIRAR</span>';
-
-      selectionBarEl.classList.add('is-selected');
-      selectionBarEl.classList.toggle('is-withdrawn', isWithdrawn);
-      selectionBarEl.innerHTML =
-        '<span class="sio-mx-sel-info">' +
-        '<i class="fas fa-check-circle"></i> ' +
-        '<span>Seleccionada: <strong>Sec. #' + escapeHtml(item.Secuencia) + '</strong> ' +
-        '&middot; Posición <strong>' + escapeHtml(coord) + '</strong> (Fila ' + escapeHtml(item.Fila) + ', Col. ' + escapeHtml(item.Columna) + ')</span> ' +
-        statusBadge +
-        '</span>' +
-        '<button type="button" class="sio-mx-sel-clear" data-mx-clear-selection="1" aria-label="Quitar selección">' +
-        '<i class="fas fa-times"></i> Quitar' +
-        '</button>';
     }
 
     function render() {
@@ -247,11 +237,17 @@
       if (tbodyEl) {
         tbodyEl.innerHTML = rowsHtml.join('');
       }
-      renderSelectionBar();
     }
 
-    function addSequence() {
+    function addSequence(addOpts = {}) {
+      const shouldRefocus = addOpts.refocus !== false;
+      const silentEmpty = Boolean(addOpts.silentEmpty);
       const valStr = String(inputSecuenciaEl?.value || '').trim();
+
+      if (!valStr && silentEmpty) {
+        return false;
+      }
+
       const num = parseInt(valStr, 10);
       if (!valStr || !Number.isInteger(num) || num <= 0) {
         if (Validator && inputSecuenciaEl) Validator.markElementInvalid(inputSecuenciaEl);
@@ -263,7 +259,7 @@
             confirmButtonColor: '#0F2744'
           });
         }
-        inputSecuenciaEl?.focus();
+        if (shouldRefocus) refocusInput();
         return false;
       }
 
@@ -286,7 +282,6 @@
 
       if (inputSecuenciaEl) {
         inputSecuenciaEl.value = '';
-        inputSecuenciaEl.focus();
       }
       if (Validator && cardEl) {
         Validator.clearValidationErrors(cardEl);
@@ -294,6 +289,9 @@
 
       render();
       notifyChange(true);
+      if (shouldRefocus) {
+        refocusInput();
+      }
       return true;
     }
 
@@ -371,7 +369,6 @@
         }
         return { attempted: true, ok: true, softDeleted: true };
       } catch (_err) {
-        // Si falló la red justo en este momento, el retiro queda respaldado en IndexedDB
         return { attempted: true, ok: true, deferredOffline: true };
       }
     }
@@ -473,7 +470,6 @@
 
       const dbRes = await persistSoftDeleteIfSaved(target);
       if (dbRes && dbRes.attempted && !dbRes.ok) {
-        // Revertir si el servidor rechazó (ej. Anti-IDOR o sesión expirada)
         Object.assign(target, prevState);
         if (window.Swal) {
           await Swal.fire({
@@ -519,19 +515,72 @@
     }
 
     // =========================================================================
-    // Listeners CSP-Safe (Delegación de eventos, cero inline onclick)
+    // Listeners CSP-Safe (Delegación de eventos + Soporte total Teclado Móvil Sig./Enter)
     // =========================================================================
+    document.addEventListener('pointerdown', (e) => {
+      lastPointerTarget = e.target;
+      lastPointerTimestamp = Date.now();
+    }, true);
+
+    function wasRecentPointerOn(el) {
+      if (!el || !lastPointerTarget) return false;
+      if (Date.now() - lastPointerTimestamp > 400) return false;
+      return lastPointerTarget === el || (typeof el.contains === 'function' && el.contains(lastPointerTarget));
+    }
+
+    function hadRecentPointerAnywhere() {
+      return Boolean(lastPointerTarget) && (Date.now() - lastPointerTimestamp <= 400);
+    }
+
     if (btnAgregarEl) {
-      btnAgregarEl.addEventListener('click', addSequence);
+      btnAgregarEl.addEventListener('click', () => addSequence({ refocus: true }));
     }
 
     if (inputSecuenciaEl) {
-      inputSecuenciaEl.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
+      const handleKeyCommit = (e) => {
+        const isEnter = e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter' || e.keyCode === 13;
+        const isNextOrTab = e.key === 'Tab' || e.key === 'Next' || e.key === 'Go' || e.keyCode === 9;
+        const rawVal = String(inputSecuenciaEl.value || '').trim();
+
+        if (isEnter) {
           e.preventDefault();
-          addSequence();
+          addSequence({ refocus: true });
+          return;
+        }
+        if (isNextOrTab && rawVal !== '') {
+          e.preventDefault();
+          addSequence({ refocus: true });
+        }
+      };
+
+      inputSecuenciaEl.addEventListener('keydown', handleKeyCommit);
+      inputSecuenciaEl.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' || e.keyCode === 13) {
+          e.preventDefault();
+          if (String(inputSecuenciaEl.value || '').trim() !== '') {
+            addSequence({ refocus: true });
+          }
         }
       });
+
+      // Captura real de tecla "Sig." en Android (Gboard / Samsung) e iOS Safari:
+      // Cuando "Sig." desplaza el foco sin disparar Enter, dispara change/blur.
+      const handleMobileNextCommit = () => {
+        const rawVal = String(inputSecuenciaEl.value || '').trim();
+        if (!rawVal) return;
+
+        // Si el usuario tocó el botón "Agregar Maleta", dejar que su click lo procese una sola vez
+        if (wasRecentPointerOn(btnAgregarEl)) {
+          return;
+        }
+
+        // Si no hubo toque manual reciente en otro elemento, fue la tecla "Sig." del teclado móvil -> mantener foco
+        const triggeredByKeyboardNext = !hadRecentPointerAnywhere() || wasRecentPointerOn(inputSecuenciaEl);
+        addSequence({ refocus: triggeredByKeyboardNext, silentEmpty: true });
+      };
+
+      inputSecuenciaEl.addEventListener('change', handleMobileNextCommit);
+      inputSecuenciaEl.addEventListener('blur', handleMobileNextCommit);
     }
 
     if (btnBorrarUltimoEl) {
@@ -561,14 +610,6 @@
         const idx = parseInt(td.getAttribute('data-cell-index'), 10);
         if (!Number.isInteger(idx)) return;
         selectCell(idx);
-      });
-    }
-
-    if (selectionBarEl) {
-      selectionBarEl.addEventListener('click', (e) => {
-        if (e.target.closest('[data-mx-clear-selection]')) {
-          clearSelection();
-        }
       });
     }
 

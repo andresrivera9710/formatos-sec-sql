@@ -112,7 +112,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnRetirarMaletaPuerta = document.getElementById('btnRetirarMaletaPuertaCIEC');
   const tablaMatrizPuerta = document.getElementById('ciecTablaMatrizPuerta');
   const tbodyMatrizPuerta = document.getElementById('ciecTbodyMatrizPuerta');
-  const selectionBarPuerta = document.getElementById('ciecMatrizPuertaSelectionBar');
   const totalPuertaCountEl = document.getElementById('ciecTotalPuertaCount');
 
   const selectTractorista = document.getElementById('ciecTractorista');
@@ -348,7 +347,6 @@ document.addEventListener('DOMContentLoaded', () => {
     cardEl: document.getElementById('ciecCardMatrizPuerta'),
     tableEl: tablaMatrizPuerta,
     tbodyEl: tbodyMatrizPuerta,
-    selectionBarEl: selectionBarPuerta,
     totalCountEl: totalPuertaCountEl,
     inputSecuenciaEl: inputSecuenciaPuerta,
     btnAgregarEl: btnAgregarSecuenciaPuerta,

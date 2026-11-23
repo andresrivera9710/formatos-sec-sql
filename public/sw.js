@@ -10,8 +10,8 @@
 
 'use strict';
 
-const STATIC_CACHE = 'sio-laats-static-v3';
-const PAGES_CACHE = 'sio-laats-pages-v3';
+const STATIC_CACHE = 'sio-laats-static-v5';
+const PAGES_CACHE = 'sio-laats-pages-v5';
 const PREVIEW_CACHE = 'sio-offline-previews-v1';
 
 const CORE_ASSETS = [

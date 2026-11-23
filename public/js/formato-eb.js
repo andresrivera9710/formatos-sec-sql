@@ -33,7 +33,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const inputSecuencia = document.getElementById('ebInputSecuencia');
   const tablaMatriz = document.getElementById('ebTablaMatriz');
   const tbodyMatriz = document.getElementById('ebTbodyMatriz');
-  const selectionBarEl = document.getElementById('ebMatrizSelectionBar');
   const totalCountEl = document.getElementById('ebTotalEquipajeCount');
   const totalReadoutEl = document.getElementById('ebTotalEquipajeReadout');
   const inputCorreos = document.getElementById('ebCorreos');
@@ -63,7 +62,6 @@ document.addEventListener('DOMContentLoaded', () => {
     cardEl: document.getElementById('ebCardMatriz'),
     tableEl: tablaMatriz,
     tbodyEl: tbodyMatriz,
-    selectionBarEl,
     totalCountEl,
     secondaryTotalEl: totalReadoutEl,
     inputSecuenciaEl: inputSecuencia,

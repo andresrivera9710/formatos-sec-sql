@@ -1763,6 +1763,18 @@ async function runSignatureRepositoryChecks() {
     const offlineMgrSrc = fs.readFileSync(offlineMgrPath, 'utf8');
     assert(offlineMgrSrc.includes('sio_laats_offline_db') && offlineMgrSrc.includes('pending_sync_queue') && offlineMgrSrc.includes('/api/health'), 'offline-manager.js debe implementar IndexedDB (drafts + pending_sync_queue) y heartbeat /api/health');
 
+    // 5.1 Borrador local: modal superpuesto de decisión (sin banner incrustado ni botón de vista preliminar offline)
+    assert(
+      offlineMgrSrc.includes('promptDraftDecision') &&
+        offlineMgrSrc.includes('Continuar donde lo dejé') &&
+        offlineMgrSrc.includes('Empezar uno de nuevo') &&
+        offlineMgrSrc.includes('GENERIC_ROW_GRIDS'),
+      'offline-manager.js debe ofrecer el modal "Continuar donde lo dejé" / "Empezar uno de nuevo" y restaurar tablas dinámicas'
+    );
+    assert(!/sioOfflineDraftBanner|btnOfflinePreviewBanner|btnOfflineDiscardDraft/.test(offlineMgrSrc), 'offline-manager.js no debe referenciar el antiguo banner de borrador');
+    const formatoDetalleEjs = fs.readFileSync(path.join(ROOT_DIR, 'views', 'formato_detalle.ejs'), 'utf8');
+    assert(!/sioOfflineDraftBanner|btnOfflinePreviewBanner|btnOfflineDiscardDraft|sio-offline-draft-banner/.test(formatoDetalleEjs), 'formato_detalle.ejs no debe incluir el antiguo banner amarillo de borrador local');
+
     const tabBarEjs = fs.readFileSync(path.join(ROOT_DIR, 'views', 'partials', 'tab-bar.ejs'), 'utf8');
     assert(tabBarEjs.includes('btnTabNetworkStatus') && tabBarEjs.includes('tabNetworkPendingBadge'), 'tab-bar.ejs debe incluir el indicador de señal y contador de cola offline');
 

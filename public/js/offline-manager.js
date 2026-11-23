@@ -23,6 +23,7 @@
   const STORE_TEMPLATES = 'templates';
   const MIRROR_PREFIX = 'sio_idb_mirror::';
   const PREVIEW_CACHE_NAME = 'sio-offline-previews-v1';
+  const RESUME_FLAG_PREFIX = 'sio_draft_resume::';
   const HEARTBEAT_INTERVAL_MS = 15000;
   const HEARTBEAT_TIMEOUT_MS = 3000;
   const BLANK_IMG = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
@@ -39,6 +40,10 @@
   let _activeContext = null;
   let _lastOfflinePreviewUrl = '';
   let _lastOfflinePreviewHtml = '';
+  // Flujo de decisión de borrador local: mientras el usuario no decida (modal), el autoguardado
+  // permanece en pausa para no pisar el borrador de IndexedDB con un formulario en blanco.
+  let _autosaveBlocked = true;
+  let _resumeRequested = false;
 
   function escapeHtml(val) {
     return String(val ?? '')
@@ -193,15 +198,35 @@
   // ============================================================================
   // 3. HIDRATACIÓN TEMPRANA PRE-DOMCONTENTLOADED (Synchronous Mirror -> InitialStateJson)
   // ============================================================================
+  function readMirror(draftKey) {
+    try {
+      const raw = localStorage.getItem(MIRROR_PREFIX + draftKey);
+      return raw ? JSON.parse(raw) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function consumeResumeFlag(draftKey) {
+    try {
+      const flagKey = RESUME_FLAG_PREFIX + draftKey;
+      if (sessionStorage.getItem(flagKey)) {
+        sessionStorage.removeItem(flagKey);
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
   function applyEarlyMirrorBeforeFormatInit() {
     const ctx = readPageContext();
     if (!ctx || !ctx.formatoId) return;
     const draftKey = buildDraftKey(ctx);
-    let mirror = null;
-    try {
-      const raw = localStorage.getItem(MIRROR_PREFIX + draftKey);
-      if (raw) mirror = JSON.parse(raw);
-    } catch (_) {}
+    // Solo se hidrata el borrador antes de iniciar el formato cuando el usuario eligió
+    // "Continuar donde lo dejé" en el modal (bandera de un solo uso en sessionStorage).
+    _resumeRequested = consumeResumeFlag(draftKey);
+    if (!_resumeRequested) return;
+    const mirror = readMirror(draftKey);
     if (!mirror || !mirror.initialStatePatch) return;
 
     const patch = mirror.initialStatePatch;
@@ -311,6 +336,12 @@
   // ============================================================================
   // 5. CAPTURA Y RESTAURACIÓN DE BORRADORES (Campos, Cuadrículas y Firmas)
   // ============================================================================
+  function draftFieldKey(el) {
+    if (el.id) return el.id;
+    if (el.type === 'radio' && el.name) return `${el.name}::${el.value}`;
+    return el.name || '';
+  }
+
   function collectFormFields() {
     const main = document.querySelector('main') || document.body;
     const fields = {};
@@ -319,8 +350,8 @@
     const elements = main.querySelectorAll('input, select, textarea');
     elements.forEach((el) => {
       if (el.type === 'hidden' || el.type === 'password' || el.type === 'file') return;
-      if (el.closest('tr[data-uid], tr[data-row-index]')) return; // Las filas dinámicas se capturan en initialStatePatch
-      const key = el.id || el.name;
+      if (el.closest('tr[data-uid], tr[data-row-index], tr[data-index]')) return; // Las filas dinámicas se capturan en initialStatePatch
+      const key = draftFieldKey(el);
       if (!key) return;
       if (el.type === 'checkbox' || el.type === 'radio') {
         fields[key] = { type: el.type, checked: Boolean(el.checked), value: el.value };
@@ -329,6 +360,37 @@
       }
     });
     return fields;
+  }
+
+  // Tablas dinámicas genéricas (filas con inputs/selects [data-field]) -> clave del InitialState del formato.
+  const GENERIC_ROW_GRIDS = [
+    { suffix: '-anexoa', tbodyId: 'axATbodyRegistros', rowSelector: 'tr[data-index]', patchKey: 'registros' },
+    { suffix: '-anexob', tbodyId: 'axBTbodyZones', rowSelector: 'tr[data-index]', patchKey: 'zonesSearch' },
+    { suffix: '-ccda', tbodyId: 'ccdaTbodyPersonal', rowSelector: 'tr[data-row-index]', patchKey: 'personal' },
+    { suffix: '-cfr', tbodyId: 'cfrTbodyCarretas', rowSelector: 'tr[data-row-index]', patchKey: 'carretas' },
+    { suffix: '-cll', tbodyId: 'cllTbodyRegistros', rowSelector: 'tr[data-row-index]', patchKey: 'registros' },
+    { suffix: '-sp', tbodyId: 'spTbodyRegistros', rowSelector: 'tr[data-row-index]', patchKey: 'registros' },
+    { suffix: '-rx', tbodyId: 'rxTbodySag', rowSelector: 'tr[data-row-index]', patchKey: 'personalSAG' },
+    { suffix: '-rx', tbodyId: 'rxTbodyLaats', rowSelector: 'tr[data-row-index]', patchKey: 'personalLaats' }
+  ];
+
+  function scrapeGenericRowGrids(fmt) {
+    const patch = {};
+    GENERIC_ROW_GRIDS.forEach((grid) => {
+      if (!fmt.endsWith(grid.suffix)) return;
+      const tbody = document.getElementById(grid.tbodyId);
+      if (!tbody) return;
+      const rows = [];
+      tbody.querySelectorAll(grid.rowSelector).forEach((tr) => {
+        const row = {};
+        tr.querySelectorAll('[data-field]').forEach((el) => {
+          row[el.getAttribute('data-field')] = el.value;
+        });
+        rows.push(row);
+      });
+      patch[grid.patchKey] = rows;
+    });
+    return patch;
   }
 
   function scrapeDynamicTablesFromDom(ctx) {
@@ -468,7 +530,7 @@
       patch.equipajePuerta = equipajePuerta;
     }
 
-    return patch;
+    return { ...patch, ...scrapeGenericRowGrids(fmt) };
   }
 
   function convertPayloadToInitialStatePatch(formatoId, payload = {}) {
@@ -506,6 +568,8 @@
   }
 
   async function saveCurrentDraft(extraPayload = null, statusOverride = 'draft') {
+    // Autoguardado en pausa mientras el usuario decide qué hacer con un borrador previo.
+    if (_autosaveBlocked && !extraPayload) return null;
     const ctx = readPageContext();
     if (!ctx || !ctx.formatoId) return null;
 
@@ -560,72 +624,200 @@
     }, 220);
   }
 
-  function restoreFieldsAndSignatures(draft) {
+  function resolveDraftField(key) {
+    const byId = document.getElementById(key);
+    if (byId) return byId;
+    const sep = key.indexOf('::');
+    if (sep > 0) {
+      const name = key.slice(0, sep);
+      const val = key.slice(sep + 2);
+      return Array.from(document.querySelectorAll(`input[type="radio"][name="${CSS.escape(name)}"]`))
+        .find((r) => r.value === val) || null;
+    }
+    return document.querySelector(`[name="${CSS.escape(key)}"]`);
+  }
+
+  const EMPTY_RESTORABLE_TYPES = new Set(['text', 'number', 'time', 'search', 'tel', 'email', 'url', 'textarea']);
+
+  /**
+   * Restauración profunda de campos y firmas.
+   * - Respeta campos bloqueados del itinerario (.input-locked), readonly y disabled.
+   * - Dispara input/change para recalcular totales y estados dependientes.
+   * - Con { dryRun: true } solo informa si habría algo que restaurar (no modifica el DOM).
+   */
+  function restoreFieldsAndSignatures(draft, opts = {}) {
     if (!draft) return false;
+    const dryRun = Boolean(opts.dryRun);
     let restoredAny = false;
 
     if (draft.fields && typeof draft.fields === 'object') {
       Object.entries(draft.fields).forEach(([key, entry]) => {
         if (!entry) return;
-        const el = document.getElementById(key) || document.querySelector(`[name="${CSS.escape(key)}"]`);
+        const el = resolveDraftField(key);
         if (!el || el.disabled || el.readOnly || el.classList.contains('input-locked') || el.classList.contains('er-cell-readonly')) {
           return;
         }
         if (el.type === 'checkbox' || el.type === 'radio') {
           if (Boolean(el.checked) !== Boolean(entry.checked)) {
-            el.checked = Boolean(entry.checked);
-            el.dispatchEvent(new Event('change', { bubbles: true }));
             restoredAny = true;
+            if (dryRun) return;
+            el.checked = Boolean(entry.checked);
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
           }
-        } else if (entry.value !== undefined && entry.value !== '' && el.value !== String(entry.value)) {
-          el.value = String(entry.value);
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-          restoredAny = true;
+          return;
         }
+        if (entry.value === undefined || entry.value === null) return;
+        const nextVal = String(entry.value);
+        const allowEmpty = EMPTY_RESTORABLE_TYPES.has(el.type);
+        if (nextVal === '' && !allowEmpty) return;
+        if (el.value === nextVal) return;
+        if (el.tagName === 'SELECT' && !Array.from(el.options).some((o) => o.value === nextVal)) return;
+        restoredAny = true;
+        if (dryRun) return;
+        el.value = nextVal;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
       });
     }
 
     if (draft.signatures && typeof draft.signatures === 'object' && Object.keys(draft.signatures).length > 0) {
-      window.SioSignatureRepoClient?.loadDraftSignatures?.(draft.signatures);
-      restoredAny = true;
-    }
-
-    const p = draft.initialStatePatch || {};
-    if (
-      (Array.isArray(p.detalles) && p.detalles.length > 0) ||
-      (Array.isArray(p.registros) && p.registros.length > 0) ||
-      (Array.isArray(p.equipajePuerta) && p.equipajePuerta.length > 0) ||
-      (Array.isArray(p.revision) && p.revision.length > 0) ||
-      (Array.isArray(p.conFirma) && p.conFirma.length > 0) ||
-      (Array.isArray(p.sinFirma) && p.sinFirma.length > 0)
-    ) {
+      if (!dryRun) window.SioSignatureRepoClient?.loadDraftSignatures?.(draft.signatures);
       restoredAny = true;
     }
 
     return restoredAny;
   }
 
-  function showDraftBanner(draft, isQueued = false) {
-    const banner = document.getElementById('sioOfflineDraftBanner');
-    const msgEl = document.getElementById('sioOfflineDraftBannerMsg');
-    const btnPreview = document.getElementById('btnOfflinePreviewBanner');
-    const modeBadge = document.getElementById('sioFormatoModeBadge');
-    if (!banner || !msgEl) return;
+  /** ¿El patch de filas/matrices del borrador difiere de lo que muestra la página actualmente? */
+  function draftPatchDiffersFromPage(draft, ctx) {
+    const saved = draft && draft.initialStatePatch;
+    if (!saved || typeof saved !== 'object') return false;
+    const current = scrapeDynamicTablesFromDom(ctx);
+    return Object.keys(saved).some((key) => {
+      if (!Array.isArray(saved[key])) return false;
+      return JSON.stringify(saved[key]) !== JSON.stringify(current[key] ?? []);
+    });
+  }
 
-    const timeStr = draft?.updatedAt ? draft.updatedAt.substring(11, 19) : '';
-    banner.classList.toggle('is-queued', isQueued);
-    if (isQueued) {
-      msgEl.textContent = `Guardado localmente en caché (Pendiente de sincronización${timeStr ? ' · ' + timeStr : ''}). Sus datos están seguros en IndexedDB y se enviarán automáticamente al recuperar señal.`;
-      if (modeBadge) {
-        modeBadge.textContent = 'GUARDADO EN CACHÉ LOCAL (PENDIENTE DE SINCRONIZACIÓN)';
-        modeBadge.className = 'badge badge-gold';
-      }
-      if (btnPreview) btnPreview.hidden = false;
-    } else {
-      msgEl.textContent = `Borrador local restaurado automáticamente desde caché IndexedDB (${draft.cliente} · ${draft.codigoFormato}${timeStr ? ' · ' + timeStr : ''}).`;
-      if (btnPreview) btnPreview.hidden = !_lastOfflinePreviewUrl && !_lastOfflinePreviewHtml;
+  function formatDraftSavedAt(iso) {
+    const d = iso ? new Date(iso) : null;
+    if (!d || Number.isNaN(d.getTime())) return 'hora no disponible';
+    try {
+      return d.toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true });
+    } catch (_) {
+      return d.toLocaleString();
     }
-    banner.hidden = false;
+  }
+
+  function markQueuedBadge() {
+    const modeBadge = document.getElementById('sioFormatoModeBadge');
+    if (modeBadge) {
+      modeBadge.textContent = 'GUARDADO EN CACHÉ LOCAL (PENDIENTE DE SINCRONIZACIÓN)';
+      modeBadge.className = 'badge badge-gold';
+    }
+  }
+
+  /**
+   * Modal superpuesto de decisión de borrador local (reemplaza al banner incrustado).
+   * Devuelve 'continue' (restaurar todo) o 'discard' (empezar de cero).
+   */
+  async function promptDraftDecision(draft, isQueued) {
+    const hasSwal = typeof Swal !== 'undefined' && Swal && typeof Swal.fire === 'function';
+    const when = formatDraftSavedAt(draft && draft.updatedAt);
+    const nombre = (draft && draft.formatoNombre) || (draft && draft.codigoFormato) || 'este formato';
+    const cliente = (draft && draft.cliente) || '';
+    const correlativo = (draft && draft.correlativo) || '';
+
+    if (!hasSwal) {
+      return window.confirm(`Tiene un borrador pendiente guardado localmente (${when}).\n\nAceptar: continuar donde lo dejó.\nCancelar: empezar uno de nuevo.`)
+        ? 'continue'
+        : 'discard';
+    }
+
+    const queuedNote = isQueued
+      ? '<p class="sio-draft-note"><i class="fas fa-cloud-upload-alt"></i> Este formato quedó guardado sin conexión y está pendiente de sincronizar con el servidor.</p>'
+      : '';
+
+    const res = await Swal.fire({
+      icon: 'info',
+      iconHtml: '<i class="fas fa-database"></i>',
+      title: 'Tiene un borrador pendiente',
+      html: `
+        <div class="sio-draft-body">
+          <p>Se encontró un borrador guardado localmente en este dispositivo para:</p>
+          <p class="sio-draft-format"><strong>${escapeHtml(nombre)}</strong>${cliente || correlativo ? `<span>${escapeHtml(cliente)}${correlativo ? ' · #' + escapeHtml(correlativo) : ''}</span>` : ''}</p>
+          <p class="sio-draft-time"><i class="far fa-clock"></i> Guardado: <strong>${escapeHtml(when)}</strong></p>
+          ${queuedNote}
+        </div>`,
+      showConfirmButton: true,
+      showCancelButton: true,
+      confirmButtonText: '<i class="fas fa-play-circle"></i> Continuar donde lo dejé',
+      cancelButtonText: '<i class="fas fa-file"></i> Empezar uno de nuevo',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      focusConfirm: true,
+      buttonsStyling: false,
+      customClass: {
+        container: 'sio-draft-swal-container',
+        popup: 'sio-draft-swal-popup',
+        icon: 'sio-draft-swal-icon',
+        actions: 'sio-draft-swal-actions',
+        confirmButton: 'sio-draft-btn sio-draft-btn-primary sio-draft-btn-continue',
+        cancelButton: 'sio-draft-btn sio-draft-btn-secondary sio-draft-btn-new'
+      }
+    });
+    if (res && res.isConfirmed) return 'continue';
+
+    if (isQueued) {
+      const sure = await Swal.fire({
+        icon: 'warning',
+        title: '¿Descartar el formato pendiente?',
+        text: 'Este formato aún no se sincroniza con el servidor. Si empieza uno de nuevo, esos datos se perderán.',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, empezar de nuevo',
+        cancelButtonText: 'Volver',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        buttonsStyling: false,
+        customClass: {
+          container: 'sio-draft-swal-container',
+          popup: 'sio-draft-swal-popup',
+          actions: 'sio-draft-swal-actions',
+          confirmButton: 'sio-draft-btn sio-draft-btn-danger sio-draft-btn-confirm-discard',
+          cancelButton: 'sio-draft-btn sio-draft-btn-secondary'
+        }
+      });
+      if (!sure || !sure.isConfirmed) return promptDraftDecision(draft, isQueued);
+    }
+    return 'discard';
+  }
+
+  /**
+   * "Continuar donde lo dejé": se persiste el borrador en el espejo síncrono + bandera de un solo uso
+   * y se recarga la vista, de modo que cada formato reconstruye matrices, filas dinámicas y campos
+   * desde su propio estado inicial (hidratación completa antes de iniciar el formato).
+   * Devuelve true si se disparó la recarga.
+   */
+  function resumeDraftViaReload(draft, ctx) {
+    try {
+      const draftKey = buildDraftKey(ctx);
+      localStorage.setItem(
+        MIRROR_PREFIX + draftKey,
+        JSON.stringify({
+          updatedAt: draft.updatedAt,
+          status: draft.status,
+          fields: draft.fields || {},
+          signatures: draft.signatures || {},
+          initialStatePatch: draft.initialStatePatch || {}
+        })
+      );
+      sessionStorage.setItem(RESUME_FLAG_PREFIX + draftKey, '1');
+    } catch (_) {
+      return false;
+    }
+    window.location.reload();
+    return true;
   }
 
   async function discardActiveDraft() {
@@ -1172,7 +1364,7 @@
     await refreshPendingCount();
 
     if (draftRecord) {
-      showDraftBanner(draftRecord, true);
+      markQueuedBadge();
     }
 
     // Mostrar modal claro de confirmación Offline con acceso directo a la Vista Preliminar limpia
@@ -1264,8 +1456,6 @@
             // Si el usuario tiene abierto actualmente este mismo formato, actualizar UI en vivo
             const ctx = readPageContext();
             if (ctx && ctx.formatoId === item.formatoId && Number(ctx.itinerarioId) === Number(item.itinerarioId)) {
-              const banner = document.getElementById('sioOfflineDraftBanner');
-              if (banner) banner.hidden = true;
               const modeBadge = document.getElementById('sioFormatoModeBadge');
               if (modeBadge && json.encabezadoId) {
                 modeBadge.textContent = `SINCRONIZADO EN AZURE SQL #${json.encabezadoId}`;
@@ -1349,8 +1539,6 @@
                 const dk = buildDraftKey(ctx);
                 try { localStorage.removeItem(MIRROR_PREFIX + dk); } catch (_) {}
                 await idbDelete(STORE_DRAFTS, dk).catch(() => {});
-                const banner = document.getElementById('sioOfflineDraftBanner');
-                if (banner) banner.hidden = true;
               }
             }
           }).catch(() => {});
@@ -1476,31 +1664,66 @@
 
     prefetchTemplateForActiveFormat();
 
-    const btnDiscard = document.getElementById('btnOfflineDiscardDraft');
-    if (btnDiscard) {
-      btnDiscard.addEventListener('click', () => discardActiveDraft());
-    }
-
-    const btnPreviewBanner = document.getElementById('btnOfflinePreviewBanner');
-    if (btnPreviewBanner) {
-      btnPreviewBanner.addEventListener('click', () => openLastOfflinePreview());
-    }
-
-    // Restaurar campos, firmas y banner desde IndexedDB
     const draftKey = buildDraftKey(ctx);
-    const savedDraft = await idbGet(STORE_DRAFTS, draftKey).catch(() => null);
     const queueKey = `${ctx.itinerarioId}::${ctx.formatoId}::${ctx.encabezadoId || 'NEW'}`;
+    let savedDraft = await idbGet(STORE_DRAFTS, draftKey).catch(() => null);
     const queuedItem = await idbGet(STORE_QUEUE, queueKey).catch(() => null);
 
-    if (savedDraft) {
-      const didRestore = restoreFieldsAndSignatures(savedDraft);
-      if (queuedItem && savedDraft.lastPayload) {
-        await generateOfflinePreview(ctx.formatoId, savedDraft.lastPayload);
-        showDraftBanner(savedDraft, true);
-      } else if (didRestore) {
-        showDraftBanner(savedDraft, false);
+    // Dejar que el script del formato termine de inicializar su DOM antes de comparar/restaurar.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    let reloading = false;
+
+    if (_resumeRequested) {
+      // Retorno tras "Continuar donde lo dejé": el estado inicial ya fue hidratado (matrices y filas);
+      // aquí se completan campos, horas, totales dependientes y firmas.
+      if (!savedDraft) {
+        const mirror = readMirror(draftKey);
+        if (mirror) savedDraft = { ...mirror, cliente: ctx.cliente, codigoFormato: ctx.formatoId };
+      }
+      if (savedDraft) {
+        restoreFieldsAndSignatures(savedDraft);
+        if (queuedItem) markQueuedBadge();
+        if (typeof Swal !== 'undefined' && Swal && typeof Swal.fire === 'function') {
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: 'Borrador restaurado',
+            showConfirmButton: false,
+            timer: 2600,
+            timerProgressBar: true
+          });
+        }
+      }
+    } else if (savedDraft) {
+      const isQueued = Boolean(queuedItem && savedDraft.lastPayload);
+      if (isQueued) {
+        await generateOfflinePreview(ctx.formatoId, savedDraft.lastPayload).catch(() => {});
+        markQueuedBadge();
+      }
+      const hasRecoverableData = isQueued ||
+        restoreFieldsAndSignatures(savedDraft, { dryRun: true }) ||
+        draftPatchDiffersFromPage(savedDraft, ctx);
+
+      if (hasRecoverableData) {
+        const decision = await promptDraftDecision(savedDraft, isQueued);
+        if (decision === 'continue') {
+          reloading = resumeDraftViaReload(savedDraft, ctx);
+          if (!reloading) {
+            // Sin sessionStorage/localStorage: restauración en sitio (campos y firmas).
+            restoreFieldsAndSignatures(savedDraft);
+          }
+        } else {
+          await discardActiveDraft(); // limpia IndexedDB + espejo + cola y recarga en blanco
+          reloading = true;
+        }
       }
     }
+
+    // El autoguardado permanece bloqueado si la vista se está recargando para no pisar el borrador.
+    if (reloading) return;
+    _autosaveBlocked = false;
 
     // Escuchar cambios en tiempo real para autoguardado continuo en IndexedDB
     const main = document.querySelector('main') || document.body;
@@ -1509,9 +1732,7 @@
     main.addEventListener('sio:signature-change', scheduleDraftSave);
     main.addEventListener('click', (e) => {
       const btn = e.target.closest('button, td[data-cell-index], td[data-pos-id]');
-      if (btn && btn.id !== 'btnOfflineDiscardDraft' && btn.id !== 'btnOfflinePreviewBanner') {
-        scheduleDraftSave();
-      }
+      if (btn) scheduleDraftSave();
     });
 
     window.addEventListener('pagehide', () => {

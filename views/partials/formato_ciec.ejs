@@ -310,7 +310,7 @@
     <div class="sio-inline-bar sio-inline-bar-box">
       <div class="form-group">
         <label for="ciecInputSecuenciaPuerta"><i class="fas fa-barcode"></i> Secuencia:</label>
-        <input type="number" id="ciecInputSecuenciaPuerta" class="form-control" min="1" step="1" inputmode="numeric" placeholder="Ingrese Secuencia (Enter para agregar)">
+        <input type="number" id="ciecInputSecuenciaPuerta" class="form-control" min="1" step="1" inputmode="numeric" enterkeyhint="done" autocomplete="off" placeholder="Ingrese Secuencia (Enter / Sig.)">
       </div>
 
       <button type="button" id="btnAgregarSecuenciaPuertaCIEC" class="btn btn-primary sio-btn-bar">
@@ -325,8 +325,6 @@
         <i class="fas fa-times-circle"></i> Retirar / Anular Maleta (✗)
       </button>
     </div>
-
-    <div id="ciecMatrizPuertaSelectionBar" class="sio-mx-selection-bar" role="status" aria-live="polite"></div>
 
     <div class="sio-baggage-matrix-wrap">
       <table class="sio-baggage-matrix-table" id="ciecTablaMatrizPuerta">

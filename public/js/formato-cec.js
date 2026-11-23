@@ -38,7 +38,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const inputSecuencia = document.getElementById('cecInputSecuencia');
   const tablaMatriz = document.getElementById('cecTablaMatriz');
   const tbodyMatriz = document.getElementById('cecTbodyMatriz');
-  const selectionBarEl = document.getElementById('cecMatrizSelectionBar');
   const totalEmbarqueEl = document.getElementById('cecTotalEmbarqueCount');
 
   const inputDesembarqueInicio = document.getElementById('cecDesembarqueInicio');
@@ -112,7 +111,6 @@ document.addEventListener('DOMContentLoaded', () => {
       cardEl: document.getElementById('cecCardMatriz'),
       tableEl: tablaMatriz,
       tbodyEl: tbodyMatriz,
-      selectionBarEl,
       totalCountEl: totalEmbarqueEl,
       inputSecuenciaEl: inputSecuencia,
       btnAgregarEl: btnAgregarSecuencia,

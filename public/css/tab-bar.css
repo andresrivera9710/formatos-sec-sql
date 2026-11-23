@@ -306,54 +306,150 @@ body.dark-mode .tab-bar-item-network.is-offline {
   color: #FFFFFF;
 }
 
-/* Banner Discreto de Restauración de Borrador / Estado Offline en Formatos */
-.sio-offline-draft-banner {
+/* Modal superpuesto de decisión de Borrador Local (IndexedDB) — reemplaza al antiguo banner incrustado */
+.swal2-container.sio-draft-swal-container {
+  background: rgba(15, 39, 68, 0.55) !important;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  z-index: 20000;
+}
+
+.sio-draft-swal-popup.swal2-popup {
+  width: min(92vw, 440px);
+  padding: 24px 20px 20px;
+  border-radius: 18px;
+  border-top: 4px solid var(--gold, #D4AF37);
+  box-shadow: 0 24px 60px rgba(8, 20, 38, 0.35);
+}
+
+.sio-draft-swal-icon.swal2-icon.swal2-info {
+  border-color: var(--gold, #D4AF37);
+  color: var(--gold, #D4AF37);
+}
+
+.sio-draft-body {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-2, #475569);
+  text-align: left;
+}
+
+.sio-draft-body p {
+  margin: 8px 0;
+}
+
+.sio-draft-format {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-  padding: 10px 16px;
-  margin-bottom: 16px;
-  border-radius: var(--radius-md, 10px);
-  background-color: #FEF3C7;
-  border: 1px solid #F59E0B;
-  border-left: 5px solid #D97706;
-  color: #92400E;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2, #F1F5F9);
+  border: 1px solid var(--border, #E2E8F0);
+}
+
+.sio-draft-format strong {
+  font-size: 15px;
+  color: var(--text, #0F2744);
+}
+
+.sio-draft-format span {
+  font-size: 12.5px;
+  color: var(--text-3, #64748B);
+}
+
+.sio-draft-time i,
+.sio-draft-note i {
+  margin-right: 6px;
+}
+
+.sio-draft-note {
+  padding: 8px 10px;
+  border-radius: 8px;
   font-size: 12.5px;
   font-weight: 600;
-  box-shadow: var(--shadow-sm);
+  background: #FEF3C7;
+  color: #92400E;
 }
 
-.sio-offline-draft-banner[hidden] {
-  display: none !important;
+.sio-draft-swal-actions.swal2-actions {
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  gap: 10px;
+  margin-top: 18px;
 }
 
-.sio-offline-draft-banner.is-queued {
-  background-color: #EFF6FF;
-  border-color: #3B82F6;
-  border-left-color: #1D4ED8;
-  color: #1E3A8A;
+.sio-draft-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  margin: 0;
+  padding: 10px 16px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
-[data-theme="dark"] .sio-offline-draft-banner,
-body.dark-mode .sio-offline-draft-banner {
-  background-color: rgba(217, 119, 6, 0.16);
-  border-color: rgba(245, 158, 11, 0.45);
+.sio-draft-btn-primary {
+  background: linear-gradient(135deg, #275B88 0%, #0F2744 100%);
+  border-color: var(--gold, #D4AF37);
+  color: #FFFFFF;
+}
+
+.sio-draft-btn-secondary {
+  background: transparent;
+  border-color: var(--border-strong, #CBD5E1);
+  color: var(--brand, #275B88);
+}
+
+.sio-draft-btn-danger {
+  background: #DC2626;
+  color: #FFFFFF;
+}
+
+.sio-draft-btn:focus-visible {
+  outline: 3px solid rgba(212, 175, 55, 0.65);
+  outline-offset: 2px;
+}
+
+[data-theme="dark"] .sio-draft-body,
+body.dark-mode .sio-draft-body {
+  color: #CBD5E1;
+}
+
+[data-theme="dark"] .sio-draft-format,
+body.dark-mode .sio-draft-format {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+[data-theme="dark"] .sio-draft-format strong,
+body.dark-mode .sio-draft-format strong {
+  color: #F8FAFC;
+}
+
+[data-theme="dark"] .sio-draft-format span,
+body.dark-mode .sio-draft-format span {
+  color: #94A3B8;
+}
+
+[data-theme="dark"] .sio-draft-note,
+body.dark-mode .sio-draft-note {
+  background: rgba(217, 119, 6, 0.2);
   color: #FDE68A;
 }
 
-[data-theme="dark"] .sio-offline-draft-banner.is-queued,
-body.dark-mode .sio-offline-draft-banner.is-queued {
-  background-color: rgba(37, 99, 235, 0.18);
-  border-color: rgba(96, 165, 250, 0.45);
-  color: #BFDBFE;
-}
-
-.sio-offline-banner-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+[data-theme="dark"] .sio-draft-btn-secondary,
+body.dark-mode .sio-draft-btn-secondary {
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #93C5FD;
 }
 
 /* 3. Perfil de Usuario (Avatar + Nombre Login + Puesto Compacto) */
