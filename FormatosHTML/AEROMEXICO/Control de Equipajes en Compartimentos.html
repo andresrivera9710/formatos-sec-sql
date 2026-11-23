@@ -41,14 +41,17 @@
         .header {
             display: flex;
             align-items: center;
-            margin-top: -8mm;
-            margin-bottom: -5mm;
+            justify-content: flex-start;
+            margin-top: 3mm;
+            margin-bottom: 3mm;
         }
 
-        /* LOGO GIGANTE */
         .logo {
-            height: 50mm;
+            height: 15mm;
             width: auto;
+            max-width: 100%;
+            object-fit: contain;
+            display: block;
         }
 
         .title-container {
@@ -59,7 +62,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-top: -35px;
+            margin-top: 0;
             margin-bottom: 3mm;
         }
 
@@ -195,7 +198,7 @@
         <div class='inner-frame'>
 
             <div class='header'>
-                <img src='data:image/png;base64, @{variables('varLogoAeromexico')}' alt='Logo' class='logo'>
+                <img src='data:image/jpeg;base64,@{variables('varLogoAeromexico')}' alt='Logo Aeromexico' class='logo'>
             </div>
 
             <div class='title-container'>

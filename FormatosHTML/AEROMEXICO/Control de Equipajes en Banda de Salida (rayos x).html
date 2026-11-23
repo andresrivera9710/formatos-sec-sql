@@ -37,17 +37,20 @@
         }
 
         .header {
-            height: 30mm; /* AUMENTADO PARA QUE EL LOGO QUEPA BIEN */
+            height: auto;
             display: flex;
-            align-items: flex-start;
-            margin-bottom: 5mm;
-            margin-top: -20mm;
-
+            align-items: center;
+            justify-content: flex-start;
+            margin-bottom: 4mm;
+            margin-top: 0;
         }
 
         .logo {
-            height: 50mm; /* LOGO MÁS GRANDE */
+            height: 16mm;
             width: auto;
+            max-width: 100%;
+            object-fit: contain;
+            display: block;
         }
 
         .title-container {
@@ -176,7 +179,7 @@
         <div class='inner-frame'>
             
             <div class='header'>
-                <img src='data:image/png;base64, @{variables('varLogoAeromexico')}' alt='Logo' class='logo'>
+                <img src='data:image/jpeg;base64,@{variables('varLogoAeromexico')}' alt='Logo Aeromexico' class='logo'>
             </div>
 
             <div class='title-container'>

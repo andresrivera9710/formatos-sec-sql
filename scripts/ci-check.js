@@ -1899,6 +1899,22 @@ async function runSignatureRepositoryChecks() {
     assert(loginEjs.includes('maxlength="50"'), 'views/login.ejs debe permitir hasta 50 caracteres en #pinInput');
     const loginModelSrc = fs.readFileSync(path.join(ROOT_DIR, 'models', 'LoginModel.js'), 'utf8');
     assert(loginModelSrc.includes('sql.NVarChar(50)') && loginModelSrc.includes('LTRIM(RTRIM('), 'LoginModel.buscarPorPin debe usar sql.NVarChar(50) y LTRIM(RTRIM(...)) para PIN alfanumérico');
+
+    // 5.6 Logotipo corporativo actualizado de AEROMEXICO (.jpeg) en los 7 formatos AMX
+    const amxLogoInfo = HtmlPreviewService.getLogoInfo('aeromexico.jpeg');
+    assert(amxLogoInfo.mime === 'image/jpeg' && amxLogoInfo.b64.length > 5000, 'Falta logotipo oficial public/images/aeromexico.jpeg');
+    for (const amxId of ['amx-cp', 'amx-ciec', 'amx-er', 'amx-eb', 'amx-cec', 'amx-mecd', 'amx-po']) {
+      const renderedAmx = HtmlPreviewService.renderHtmlPreview({
+        formatoId: amxId,
+        vars: {},
+        meta: {},
+        documentTitle: `LOGO_CHECK_${amxId}`
+      });
+      assert(
+        renderedAmx && renderedAmx.includes(`data:image/jpeg;base64,${amxLogoInfo.b64}`),
+        `${amxId} debe renderizar el nuevo logotipo oficial aeromexico.jpeg (data:image/jpeg;base64,...)`
+      );
+    }
   } finally {
     if (prevCacheDir === undefined) delete process.env.SIGNATURES_CACHE_DIR;
     else process.env.SIGNATURES_CACHE_DIR = prevCacheDir;

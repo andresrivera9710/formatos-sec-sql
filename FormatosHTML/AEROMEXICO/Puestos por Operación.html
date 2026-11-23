@@ -29,15 +29,15 @@
         .header {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: -50px;
+            align-items: center;
+            margin-bottom: 10px;
         }
         .logo-placeholder {
-            width: 400px; 
-            height: 190px; 
+            width: 300px;
+            height: 64px;
             display: flex;
-            align-items: flex-start;
-            margin-top: -70px;
+            align-items: center;
+            margin-top: 0;
         }
         .fecha-box {
             font-size: 11px;
@@ -45,7 +45,7 @@
             display: flex;
             flex-direction: column;
             align-items: flex-end;
-            margin-top: 15px;
+            margin-top: 0;
             gap: 4px;
         }
         .line-input {
@@ -60,8 +60,8 @@
             text-align: center;
             font-size: 16px;
             font-weight: bold;
-            margin-bottom: 15px;
-            margin-top: -10px;
+            margin-bottom: 12px;
+            margin-top: 0;
             text-transform: uppercase;
             font-style: italic;
         }
@@ -149,7 +149,7 @@
         <!-- ENCABEZADO IDÉNTICO A TU OTRO FORMATO -->
         <div class='header'>
             <div class='logo-placeholder'>
-                <img src='data:image/png;base64,@{variables('varLogoAeromexico')}' alt='Logo' style='max-width: 100%; max-height: 100%; object-fit: contain;' />
+                <img src='data:image/jpeg;base64,@{variables('varLogoAeromexico')}' alt='Logo Aeromexico' style='max-width: 100%; max-height: 100%; object-fit: contain;' />
             </div>
             <div class='fecha-box'>
                 <div>FECHA: <div class='line-input'>@{body('Parse_JSON_7')?['Fecha']}</div></div>

@@ -29,23 +29,22 @@
         .header {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start; /* ESTO HACE QUE LA FECHA SE VAYA HASTA ARRIBA */
-            margin-bottom: -50px;
+            align-items: center;
+            margin-bottom: 10px;
         }
         .logo-placeholder {
-            width: 400px; 
-            height: 190px; 
+            width: 300px;
+            height: 64px;
             display: flex;
-            align-items: flex-start;
-            margin-top: -70px;
-
+            align-items: center;
+            margin-top: 0;
         }
         .fecha-box {
             font-size: 14px;
             font-weight: bold;
             display: flex;
             align-items: flex-end;
-            margin-top: 15px; /* Un pequeño margen para que no choque con el borde de la hoja */
+            margin-top: 0;
         }
         .line-input {
             border-bottom: 1px solid black;
@@ -145,7 +144,7 @@
         <!-- ENCABEZADO -->
         <div class='header'>
             <div class='logo-placeholder'>
-                <img src='data:image/png;base64,@{variables('varLogoAeromexico')}' alt='Logo' style='max-width: 100%; max-height: 100%; object-fit: contain;' />
+                <img src='data:image/jpeg;base64,@{variables('varLogoAeromexico')}' alt='Logo Aeromexico' style='max-width: 100%; max-height: 100%; object-fit: contain;' />
             </div>
             <div class='fecha-box'>
                 FECHA: <div class='line-input'>@{formatDateTime(body('Parse_JSON')?['Fecha'], 'dd/MM/yyyy')}</div>
