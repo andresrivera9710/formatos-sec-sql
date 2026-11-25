@@ -271,6 +271,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!noTIA) {
         Validator?.markElementInvalid(inputRegNoTIA);
         errs.push({ label: 'No. TIA', message: 'El No. TIA es obligatorio.', element: inputRegNoTIA });
+      } else if (!/^\d+$/.test(noTIA)) {
+        Validator?.markElementInvalid(inputRegNoTIA);
+        errs.push({ label: 'No. TIA', message: 'El No. TIA debe ser estrictamente numérico (solo dígitos 0-9).', element: inputRegNoTIA });
       }
       if (!horaIngreso) {
         Validator?.markElementInvalid(inputRegHoraIngreso);
@@ -293,26 +296,51 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      registros.push({
-        DetalleCIECId: 0,
-        Nombre: nombre,
-        NoTIA: noTIA,
-        HoraIngreso: horaIngreso,
-        Empresa: empresa,
-        Motivo: motivo,
-        HoraSalida: ''
-      });
+      const runUpdate = () => {
+        registros.push({
+          DetalleCIECId: 0,
+          Nombre: nombre,
+          NoTIA: noTIA,
+          HoraIngreso: horaIngreso,
+          Empresa: empresa,
+          Motivo: motivo,
+          HoraSalida: ''
+        });
 
-      if (inputRegNombre) inputRegNombre.value = '';
-      if (inputRegNoTIA) inputRegNoTIA.value = '';
-      if (inputRegHoraIngreso) inputRegHoraIngreso.value = '';
-      if (selectRegEmpresa) selectRegEmpresa.value = '';
-      if (inputRegEmpresaOtros) inputRegEmpresaOtros.value = '';
-      if (grupoEmpresaOtros) grupoEmpresaOtros.style.display = 'none';
-      if (inputRegMotivo) inputRegMotivo.value = '';
+        if (inputRegNombre) inputRegNombre.value = '';
+        if (inputRegNoTIA) inputRegNoTIA.value = '';
+        if (inputRegHoraIngreso) inputRegHoraIngreso.value = '';
+        if (selectRegEmpresa) selectRegEmpresa.value = '';
+        if (inputRegEmpresaOtros) inputRegEmpresaOtros.value = '';
+        if (grupoEmpresaOtros) grupoEmpresaOtros.style.display = 'none';
+        if (inputRegMotivo) inputRegMotivo.value = '';
 
-      renderRegistros();
-      window.SioOfflineManager?.notifyStateChange?.();
+        renderRegistros();
+        window.SioOfflineManager?.notifyStateChange?.();
+        Validator?.focusWithoutScroll?.(inputRegNombre);
+      };
+
+      if (Validator && typeof Validator.preserveScroll === 'function') {
+        Validator.preserveScroll(runUpdate);
+      } else {
+        runUpdate();
+      }
+    });
+  }
+
+  if (inputRegMotivo && btnAgregarRegistro) {
+    inputRegMotivo.addEventListener('keydown', (e) => {
+      const isEnter = (e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter' || e.keyCode === 13) && !e.shiftKey;
+      if (!isEnter) return;
+      if (e.isComposing || e.keyCode === 229) return;
+      e.preventDefault();
+      btnAgregarRegistro.click();
+    });
+    inputRegMotivo.addEventListener('beforeinput', (e) => {
+      if (e.inputType === 'insertLineBreak' || e.inputType === 'insertParagraph') {
+        e.preventDefault();
+        btnAgregarRegistro.click();
+      }
     });
   }
 
@@ -529,6 +557,13 @@ document.addEventListener('DOMContentLoaded', () => {
         element: inputRegNombre
       });
     } else {
+      const tiaInv = registros.find((r) => !/^\d+$/.test(String(r.NoTIA || '').trim()));
+      if (tiaInv) {
+        errors.push({
+          label: 'No. TIA Inválido',
+          message: `El registro de "${tiaInv.Nombre}" tiene un No. TIA no numérico ("${tiaInv.NoTIA}"). Solo se permiten números.`
+        });
+      }
       const sinSalida = registros.find((r) => !String(r.HoraSalida || '').trim());
       if (sinSalida) {
         errors.push({

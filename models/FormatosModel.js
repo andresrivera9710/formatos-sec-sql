@@ -88,16 +88,48 @@ class FormatosModel {
   }
 
   /**
-   * Obtiene empleados activos para catálogos de Tractorista / Aleros
+   * Obtiene todos los empleados activos desde dbo.EmpleadosView (EstaBaja = 'FALSE' / 0)
+   * Incluye Codigo, Puesto y DepartamentoInterno para filtrado instantáneo en Web y Móvil.
    */
   static async obtenerEmpleadosActivos() {
     const query = `
       SELECT
         EmpleadoId,
+        Codigo,
         Nombre,
-        Codigo
-      FROM Empleado
-      WHERE ISNULL(EstaEliminado, 0) = 0
+        Puesto,
+        Departamento,
+        DepartamentoInterno,
+        DepartamentoInternoId,
+        SubAlterno
+      FROM dbo.EmpleadosView
+      WHERE UPPER(LTRIM(RTRIM(ISNULL(CONVERT(NVARCHAR(30), EstaBaja), '')))) IN ('FALSE', '0')
+        AND ISNULL(EstaEliminado, 0) = 0
+      ORDER BY Nombre ASC
+    `;
+    const result = await executeQuery(query, []);
+    return result.recordset || [];
+  }
+
+  /**
+   * Obtiene exclusivamente empleados activos del departamento interno CCO desde dbo.EmpleadosView
+   * Regla de Negocio: DepartamentoInterno = 'CCO' AND EstaBaja = 'FALSE' (activo)
+   */
+  static async obtenerEmpleadosCCO() {
+    const query = `
+      SELECT
+        EmpleadoId,
+        Codigo,
+        Nombre,
+        Puesto,
+        Departamento,
+        DepartamentoInterno,
+        DepartamentoInternoId,
+        SubAlterno
+      FROM dbo.EmpleadosView
+      WHERE UPPER(LTRIM(RTRIM(ISNULL(DepartamentoInterno, '')))) = 'CCO'
+        AND UPPER(LTRIM(RTRIM(ISNULL(CONVERT(NVARCHAR(30), EstaBaja), '')))) IN ('FALSE', '0')
+        AND ISNULL(EstaEliminado, 0) = 0
       ORDER BY Nombre ASC
     `;
     const result = await executeQuery(query, []);
@@ -795,14 +827,35 @@ class FormatosModel {
       }
 
       const detallesPersistidos = [];
-      for (const r of registrosActivos) {
+      let totalActivosCount = 0;
+      for (const r of registros) {
         const detId = parseInt(r.DetalleControlEBId, 10) || 0;
         const seqNum = parseInt(r.Secuencia, 10);
+        if (!Number.isInteger(seqNum) || seqNum <= 0) continue;
+        const isAnulado = String(r.Valor || '').toUpperCase() === 'X' || Boolean(r.EstaEliminado);
+
         const reqDet = new sql.Request(transaction);
         reqDet.input('EncabezadoId', sql.Int, targetId);
         reqDet.input('Secuencia', sql.Int, seqNum);
         reqDet.input('Usuario', sql.NVarChar(150), usuarioAuditoria);
 
+        if (isAnulado) {
+          if (detId <= 0) {
+            const insAnulado = await reqDet.query(`
+              INSERT INTO dbo.DetalleControlEB (EncabezadoControlEB, Secuencia, CreadoPor, Creado, EstaEliminado)
+              OUTPUT INSERTED.DetalleControlEBId
+              VALUES (@EncabezadoId, @Secuencia, @Usuario, GETDATE(), 1)
+            `);
+            const anuladoId = parseInt(insAnulado.recordset?.[0]?.DetalleControlEBId, 10) || 0;
+            filasEliminadasSoft += 1;
+            detallesPersistidos.push({ ...r, DetalleControlEBId: anuladoId, Valor: 'X', EstaEliminado: true });
+          } else {
+            detallesPersistidos.push({ ...r, DetalleControlEBId: detId, Valor: 'X', EstaEliminado: true });
+          }
+          continue;
+        }
+
+        totalActivosCount += 1;
         if (detId > 0 && encabezadoId > 0) {
           reqDet.input('DetalleId', sql.Int, detId);
           await reqDet.query(`
@@ -810,7 +863,7 @@ class FormatosModel {
             SET Secuencia = @Secuencia
             WHERE DetalleControlEBId = @DetalleId AND EncabezadoControlEB = @EncabezadoId AND ISNULL(EstaEliminado, 0) = 0
           `);
-          detallesPersistidos.push({ ...r, DetalleControlEBId: detId });
+          detallesPersistidos.push({ ...r, DetalleControlEBId: detId, EstaEliminado: false });
         } else {
           const insDet = await reqDet.query(`
             INSERT INTO dbo.DetalleControlEB (EncabezadoControlEB, Secuencia, CreadoPor, Creado, EstaEliminado)
@@ -818,14 +871,14 @@ class FormatosModel {
             VALUES (@EncabezadoId, @Secuencia, @Usuario, GETDATE(), 0)
           `);
           const newId = parseInt(insDet.recordset?.[0]?.DetalleControlEBId, 10) || 0;
-          detallesPersistidos.push({ ...r, DetalleControlEBId: newId });
+          detallesPersistidos.push({ ...r, DetalleControlEBId: newId, EstaEliminado: false });
         }
       }
 
       await transaction.commit();
       return {
         encabezadoId: targetId,
-        totalEquipajes: detallesPersistidos.length,
+        totalEquipajes: totalActivosCount,
         filasEliminadasSoft,
         detalles: detallesPersistidos
       };
@@ -844,12 +897,18 @@ class FormatosModel {
     family,
     itinerarioId,
     encabezadoId,
-    detalleId
+    detalleId,
+    secuencia = 0,
+    motivo = '',
+    usuarioAuditoria = 'SISTEMA'
   }) {
     const fam = String(family || '').trim().toLowerCase();
     const encId = parseInt(encabezadoId, 10) || 0;
     const detId = parseInt(detalleId, 10) || 0;
     const itiId = parseInt(itinerarioId, 10) || 0;
+    let secNum = parseInt(secuencia, 10) || 0;
+    const motivoClean = String(motivo || '').trim().slice(0, 250);
+    const userAudit = String(usuarioAuditoria || 'SISTEMA').trim().slice(0, 150);
 
     if (encId <= 0 || detId <= 0 || itiId <= 0) {
       const badErr = new Error('Parámetros inválidos para anular secuencia en matriz.');
@@ -861,12 +920,18 @@ class FormatosModel {
       eb: {
         detailTable: 'dbo.DetalleControlEB',
         pkCol: 'DetalleControlEBId',
-        fkCol: 'EncabezadoControlEB'
+        fkCol: 'EncabezadoControlEB',
+        obsTable: 'dbo.ObservacionesEB',
+        obsFkCol: 'EncabezadoControlEB',
+        obsHasAudit: true
       },
       cec: {
         detailTable: 'dbo.DetalleCECDesp',
         pkCol: 'DetalleCECDespId',
-        fkCol: 'EncabezadoCECId'
+        fkCol: 'EncabezadoCECId',
+        obsTable: 'dbo.ObservacionesCEC',
+        obsFkCol: 'EncabezadoCECId',
+        obsHasAudit: false
       }
     };
 
@@ -884,6 +949,17 @@ class FormatosModel {
       throw idorErr;
     }
 
+    if (secNum <= 0) {
+      const secRes = await executeQuery(
+        `SELECT Secuencia FROM ${cfg.detailTable} WHERE ${cfg.pkCol} = @detalleId AND ${cfg.fkCol} = @encabezadoId`,
+        [
+          { name: 'detalleId', type: sql.Int, value: detId },
+          { name: 'encabezadoId', type: sql.Int, value: encId }
+        ]
+      );
+      secNum = parseInt(secRes.recordset?.[0]?.Secuencia, 10) || 0;
+    }
+
     const res = await executeQuery(
       `
         UPDATE ${cfg.detailTable}
@@ -899,12 +975,92 @@ class FormatosModel {
     );
 
     const affectedRows = Array.isArray(res.rowsAffected) ? (res.rowsAffected[0] || 0) : 0;
+
+    if (affectedRows > 0 && secNum > 0 && motivoClean) {
+      const nota = `[Anulada Sec. ${secNum}: ${motivoClean}]`;
+      const obsRes = await executeQuery(
+        `SELECT TOP 1 Observaciones FROM ${cfg.obsTable} WHERE ${cfg.obsFkCol} = @encabezadoId AND ISNULL(EstaEliminado, 0) = 0`,
+        [{ name: 'encabezadoId', type: sql.Int, value: encId }]
+      );
+      const currentObs = String(obsRes.recordset?.[0]?.Observaciones || '').trim();
+      const markerRegex = new RegExp(`\\[Anulada Sec\\.\\s*${secNum}:`, 'i');
+      if (!markerRegex.test(currentObs)) {
+        const nextObs = currentObs ? `${currentObs} | ${nota}` : nota;
+        if (obsRes.recordset && obsRes.recordset.length > 0) {
+          await executeQuery(
+            `UPDATE ${cfg.obsTable} SET Observaciones = @observaciones WHERE ${cfg.obsFkCol} = @encabezadoId AND ISNULL(EstaEliminado, 0) = 0`,
+            [
+              { name: 'observaciones', type: sql.NVarChar(sql.MAX), value: nextObs },
+              { name: 'encabezadoId', type: sql.Int, value: encId }
+            ]
+          );
+        } else if (cfg.obsHasAudit) {
+          await executeQuery(
+            `INSERT INTO ${cfg.obsTable} (${cfg.obsFkCol}, Observaciones, CreadoPor, Creado, EstaEliminado) VALUES (@encabezadoId, @observaciones, @usuario, GETDATE(), 0)`,
+            [
+              { name: 'encabezadoId', type: sql.Int, value: encId },
+              { name: 'observaciones', type: sql.NVarChar(sql.MAX), value: nextObs },
+              { name: 'usuario', type: sql.NVarChar(150), value: userAudit }
+            ]
+          );
+        } else {
+          await executeQuery(
+            `INSERT INTO ${cfg.obsTable} (${cfg.obsFkCol}, Observaciones, EstaEliminado) VALUES (@encabezadoId, @observaciones, 0)`,
+            [
+              { name: 'encabezadoId', type: sql.Int, value: encId },
+              { name: 'observaciones', type: sql.NVarChar(sql.MAX), value: nextObs }
+            ]
+          );
+        }
+      }
+    }
+
     return {
       softDeleted: true,
       affectedRows,
       detalleId: detId,
-      encabezadoId: encId
+      encabezadoId: encId,
+      secuencia: secNum,
+      motivoRetiro: motivoClean
     };
+  }
+
+  /**
+   * Obtiene todas las filas (activas y con Soft Delete) de una matriz EB o CEC en orden cronológico
+   * para reconstruir con fidelidad 1:1 las secuencias anuladas (✗ sobre el número original).
+   */
+  static async obtenerDetallesMatrizConAnulados(family, encabezadoId) {
+    const fam = String(family || '').trim().toLowerCase();
+    const encId = parseInt(encabezadoId, 10) || 0;
+    if (encId <= 0) return [];
+
+    const tableMap = {
+      eb: {
+        detailTable: 'dbo.DetalleControlEB',
+        pkCol: 'DetalleControlEBId',
+        fkCol: 'EncabezadoControlEB'
+      },
+      cec: {
+        detailTable: 'dbo.DetalleCECDesp',
+        pkCol: 'DetalleCECDespId',
+        fkCol: 'EncabezadoCECId'
+      }
+    };
+
+    const cfg = tableMap[fam];
+    if (!cfg) return [];
+
+    const res = await executeQuery(
+      `
+        SELECT ${cfg.pkCol}, Secuencia, ISNULL(EstaEliminado, 0) AS EstaEliminado
+        FROM ${cfg.detailTable}
+        WHERE ${cfg.fkCol} = @encabezadoId
+        ORDER BY ${cfg.pkCol} ASC
+      `,
+      [{ name: 'encabezadoId', type: sql.Int, value: encId }]
+    );
+
+    return res.recordset || [];
   }
 
   /**
@@ -1171,21 +1327,42 @@ class FormatosModel {
       }
 
       const detallesPersistidos = [];
-      for (const s of secuenciasActivas) {
+      let totalActivosEmbarque = 0;
+      for (const s of secuencias) {
         const detId = parseInt(s.DetalleCECDespId, 10) || 0;
         const seqNum = parseInt(s.Secuencia, 10);
+        if (!Number.isInteger(seqNum) || seqNum <= 0) continue;
+        const isAnulado = String(s.Valor || '').toUpperCase() === 'X' || Boolean(s.EstaEliminado);
+
         const reqDet = new sql.Request(transaction);
         reqDet.input('EncabezadoId', sql.Int, targetId);
         reqDet.input('Secuencia', sql.Int, seqNum);
         reqDet.input('Usuario', sql.NVarChar(150), usuarioAuditoria);
 
+        if (isAnulado) {
+          if (detId <= 0) {
+            const insAnulado = await reqDet.query(`
+              INSERT INTO dbo.DetalleCECDesp (EncabezadoCECId, Secuencia, CreadoPor, Creado, EstaEliminado)
+              OUTPUT INSERTED.DetalleCECDespId
+              VALUES (@EncabezadoId, @Secuencia, @Usuario, GETDATE(), 1)
+            `);
+            const anuladoId = parseInt(insAnulado.recordset?.[0]?.DetalleCECDespId, 10) || 0;
+            filasEliminadasSoft += 1;
+            detallesPersistidos.push({ ...s, DetalleCECDespId: anuladoId, Valor: 'X', EstaEliminado: true });
+          } else {
+            detallesPersistidos.push({ ...s, DetalleCECDespId: detId, Valor: 'X', EstaEliminado: true });
+          }
+          continue;
+        }
+
+        totalActivosEmbarque += 1;
         if (detId > 0 && encabezadoId > 0) {
           reqDet.input('DetalleId', sql.Int, detId);
           await reqDet.query(`
             UPDATE dbo.DetalleCECDesp SET Secuencia = @Secuencia
             WHERE DetalleCECDespId = @DetalleId AND EncabezadoCECId = @EncabezadoId AND ISNULL(EstaEliminado, 0) = 0
           `);
-          detallesPersistidos.push({ ...s, DetalleCECDespId: detId });
+          detallesPersistidos.push({ ...s, DetalleCECDespId: detId, EstaEliminado: false });
         } else {
           const insDet = await reqDet.query(`
             INSERT INTO dbo.DetalleCECDesp (EncabezadoCECId, Secuencia, CreadoPor, Creado, EstaEliminado)
@@ -1193,14 +1370,14 @@ class FormatosModel {
             VALUES (@EncabezadoId, @Secuencia, @Usuario, GETDATE(), 0)
           `);
           const newId = parseInt(insDet.recordset?.[0]?.DetalleCECDespId, 10) || 0;
-          detallesPersistidos.push({ ...s, DetalleCECDespId: newId });
+          detallesPersistidos.push({ ...s, DetalleCECDespId: newId, EstaEliminado: false });
         }
       }
 
       await transaction.commit();
       return {
         encabezadoId: targetId,
-        totalEmbarque: detallesPersistidos.length,
+        totalEmbarque: totalActivosEmbarque,
         filasEliminadasSoft,
         detalles: detallesPersistidos
       };

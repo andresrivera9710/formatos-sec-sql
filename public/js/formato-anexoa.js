@@ -285,24 +285,36 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    registros.push({
-      DetalleAnexoAId: 0,
-      EmpleadoId: resolveEmpleadoIdByNombre(nombre),
-      Nombre: nombre,
-      NoTIA: noTia,
-      Empresa: empresa,
-      HoraIngreso: hIn,
-      Motivo: motivo,
-      HoraSalida: hOut
-    });
+    const applyAddAxa = () => {
+      registros.push({
+        DetalleAnexoAId: 0,
+        EmpleadoId: resolveEmpleadoIdByNombre(nombre),
+        Nombre: nombre,
+        NoTIA: noTia,
+        Empresa: empresa,
+        HoraIngreso: hIn,
+        Motivo: motivo,
+        HoraSalida: hOut
+      });
 
-    if (quickNombre) quickNombre.value = '';
-    if (quickNoTIA) quickNoTIA.value = '';
-    if (quickHoraIngreso) quickHoraIngreso.value = '';
-    if (quickMotivo) quickMotivo.value = '';
-    if (quickHoraSalida) quickHoraSalida.value = '';
+      if (quickNombre) quickNombre.value = '';
+      if (quickNoTIA) quickNoTIA.value = '';
+      if (quickHoraIngreso) quickHoraIngreso.value = '';
+      if (quickMotivo) quickMotivo.value = '';
+      if (quickHoraSalida) quickHoraSalida.value = '';
 
-    renderTabla();
+      renderTabla();
+      Validator?.focusWithoutScroll ? Validator.focusWithoutScroll(quickNombre) : quickNombre?.focus({ preventScroll: true });
+    };
+    if (Validator?.preserveScroll) Validator.preserveScroll(applyAddAxa);
+    else applyAddAxa();
+  });
+
+  quickMotivo?.addEventListener('keydown', (e) => {
+    if ((e.key === 'Enter' || e.keyCode === 13) && !e.isComposing && e.keyCode !== 229) {
+      e.preventDefault();
+      document.getElementById('btnAxAAgregarRegistro')?.click();
+    }
   });
 
   document.getElementById('btnAxAFilaManual')?.addEventListener('click', () => {

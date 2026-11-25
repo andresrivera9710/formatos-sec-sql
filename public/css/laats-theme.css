@@ -6,6 +6,16 @@
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
 
 :root {
+  color-scheme: light dark;
+
+  &:has(> head > meta[name="color-scheme"][content="dark"]) {
+    color-scheme: dark;
+  }
+
+  &:has(> head > meta[name="color-scheme"][content="light"]) {
+    color-scheme: light;
+  }
+
   /* Paleta Institucional LAATS (Modo Claro por defecto) */
   --navy-deep: #0F2744;
   --navy-brand: #275B88;
@@ -131,6 +141,19 @@ html {
   width: 100%;
   max-width: 100%;
   overflow-x: clip;
+  accent-color: var(--brand);
+  scrollbar-color: var(--border) var(--bg);
+}
+
+::selection {
+  background-color: var(--navy-brand);
+  color: #FFFFFF;
+}
+
+[data-theme="dark"] ::selection,
+body.dark-mode ::selection {
+  background-color: var(--gold);
+  color: #0F2744;
 }
 
 body {
@@ -464,7 +487,12 @@ body.dark-mode .swal2-html-container {
   max-width: 420px;
   width: 100%;
   text-align: center;
-  animation: sioFadeInScale 0.18s ease-out;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sio-loading-card {
+    animation: sioFadeInScale 0.18s ease-out;
+  }
 }
 
 @keyframes sioFadeInScale {
@@ -496,6 +524,12 @@ body.dark-mode .swal2-html-container {
   border-right-color: var(--gold);
   border-radius: 50%;
   animation: sioSpin 0.85s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sio-spinner-ring {
+    animation-duration: 6s;
+  }
 }
 
 .sio-spinner-icon {

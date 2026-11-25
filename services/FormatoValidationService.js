@@ -344,7 +344,10 @@ class FormatoValidationService {
     ];
 
     // Normalizar campos por fila antes de pasar al validador de esquema
-    const isDeltaER = String(payload.formatoId || '').trim().toLowerCase() === 'dl-er';
+    const fmtIdLower = String(payload.formatoId || '').trim().toLowerCase();
+    const isDeltaER = fmtIdLower === 'dl-er';
+    const isAmxER = fmtIdLower === 'amx-er';
+    const nombreAgenteSesion = String(user?.nombreCompleto || user?.usuario || '').trim();
     const filasParaValidar = registrosRaw.map((r, idx) => {
       const horaNorm = FormatoValidationService.normalizarHora(r?.HoraRevision ?? r?.Hora ?? '');
       const rawSec = String(r?.Secuencia ?? '').trim();
@@ -357,7 +360,9 @@ class FormatoValidationService {
         Destino: String(r?.Destino ?? '').trim(),
         HoraRevision: horaNorm,
         AgenteAVSEC: String(r?.AgenteAVSEC ?? r?.Avsec ?? '').trim(),
-        AgenteSeguridad: String(r?.AgenteSeguridad ?? r?.Seguridad ?? r?.CreadoPor ?? '').trim()
+        AgenteSeguridad: isAmxER
+          ? nombreAgenteSesion
+          : String(r?.AgenteSeguridad ?? r?.Seguridad ?? r?.CreadoPor ?? '').trim()
       };
     });
 
@@ -532,13 +537,16 @@ class FormatoValidationService {
       { field: 'Secuencia', label: 'Secuencia de Equipaje', type: 'integer', required: true, min: 1 }
     ];
 
-    const filasParaValidar = registrosRaw.map((r, idx) => ({
-      DetalleControlEBId: parseInt(r?.DetalleControlEBId ?? r?.DetalleEBId, 10) || 0,
-      Orden: parseInt(r?.Orden ?? r?.Casilla, 10) || (idx + 1),
-      Secuencia: String(r?.Secuencia ?? '').trim(),
-      Valor: String(r?.Valor ?? '').trim(),
-      Motivo: String(r?.Motivo ?? (String(r?.Valor ?? '').toUpperCase() === 'X' ? (observaciones || 'Retirado') : '')).trim()
-    }));
+    const filasParaValidar = registrosRaw.map((r, idx) => {
+      const isAnulado = String(r?.Valor ?? '').trim().toUpperCase() === 'X' || Boolean(r?.anulado) || Boolean(r?.EstaEliminado);
+      return {
+        DetalleControlEBId: parseInt(r?.DetalleControlEBId ?? r?.DetalleEBId, 10) || 0,
+        Orden: parseInt(r?.Orden ?? r?.Casilla, 10) || (idx + 1),
+        Secuencia: String(r?.Secuencia ?? '').trim(),
+        Valor: isAnulado ? 'X' : String(r?.Valor ?? r?.Secuencia ?? '').trim(),
+        Motivo: String(r?.Motivo ?? r?.motivoRetiro ?? (isAnulado ? (observaciones || 'Retirado') : '')).trim()
+      };
+    });
 
     const esq = FormatoValidationService.validarEsquemaFormato({
       headerData: {
@@ -665,17 +673,41 @@ class FormatoValidationService {
     if (embarqueInicio) headerRules.push({ field: 'embarqueInicio', label: 'Embarque Hora Inicio', type: 'time', required: false });
     if (embarqueFinal) headerRules.push({ field: 'embarqueFinal', label: 'Embarque Hora Fin', type: 'time', required: false });
 
+    const tiaOirsa = String(cec.tiaOirsa || '').trim();
+    const pilotoComb = String(cec.pilotoCombustible || '').trim();
+    const ayudComb = String(cec.ayudanteCombustible || '').trim();
+    const tiaPilotoComb = String(cec.tiaPilotoCombustible || '').trim();
+    const tiaAyudComb = String(cec.tiaAyudanteCombustible || '').trim();
+    const pilotoCoc = String(cec.pilotoCocinas || '').trim();
+    const ayudCoc = String(cec.ayudanteCocinas || '').trim();
+    const tiaPilotoCoc = String(cec.tiaPilotoCocinas || '').trim();
+    const tiaAyudCoc = String(cec.tiaAyudanteCocinas || '').trim();
+
+    const isAmxCEC = String(payload.formatoId || '').trim().toLowerCase() === 'amx-cec';
+    if (isAmxCEC) {
+      headerRules.push(
+        { field: 'tiaOirsa', label: 'TIA (OIRSA)', type: 'string', required: false, maxLength: 50, pattern: /^\d+$/, patternMessage: 'debe contener únicamente valores numéricos (0-9).' },
+        { field: 'tiaPilotoCombustible', label: 'TIA (Piloto Combustible)', type: 'string', required: false, maxLength: 50, pattern: /^\d+$/, patternMessage: 'debe contener únicamente valores numéricos (0-9).' },
+        { field: 'tiaAyudanteCombustible', label: 'TIA (Ayudante Combustible)', type: 'string', required: false, maxLength: 50, pattern: /^\d+$/, patternMessage: 'debe contener únicamente valores numéricos (0-9).' },
+        { field: 'tiaPilotoCocinas', label: 'TIA (Piloto Cocinas)', type: 'string', required: false, maxLength: 50, pattern: /^\d+$/, patternMessage: 'debe contener únicamente valores numéricos (0-9).' },
+        { field: 'tiaAyudanteCocinas', label: 'TIA (Ayudante Cocinas)', type: 'string', required: false, maxLength: 50, pattern: /^\d+$/, patternMessage: 'debe contener únicamente valores numéricos (0-9).' }
+      );
+    }
+
     const rowRules = [
       { field: 'Secuencia', label: 'Secuencia de Embarque', type: 'integer', required: true, min: 1 }
     ];
 
-    const filasSecuencias = secuenciasRaw.map((s, idx) => ({
-      DetalleCECDespId: parseInt(s?.DetalleCECDespId ?? s?.DetalleCECId, 10) || 0,
-      Orden: parseInt(s?.Orden ?? s?.Casilla, 10) || (idx + 1),
-      Secuencia: String(s?.Secuencia ?? '').trim(),
-      Valor: String(s?.Valor ?? '').trim(),
-      Motivo: String(s?.Motivo ?? '').trim()
-    }));
+    const filasSecuencias = secuenciasRaw.map((s, idx) => {
+      const isAnulado = String(s?.Valor ?? '').trim().toUpperCase() === 'X' || Boolean(s?.anulado) || Boolean(s?.EstaEliminado);
+      return {
+        DetalleCECDespId: parseInt(s?.DetalleCECDespId ?? s?.DetalleCECId, 10) || 0,
+        Orden: parseInt(s?.Orden ?? s?.Casilla, 10) || (idx + 1),
+        Secuencia: String(s?.Secuencia ?? '').trim(),
+        Valor: isAnulado ? 'X' : String(s?.Valor ?? s?.Secuencia ?? '').trim(),
+        Motivo: String(s?.Motivo ?? s?.motivoRetiro ?? '').trim()
+      };
+    });
 
     const isDeltaCEC = String(payload.formatoId || '').trim().toLowerCase() === 'dl-cec';
     const tieneDesembarque =
@@ -703,7 +735,12 @@ class FormatoValidationService {
         desembarqueInicio,
         desembarqueFinal,
         embarqueInicio,
-        embarqueFinal
+        embarqueFinal,
+        tiaOirsa,
+        tiaPilotoCombustible: tiaPilotoComb,
+        tiaAyudanteCombustible: tiaAyudComb,
+        tiaPilotoCocinas: tiaPilotoCoc,
+        tiaAyudanteCocinas: tiaAyudCoc
       },
       rows: filasSecuencias,
       headerRules,
@@ -713,15 +750,6 @@ class FormatoValidationService {
     });
 
     if (!esq.valido) return esq;
-
-    const pilotoComb = String(cec.pilotoCombustible || '').trim();
-    const ayudComb = String(cec.ayudanteCombustible || '').trim();
-    const tiaPilotoComb = String(cec.tiaPilotoCombustible || '').trim();
-    const tiaAyudComb = String(cec.tiaAyudanteCombustible || '').trim();
-    const pilotoCoc = String(cec.pilotoCocinas || '').trim();
-    const ayudCoc = String(cec.ayudanteCocinas || '').trim();
-    const tiaPilotoCoc = String(cec.tiaPilotoCocinas || '').trim();
-    const tiaAyudCoc = String(cec.tiaAyudanteCocinas || '').trim();
 
     return {
       valido: true,
@@ -845,22 +873,55 @@ class FormatoValidationService {
 
     const rowRules = [
       { field: 'Nombre', label: 'Nombre de la Persona', type: 'string', required: true, maxLength: 200 },
-      { field: 'NoTIA', label: 'No. de TIA', type: 'string', required: true, maxLength: 50 },
+      { field: 'NoTIA', label: 'No. de TIA', type: 'string', required: true, maxLength: 50, pattern: /^\d+$/, patternMessage: 'debe contener únicamente valores numéricos (dígitos 0-9).' },
       { field: 'Empresa', label: 'Empresa', type: 'string', required: true, maxLength: 150 },
       { field: 'HoraIngreso', label: 'Hora de Ingreso', type: 'time', required: true },
       { field: 'Motivo', label: 'Motivo', type: 'string', required: true, maxLength: 250 },
       { field: 'HoraSalida', label: 'Hora de Salida', type: 'time', required: true }
     ];
 
-    const filasPersonas = registrosRaw.map(r => ({
-      DetalleCPId: parseInt(r?.DetalleCPId, 10) || 0,
-      Nombre: String(r?.Nombre || '').trim(),
-      NoTIA: String(r?.NoTIA || '').trim(),
-      Empresa: String(r?.Empresa || '').trim(),
-      HoraIngreso: FormatoValidationService.normalizarHora(r?.HoraIngreso),
-      Motivo: String(r?.Motivo || '').trim(),
-      HoraSalida: FormatoValidationService.normalizarHora(r?.HoraSalida)
-    }));
+    const isAmxCP = String(payload.formatoId || '').trim().toLowerCase() === 'amx-cp';
+    const empresasAutorizadasAmxCP = new Set([
+      'ODA',
+      'ODA (Combustible)',
+      'AEROEXPRESS',
+      'OIRSA',
+      'AEROMEXICO',
+      'LAATS'
+    ]);
+
+    const filasPersonas = registrosRaw.map(r => {
+      const rawNombre = String(r?.Nombre || '').trim();
+      return {
+        DetalleCPId: parseInt(r?.DetalleCPId, 10) || 0,
+        Nombre: isAmxCP ? rawNombre.toUpperCase() : rawNombre,
+        NoTIA: String(r?.NoTIA || '').trim(),
+        Empresa: String(r?.Empresa || '').trim(),
+        HoraIngreso: FormatoValidationService.normalizarHora(r?.HoraIngreso),
+        Motivo: String(r?.Motivo || '').trim(),
+        HoraSalida: FormatoValidationService.normalizarHora(r?.HoraSalida)
+      };
+    });
+
+    if (isAmxCP) {
+      for (let i = 0; i < filasPersonas.length; i++) {
+        const f = filasPersonas[i];
+        if (f.DetalleCPId <= 0 && f.Empresa && !empresasAutorizadasAmxCP.has(f.Empresa)) {
+          return {
+            valido: false,
+            statusCode: 400,
+            message: `Persona #${i + 1} (${f.Nombre || 'Sin nombre'}): La empresa "${f.Empresa}" no está dentro del catálogo autorizado de AEROMEXICO.`,
+            errors: [{
+              scope: 'row',
+              row: i + 1,
+              field: 'Empresa',
+              label: 'Empresa',
+              message: `Empresa "${f.Empresa}" no permitida en Control de Perimétrica AEROMEXICO.`
+            }]
+          };
+        }
+      }
+    }
 
     const esq = FormatoValidationService.validarEsquemaFormato({
       headerData: {
@@ -980,7 +1041,7 @@ class FormatoValidationService {
 
     const rowRules = [
       { field: 'Nombre', label: 'Nombre de la Persona', type: 'string', required: true, maxLength: 200 },
-      { field: 'NoTIA', label: 'No. de TIA', type: 'string', required: true, maxLength: 50 },
+      { field: 'NoTIA', label: 'No. de TIA', type: 'string', required: true, maxLength: 50, pattern: /^\d+$/, patternMessage: 'debe contener únicamente valores numéricos (dígitos 0-9).' },
       { field: 'Empresa', label: 'Empresa', type: 'string', required: true, maxLength: 150 },
       { field: 'HoraIngreso', label: 'Hora de Entrada', type: 'time', required: true },
       { field: 'Motivo', label: 'Motivo de Ingreso', type: 'string', required: true, maxLength: 250 },
@@ -1027,12 +1088,39 @@ class FormatoValidationService {
 
     if (!esq.valido) return esq;
 
-    const secuenciasPuerta = equipajePuertaRaw
-      .map(s => String(s?.Valor ?? s?.Secuencia ?? s ?? '').trim())
-      .filter(v => v !== '' && v.toUpperCase() !== 'X' && v !== '0');
+    const secuenciasSerializadasPuerta = [];
+    const secuenciasActivasPuerta = [];
+    for (const s of equipajePuertaRaw) {
+      if (s === null || s === undefined) continue;
+      if (typeof s === 'string' || typeof s === 'number') {
+        const str = String(s).trim();
+        if (!str || str === '0' || str.toUpperCase() === 'X') continue;
+        const wm = str.match(/^X:(\d+)$/i);
+        if (wm) {
+          secuenciasSerializadasPuerta.push(`X:${wm[1]}`);
+        } else {
+          secuenciasActivasPuerta.push(str);
+          secuenciasSerializadasPuerta.push(str);
+        }
+        continue;
+      }
+      const rawVal = String(s.Valor ?? '').trim();
+      const rawSec = String(s.Secuencia ?? '').trim();
+      const isWithdrawn = rawVal.toUpperCase() === 'X' || Boolean(s.EstaEliminado) || Boolean(s.anulado);
+      const sec = (rawSec && rawSec !== '0' && rawSec.toUpperCase() !== 'X')
+        ? rawSec
+        : ((rawVal && rawVal !== '0' && rawVal.toUpperCase() !== 'X') ? rawVal : '');
+      if (!sec) continue;
+      if (isWithdrawn) {
+        secuenciasSerializadasPuerta.push(`X:${sec}`);
+      } else {
+        secuenciasActivasPuerta.push(sec);
+        secuenciasSerializadasPuerta.push(sec);
+      }
+    }
 
-    const observacionesCombinadas = secuenciasPuerta.length > 0
-      ? (observaciones ? `${observaciones} / ${secuenciasPuerta.join(',')}` : secuenciasPuerta.join(','))
+    const observacionesCombinadas = secuenciasSerializadasPuerta.length > 0
+      ? (observaciones ? `${observaciones} / ${secuenciasSerializadasPuerta.join(',')}` : secuenciasSerializadasPuerta.join(','))
       : observaciones;
 
     return {
@@ -1072,8 +1160,8 @@ class FormatoValidationService {
         tractoristaDelta: String(ciec.tractoristaDelta || ciec.tractoristaNombre || '').trim(),
         observaciones,
         observacionesCombinadas,
-        equipajePuerta: secuenciasPuerta,
-        totalEquipaje: secuenciasPuerta.length,
+        equipajePuerta: secuenciasSerializadasPuerta,
+        totalEquipaje: secuenciasActivasPuerta.length,
         registros: filasPersonas
       }
     };

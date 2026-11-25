@@ -134,7 +134,7 @@
 
       <div class="form-group">
         <label for="cecSupervisor"><i class="fas fa-user-tie"></i> Supervisor <span class="sio-required-star">*</span></label>
-        <select id="cecSupervisor" class="form-control" required>
+        <select id="cecSupervisor" class="form-control" required data-search-placeholder="Buscar supervisor por nombre, código o puesto...">
           <option value="">-- Seleccione el Supervisor --</option>
           <% (supervisores || []).forEach(sup => {
                const matchSup = supRawVal && (
@@ -146,6 +146,9 @@
             <option
               value="<%= sup.LoginId %>"
               data-usuario="<%= sup.Usuario %>"
+              data-code="<%= sup.Codigo || '' %>"
+              data-puesto="<%= sup.PuestoEmpleado || sup.Puesto || '' %>"
+              data-meta="<%= sup.NombreCompleto || '' %>"
               <%= matchSup ? 'selected' : '' %>
             ><%= sup.Usuario %></option>
           <% }) %>
@@ -217,7 +220,7 @@
       </div>
       <div class="form-group">
         <label for="cecTiaOirsa">TIA:</label>
-        <input type="text" id="cecTiaOirsa" class="form-control" value="<%= tiaOirsaVal %>" placeholder="Ingrese No. de TIA OIRSA">
+        <input type="text" id="cecTiaOirsa" class="form-control" inputmode="numeric" pattern="[0-9]*" data-numeric-only="true" maxlength="20" value="<%= tiaOirsaVal %>" placeholder="Ingrese No. de TIA OIRSA (solo números)">
       </div>
     </div>
 
@@ -229,7 +232,7 @@
       </div>
       <div class="form-group">
         <label for="cecTiaPilotoCombustible">TIA (Piloto):</label>
-        <input type="text" id="cecTiaPilotoCombustible" class="form-control" value="<%= tiaPilotoCombVal %>" placeholder="Ingrese No. de TIA Piloto">
+        <input type="text" id="cecTiaPilotoCombustible" class="form-control" inputmode="numeric" pattern="[0-9]*" data-numeric-only="true" maxlength="20" value="<%= tiaPilotoCombVal %>" placeholder="Ingrese No. de TIA Piloto">
       </div>
       <div class="form-group">
         <label for="cecAyudanteCombustible">Ayudante:</label>
@@ -237,7 +240,7 @@
       </div>
       <div class="form-group">
         <label for="cecTiaAyudanteCombustible">TIA (Ayudante):</label>
-        <input type="text" id="cecTiaAyudanteCombustible" class="form-control" value="<%= tiaAyudanteCombVal %>" placeholder="Ingrese No. de TIA Ayudante">
+        <input type="text" id="cecTiaAyudanteCombustible" class="form-control" inputmode="numeric" pattern="[0-9]*" data-numeric-only="true" maxlength="20" value="<%= tiaAyudanteCombVal %>" placeholder="Ingrese No. de TIA Ayudante">
       </div>
       <div class="form-group">
         <label for="cecNoUnidadCombustible">No. Unidad:</label>
@@ -271,7 +274,7 @@
       </div>
       <div class="form-group">
         <label for="cecTiaPilotoCocinas">TIA (Piloto):</label>
-        <input type="text" id="cecTiaPilotoCocinas" class="form-control" value="<%= tiaPilotoCocVal %>" placeholder="Ingrese No. de TIA">
+        <input type="text" id="cecTiaPilotoCocinas" class="form-control" inputmode="numeric" pattern="[0-9]*" data-numeric-only="true" maxlength="20" value="<%= tiaPilotoCocVal %>" placeholder="Ingrese No. de TIA">
       </div>
       <div class="form-group">
         <label for="cecAyudanteCocinas">Ayudante:</label>
@@ -279,7 +282,7 @@
       </div>
       <div class="form-group">
         <label for="cecTiaAyudanteCocinas">TIA (Ayudante):</label>
-        <input type="text" id="cecTiaAyudanteCocinas" class="form-control" value="<%= tiaAyudanteCocVal %>" placeholder="Ingrese No. de TIA">
+        <input type="text" id="cecTiaAyudanteCocinas" class="form-control" inputmode="numeric" pattern="[0-9]*" data-numeric-only="true" maxlength="20" value="<%= tiaAyudanteCocVal %>" placeholder="Ingrese No. de TIA">
       </div>
       <div class="form-group">
         <label for="cecNoUnidadCocinas">No. Unidad:</label>

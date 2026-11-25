@@ -175,17 +175,25 @@ app.use((err, req, res, next) => {
 
 // Arranque del Servidor
 if (require.main === module) {
-  const server = app.listen(PORT, () => {
+  const SharePointSyncQueueService = require('./services/SharePointSyncQueueService');
+
+  const server = app.listen(PORT, (err) => {
+    if (err) {
+      console.error(`\x1b[31m✖ Error al iniciar servidor en el puerto ${PORT}:\x1b[0m`, err.message);
+      process.exit(1);
+    }
     console.log(`\n\x1b[36m====================================================\x1b[0m`);
     console.log(`\x1b[32m✔ Servidor SIO Formatos SEC ejecutándose en el puerto ${PORT}\x1b[0m`);
     console.log(`\x1b[34m✔ Modo: ${process.env.NODE_ENV || 'development'}\x1b[0m`);
     console.log(`\x1b[33m✔ URL Local: http://localhost:${PORT}\x1b[0m`);
     console.log(`\x1b[36m====================================================\x1b[0m\n`);
+    SharePointSyncQueueService.startWorker();
   });
 
   // Apagado controlado para reinicios sin interrupciones en Azure App Service
   const shutdown = (signal) => {
     console.log(`[SHUTDOWN] Señal ${signal} recibida. Cerrando servidor HTTP...`);
+    SharePointSyncQueueService.stopWorker();
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(0), 10000).unref();
   };

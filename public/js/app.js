@@ -158,22 +158,31 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 1. Manejador del Modo Oscuro (Sincronizado con tab-bar.js y [data-theme="dark"])
+  // 1. Manejador del Modo Oscuro (Sincronizado con tab-bar.js, [data-theme="dark"] y <meta name="color-scheme">)
   const btnDarkMode = document.getElementById('btnDarkModeToggle');
   if (btnDarkMode) {
+    const syncColorSchemeMeta = (scheme) => {
+      const meta = document.querySelector('meta[name="color-scheme"]');
+      if (meta) meta.setAttribute('content', scheme);
+    };
     const isDark = localStorage.getItem('sio_theme') === 'dark' || localStorage.getItem('sio_dark_mode') === 'true';
     if (isDark) {
       document.documentElement.setAttribute('data-theme', 'dark');
       document.body.setAttribute('data-theme', 'dark');
       document.body.classList.add('dark-mode');
+      syncColorSchemeMeta('dark');
+    } else {
+      syncColorSchemeMeta('light');
     }
 
     btnDarkMode.addEventListener('click', () => {
       const nextDark = !document.body.classList.contains('dark-mode');
-      document.documentElement.setAttribute('data-theme', nextDark ? 'dark' : 'light');
-      document.body.setAttribute('data-theme', nextDark ? 'dark' : 'light');
+      const nextScheme = nextDark ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', nextScheme);
+      document.body.setAttribute('data-theme', nextScheme);
       document.body.classList.toggle('dark-mode', nextDark);
-      localStorage.setItem('sio_theme', nextDark ? 'dark' : 'light');
+      syncColorSchemeMeta(nextScheme);
+      localStorage.setItem('sio_theme', nextScheme);
       localStorage.setItem('sio_dark_mode', String(nextDark));
     });
   }

@@ -51,6 +51,17 @@
     });
   }
 
+  function resolveVisibleTrigger(el) {
+    if (!el) return null;
+    if (el.tagName === 'SELECT') {
+      const wrap = el.closest('.sio-select, .sio-combo');
+      if (wrap) {
+        return wrap.querySelector('.sio-select-trigger, .sio-combo-trigger') || el;
+      }
+    }
+    return el;
+  }
+
   /**
    * Marca visualmente un campo y su fila/celda contenedora con borde --danger (#DC2626)
    * @param {HTMLElement|null} controlEl
@@ -62,8 +73,13 @@
     }
     if (!controlEl) return;
 
+    const visibleEl = resolveVisibleTrigger(controlEl);
     controlEl.classList.add('is-invalid', 'sio-field-invalid');
     controlEl.setAttribute('aria-invalid', 'true');
+    if (visibleEl && visibleEl !== controlEl) {
+      visibleEl.classList.add('is-invalid', 'sio-field-invalid');
+      visibleEl.setAttribute('aria-invalid', 'true');
+    }
 
     const parentCell = controlEl.closest('td, .er-grid-cell, .form-group');
     if (parentCell) {
@@ -79,6 +95,10 @@
     const clearHandler = () => {
       controlEl.classList.remove('is-invalid', 'sio-field-invalid');
       controlEl.removeAttribute('aria-invalid');
+      if (visibleEl && visibleEl !== controlEl) {
+        visibleEl.classList.remove('is-invalid', 'sio-field-invalid');
+        visibleEl.removeAttribute('aria-invalid');
+      }
       if (parentCell) parentCell.classList.remove('sio-cell-invalid');
       if (parentRow && !parentRow.querySelector('.is-invalid, .sio-field-invalid')) {
         parentRow.classList.remove('sio-row-invalid', 'er-row-invalid');
@@ -166,18 +186,19 @@
    * @param {HTMLElement|null} el
    */
   function focusAndScrollToElement(el) {
-    if (!el) return;
+    const target = resolveVisibleTrigger(el);
+    if (!target) return;
     try {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
     } catch (_) {
-      el.scrollIntoView();
+      target.scrollIntoView();
     }
     setTimeout(() => {
-      if (typeof el.focus === 'function') {
+      if (typeof target.focus === 'function') {
         try {
-          el.focus({ preventScroll: true });
+          target.focus({ preventScroll: true });
         } catch (_) {
-          el.focus();
+          target.focus();
         }
       }
     }, 180);
@@ -349,9 +370,11 @@
     const {
       root = document,
       headerElementMap = {},
+      headerMap = {},
       rowSelector = 'tr[data-row-index]',
       gridContainer = null
     } = options;
+    const mergedHeaderMap = { ...headerMap, ...headerElementMap };
 
     clearValidationErrors(root);
     const mappedErrors = [];
@@ -365,8 +388,8 @@
         targetRow = rows[err.row - 1];
         targetEl = targetRow.querySelector(`[data-field="${err.field}"]`) || targetRow;
         markElementInvalid(targetEl, targetRow);
-      } else if (err.scope === 'header' && headerElementMap[err.field]) {
-        targetEl = headerElementMap[err.field];
+      } else if (err.scope === 'header' && mergedHeaderMap[err.field]) {
+        targetEl = mergedHeaderMap[err.field];
         markElementInvalid(targetEl, null);
       } else if (err.scope === 'grid' && gridContainer) {
         gridContainer.classList.add('sio-grid-invalid');
@@ -386,6 +409,139 @@
 
     notifyValidationErrors(mappedErrors, 'Validación de Seguridad (Servidor)');
   }
+
+  /**
+   * Bloqueo y sanitización estricta de entradas numéricas ([data-numeric-only="true"])
+   * Funciona tanto con teclado físico en Web como con teclado táctil y pegado en Móvil.
+   */
+  function sanitizeNumericValue(raw) {
+    return String(raw ?? '').replace(/\D+/g, '');
+  }
+
+  function bindNumericOnlyDelegation() {
+    if (typeof document === 'undefined' || document._sioNumericDelegated) return;
+    document._sioNumericDelegated = true;
+
+    const ALLOWED_NAV_KEYS = new Set([
+      'Backspace', 'Delete', 'Tab', 'Enter', 'Escape',
+      'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+      'Home', 'End'
+    ]);
+
+    document.addEventListener('keydown', (e) => {
+      const el = e.target && e.target.closest ? e.target.closest('input[data-numeric-only="true"]') : null;
+      if (!el || el.readOnly || el.disabled) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (ALLOWED_NAV_KEYS.has(e.key)) return;
+      if (!/^\d$/.test(e.key)) {
+        e.preventDefault();
+      }
+    });
+
+    document.addEventListener('beforeinput', (e) => {
+      const el = e.target && e.target.closest ? e.target.closest('input[data-numeric-only="true"]') : null;
+      if (!el || el.readOnly || el.disabled) return;
+      if (e.data && /\D/.test(e.data)) {
+        const digits = sanitizeNumericValue(e.data);
+        e.preventDefault();
+        if (digits) {
+          const start = typeof el.selectionStart === 'number' ? el.selectionStart : el.value.length;
+          const end = typeof el.selectionEnd === 'number' ? el.selectionEnd : el.value.length;
+          const next = el.value.slice(0, start) + digits + el.value.slice(end);
+          const maxLen = el.maxLength > 0 ? el.maxLength : Infinity;
+          el.value = next.slice(0, maxLen);
+          const caret = Math.min(start + digits.length, el.value.length);
+          try { el.setSelectionRange(caret, caret); } catch (_) {}
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }
+    });
+
+    const cleanHandler = (e) => {
+      const el = e.target && e.target.closest ? e.target.closest('input[data-numeric-only="true"]') : null;
+      if (!el || el.readOnly || el.disabled) return;
+      const cleaned = sanitizeNumericValue(el.value);
+      if (el.value !== cleaned) {
+        el.value = cleaned;
+      }
+    };
+
+    document.addEventListener('input', cleanHandler);
+    document.addEventListener('change', cleanHandler);
+    document.addEventListener('paste', (e) => {
+      const el = e.target && e.target.closest ? e.target.closest('input[data-numeric-only="true"]') : null;
+      if (!el || el.readOnly || el.disabled) return;
+      const clip = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+      if (/\D/.test(clip)) {
+        e.preventDefault();
+        const digits = sanitizeNumericValue(clip);
+        const start = typeof el.selectionStart === 'number' ? el.selectionStart : el.value.length;
+        const end = typeof el.selectionEnd === 'number' ? el.selectionEnd : el.value.length;
+        const maxLen = el.maxLength > 0 ? el.maxLength : Infinity;
+        el.value = (el.value.slice(0, start) + digits + el.value.slice(end)).slice(0, maxLen);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+  }
+
+  /**
+   * Ejecuta una acción de actualización de matriz/DOM manteniendo intacta la posición de scroll
+   * en Web y Móvil, y ofrece foco sin desplazamiento automático.
+   */
+  function focusWithoutScroll(el) {
+    if (!el || typeof el.focus !== 'function') return;
+    try {
+      el.focus({ preventScroll: true });
+    } catch (_) {
+      el.focus();
+    }
+  }
+
+  function preserveScroll(fn) {
+    const sx = window.scrollX;
+    const sy = window.scrollY;
+    const result = typeof fn === 'function' ? fn() : undefined;
+    window.scrollTo(sx, sy);
+    if (typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(() => window.scrollTo(sx, sy));
+    }
+    return result;
+  }
+
+  function bindGlobalEnterScrollGuard() {
+    if (typeof document === 'undefined' || document._sioEnterScrollGuarded) return;
+    document._sioEnterScrollGuarded = true;
+
+    // Evita que presionar Enter o Sig. en campos de captura de cualquier formato SEC
+    // dispare un submit implícito del <form> o provoque un salto de scroll inesperado.
+    document.addEventListener('keydown', (e) => {
+      if (e.defaultPrevented) return;
+      const isEnter = e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter' || e.keyCode === 13;
+      if (!isEnter) return;
+      if (e.isComposing || e.keyCode === 229) return;
+
+      const target = e.target;
+      if (!target || !target.closest) return;
+      if (target.tagName !== 'INPUT') return;
+
+      const inputType = String(target.type || 'text').toLowerCase();
+      if (inputType === 'submit' || inputType === 'button' || inputType === 'reset' || inputType === 'checkbox' || inputType === 'radio') {
+        return;
+      }
+
+      const form = target.closest('form');
+      if (!form) return;
+      // Permitir envío natural con Enter en Login y buscador de Operaciones
+      if (form.id === 'formLogin' || form.id === 'formFiltrosOperaciones' || form.hasAttribute('data-allow-enter-submit')) {
+        return;
+      }
+
+      e.preventDefault();
+    });
+  }
+
+  bindNumericOnlyDelegation();
+  bindGlobalEnterScrollGuard();
 
   /**
    * Adaptador compatible para llamadas legacy/cortas `focusAndAlert({ title, errors })`
@@ -411,6 +567,9 @@
     notifyValidationErrors,
     focusAndAlert,
     applyBackendErrors,
-    focusAndScrollToElement
+    focusAndScrollToElement,
+    focusWithoutScroll,
+    preserveScroll,
+    sanitizeNumericValue
   };
 })(window);

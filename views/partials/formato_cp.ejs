@@ -1,10 +1,14 @@
 <%
   const comp = (cpState && cpState.complemento) ? cpState.complemento : null;
   const initialRegistros = (cpState && Array.isArray(cpState.detalles)) ? cpState.detalles : [];
-  const empresasCP = (cpState && Array.isArray(cpState.empresas)) ? cpState.empresas : [
-    'LAATS', 'GODARD(Cocinas)', 'ODA (Combustible)', 'OIRSA',
-    'DGAC (Operaciones)', 'AEROEXPRESS', 'AEROMEXICO', 'OTROS...'
-  ];
+  const isAmxCP = Boolean(formato && formato.id === 'amx-cp');
+  const defaultEmpresasCP = isAmxCP
+    ? ['ODA', 'ODA (Combustible)', 'AEROEXPRESS', 'OIRSA', 'AEROMEXICO', 'LAATS']
+    : [
+        'LAATS', 'GODARD(Cocinas)', 'ODA (Combustible)', 'OIRSA',
+        'DGAC (Operaciones)', 'AEROEXPRESS', 'AEROMEXICO', 'OTROS...'
+      ];
+  const empresasCP = (cpState && Array.isArray(cpState.empresas)) ? cpState.empresas : defaultEmpresasCP;
 
   const extractHHMM = (val) => {
     if (!val) return '';
@@ -132,11 +136,14 @@
 
       <div class="form-group">
         <label for="cpSupervisor"><i class="fas fa-user-tie"></i> Supervisor de Turno (LoginSEC)</label>
-        <select id="cpSupervisor" name="supervisorEmpleadoId" class="form-control" required>
+        <select id="cpSupervisor" name="supervisorEmpleadoId" class="form-control" required data-search-placeholder="Buscar supervisor por nombre, código o puesto...">
           <option value="">-- Seleccione el Supervisor --</option>
           <% (supervisores || []).forEach(sup => { %>
             <option
               value="<%= sup.EmpleadoId %>"
+              data-code="<%= sup.Codigo || '' %>"
+              data-puesto="<%= sup.PuestoEmpleado || sup.Puesto || '' %>"
+              data-meta="<%= sup.NombreCompleto || '' %>"
               <%= String(sup.EmpleadoId) === supSelectedId ? 'selected' : '' %>
             ><%= sup.Usuario %></option>
           <% }) %>
@@ -162,18 +169,18 @@
     <div class="sio-grid-auto">
       <div class="form-group">
         <label for="cpRegNombre">Nombre *</label>
-        <input type="text" id="cpRegNombre" class="form-control" placeholder="Ingrese Nombre" autocomplete="off">
+        <input type="text" id="cpRegNombre" class="form-control<%= isAmxCP ? ' sio-input-uppercase' : '' %>" placeholder="Ingrese Nombre" autocomplete="off" autocapitalize="<%= isAmxCP ? 'characters' : 'words' %>" enterkeyhint="next">
       </div>
 
       <div class="form-group">
         <label for="cpRegNoTIA">No. TIA *</label>
-        <input type="text" id="cpRegNoTIA" class="form-control" placeholder="Ingrese No. TIA" autocomplete="off">
+        <input type="text" id="cpRegNoTIA" class="form-control" inputmode="numeric" pattern="[0-9]*" data-numeric-only="true" maxlength="20" placeholder="Ingrese No. TIA (solo números)" autocomplete="off" enterkeyhint="next">
       </div>
 
       <div class="form-group">
         <label for="cpRegHoraIngreso">Hora de Ingreso *</label>
         <div class="cp-time-row">
-          <input type="time" id="cpRegHoraIngreso" class="form-control">
+          <input type="time" id="cpRegHoraIngreso" class="form-control" enterkeyhint="next">
           <button type="button" id="btnCpHoraIngresoActual" class="cp-clock-btn" title="Establecer hora actual">
             <i class="far fa-clock"></i> Ahora
           </button>
@@ -192,13 +199,13 @@
 
       <div class="form-group sio-field-hidden" id="grupoCpEmpresaOtros">
         <label for="cpRegEmpresaOtros">Especificar Nueva Empresa *</label>
-        <input type="text" id="cpRegEmpresaOtros" class="form-control" placeholder="Ingrese la nueva empresa" autocomplete="off">
+        <input type="text" id="cpRegEmpresaOtros" class="form-control" placeholder="Ingrese la nueva empresa" autocomplete="off" enterkeyhint="next">
       </div>
     </div>
 
     <div class="form-group sio-mt-14">
       <label for="cpRegMotivo">Motivo *</label>
-      <textarea id="cpRegMotivo" rows="2" class="form-control" placeholder="Ingrese Motivo de ingreso..."></textarea>
+      <textarea id="cpRegMotivo" rows="2" class="form-control" placeholder="Ingrese Motivo de ingreso..." enterkeyhint="done"></textarea>
     </div>
 
     <div class="sio-form-actions-end">
@@ -285,11 +292,14 @@
       <div class="sio-grid-auto-lg">
         <div class="form-group">
           <label for="cpTractorista"><i class="fas fa-hard-hat"></i> Tractorista</label>
-          <select id="cpTractorista" name="tractoristaEmpleadoId" class="form-control">
+          <select id="cpTractorista" name="tractoristaEmpleadoId" class="form-control" data-search-placeholder="Buscar tractorista por nombre, código o puesto...">
             <option value="">-- Seleccione a la persona que realiza PushBack --</option>
             <% (empleados || []).forEach(emp => { %>
               <option
                 value="<%= emp.EmpleadoId %>"
+                data-code="<%= emp.Codigo || '' %>"
+                data-puesto="<%= emp.Puesto || '' %>"
+                data-depto="<%= emp.DepartamentoInterno || '' %>"
                 <%= String(emp.EmpleadoId) === trSelectedId ? 'selected' : '' %>
               ><%= emp.Nombre %></option>
             <% }) %>
@@ -298,11 +308,13 @@
 
         <div class="form-group">
           <label for="cpNoUnidad"><i class="fas fa-tractor"></i> No. Unidad</label>
-          <select id="cpNoUnidad" name="maquinariaEquipoId" class="form-control">
+          <select id="cpNoUnidad" name="maquinariaEquipoId" class="form-control" data-search-placeholder="Buscar No. de Unidad o tipo de maquinaria...">
             <option value="">-- Seleccione la unidad --</option>
             <% (maquinaria || []).forEach(m => { %>
               <option
                 value="<%= m.MaquinariaEquipoId %>"
+                data-code="<%= m.NoUnidad || '' %>"
+                data-puesto="<%= m.TipoMaquinaria || '' %>"
                 <%= String(m.MaquinariaEquipoId) === unitSelectedId ? 'selected' : '' %>
               ><%= m.NoUnidad %><%= m.TipoMaquinaria ? ` — ${m.TipoMaquinaria}` : '' %></option>
             <% }) %>
@@ -311,10 +323,15 @@
 
         <div class="form-group">
           <label for="cpAleroSelect"><i class="fas fa-user-friends"></i> Aleros (Máximo 2)</label>
-          <select id="cpAleroSelect" class="form-control">
+          <select id="cpAleroSelect" class="form-control" data-search-placeholder="Buscar agente por nombre, código o puesto...">
             <option value="">-- Seleccionar agentes para aleros --</option>
             <% (empleados || []).forEach(emp => { %>
-              <option value="<%= emp.EmpleadoId %>"><%= emp.Nombre %></option>
+              <option
+                value="<%= emp.EmpleadoId %>"
+                data-code="<%= emp.Codigo || '' %>"
+                data-puesto="<%= emp.Puesto || '' %>"
+                data-depto="<%= emp.DepartamentoInterno || '' %>"
+              ><%= emp.Nombre %></option>
             <% }) %>
           </select>
         </div>

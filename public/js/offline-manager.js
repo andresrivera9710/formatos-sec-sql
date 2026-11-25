@@ -202,7 +202,7 @@
   // ============================================================================
   function safeClone(val) {
     try {
-      return JSON.parse(JSON.stringify(val));
+      return structuredClone(val);
     } catch (_) {
       return val;
     }
@@ -343,6 +343,7 @@
     return Boolean(
       el.classList.contains('sio-search-input') ||
       el.classList.contains('sio-combo-search') ||
+      el.classList.contains('sio-select-search') ||
       el.getAttribute('data-sio-no-draft') === '1'
     );
   }
@@ -486,14 +487,18 @@
           ? attrSec
           : (parseInt(numSpan ? numSpan.textContent.trim() : td.textContent.trim(), 10) || 0);
         const attrValor = String(td.getAttribute('data-valor') || '').trim().toUpperCase();
-        const isTachado = attrValor === 'X' || td.classList.contains('sio-mx-cell-withdrawn') || td.textContent.includes('✗');
+        const attrAnulado = td.getAttribute('data-anulado') === 'true';
+        const isTachado = attrAnulado || attrValor === 'X' || td.classList.contains('sio-mx-cell-withdrawn') || td.textContent.includes('✗');
+        const motivoRetiro = td.getAttribute('data-motivo') || '';
         if (sec > 0 || isTachado) {
           detalles.push({
             [idKey]: parseInt(td.getAttribute('data-record-id') || '0', 10) || 0,
             Casilla: detalles.length + 1,
             Secuencia: sec,
             Valor: isTachado ? 'X' : String(sec),
-            Motivo: td.getAttribute('data-motivo') || '',
+            Motivo: motivoRetiro,
+            motivoRetiro,
+            anulado: isTachado,
             EstaEliminado: isTachado
           });
         }
@@ -537,14 +542,18 @@
           ? attrSec
           : (parseInt(numSpan ? numSpan.textContent.trim() : td.textContent.trim(), 10) || 0);
         const attrValor = String(td.getAttribute('data-valor') || '').trim().toUpperCase();
-        const isTachado = attrValor === 'X' || td.classList.contains('sio-mx-cell-withdrawn') || td.textContent.includes('✗');
+        const attrAnulado = td.getAttribute('data-anulado') === 'true';
+        const isTachado = attrAnulado || attrValor === 'X' || td.classList.contains('sio-mx-cell-withdrawn') || td.textContent.includes('✗');
+        const motivoRetiro = td.getAttribute('data-motivo') || '';
         if (sec > 0 || isTachado) {
           equipajePuerta.push({
             EquipajePuertaCIECId: parseInt(td.getAttribute('data-record-id') || '0', 10) || 0,
             Casilla: equipajePuerta.length + 1,
             Secuencia: sec,
             Valor: isTachado ? 'X' : String(sec),
-            Motivo: td.getAttribute('data-motivo') || '',
+            Motivo: motivoRetiro,
+            motivoRetiro,
+            anulado: isTachado,
             EstaEliminado: isTachado
           });
         }
@@ -1305,9 +1314,32 @@
           <td style="border:1px solid black;padding:2px 3px;text-align:center;">${outHtml}</td>
         </tr>`);
       }
-      const eqList = (Array.isArray(ciec.equipajePuerta) ? ciec.equipajePuerta : [])
-        .map((e) => String(e?.Valor ?? e?.Secuencia ?? e ?? '').trim())
-        .filter((v) => v && v.toUpperCase() !== 'X' && v !== '0');
+      const eqParsed = (Array.isArray(ciec.equipajePuerta) ? ciec.equipajePuerta : [])
+        .map((e) => {
+          if (e === null || e === undefined) return null;
+          if (typeof e === 'string' || typeof e === 'number') {
+            const raw = String(e).trim();
+            if (!raw || raw === '0' || raw.toUpperCase() === 'X') return null;
+            const wm = raw.match(/^X:(\d+)$/i);
+            if (wm) return { sec: wm[1], withdrawn: true };
+            return { sec: raw, withdrawn: false };
+          }
+          const rawVal = String(e.Valor ?? '').trim();
+          const rawSec = String(e.Secuencia ?? '').trim();
+          const withdrawn = rawVal.toUpperCase() === 'X' || Boolean(e.EstaEliminado) || Boolean(e.anulado);
+          const sec = (rawSec && rawSec !== '0' && rawSec.toUpperCase() !== 'X')
+            ? rawSec
+            : ((rawVal && rawVal !== '0' && rawVal.toUpperCase() !== 'X') ? rawVal : '');
+          if (!sec) return null;
+          return { sec, withdrawn };
+        })
+        .filter(Boolean);
+      const activeEqPuertaCount = eqParsed.filter((item) => !item.withdrawn).length;
+      const equipajePuertaHtml = eqParsed.map((item) => (
+        item.withdrawn
+          ? `<span style='position: relative; display: inline-flex; align-items: center; justify-content: center; padding: 0 4px; font-weight: bold; color: #000000; vertical-align: middle;'><span style='position: relative; z-index: 1;'>${escapeHtml(item.sec)}</span><span style='position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; z-index: 2; color: red; color: #DC2626; font-family: Arial, "Segoe UI Symbol", sans-serif; font-size: 16px; font-weight: 900; line-height: 1; pointer-events: none;'>✗</span></span>`
+          : escapeHtml(item.sec)
+      )).join(', ');
       const alerosText = Array.isArray(ciec.alerosNombres) ? ciec.alerosNombres.join(', ') : '';
       const trac = [ciec.tractoristaNombre, ciec.noUnidadLabel].filter(Boolean).join(' / ');
       return {
@@ -1333,12 +1365,60 @@
         PushBack: extractHHMM(ciec.pushBack),
         PaxEntrandoGUA: ciec.paxEntrando ?? '',
         Despegue: extractHHMM(ciec.despegue),
-        TotalEquipajePuerta: eqList.length,
-        EquipajePuertaHTML: eqList.map((v) => escapeHtml(v)).join(', '),
+        TotalEquipajePuerta: activeEqPuertaCount,
+        EquipajePuertaHTML: equipajePuertaHtml,
         AlerosText: alerosText,
         Aleros: alerosText,
         TractoristaUnidad: trac,
         Observaciones: ciec.observaciones || ''
+      };
+    }
+
+    // 5b. Formato EB (*-eb)
+    if (formatoId.endsWith('-eb')) {
+      const eb = d.ebPayload || d;
+      const detallesEb = Array.isArray(eb.detalles) ? eb.detalles : [];
+      const totalFilasEb = Math.max(10, Math.ceil(detallesEb.length / 10));
+      let activeCountEb = 0;
+      const rowsEb = [];
+      for (let f = 0; f < totalFilasEb; f++) {
+        let cells = '';
+        for (let c = 0; c < 10; c++) {
+          const item = detallesEb[f * 10 + c];
+          let cellInner = '';
+          if (item) {
+            const isWithdrawn = String(item.Valor || '').trim().toUpperCase() === 'X' || Boolean(item.EstaEliminado) || Boolean(item.anulado);
+            const secNum = item.Secuencia !== undefined && item.Secuencia !== null && String(item.Secuencia).trim() !== '' && String(item.Secuencia).trim() !== '0'
+              ? String(item.Secuencia).trim()
+              : (String(item.Valor || '').trim().toUpperCase() !== 'X' ? String(item.Valor || '').trim() : '');
+            if (isWithdrawn) {
+              cellInner = secNum
+                ? `<span style='color: #000000; position: relative; z-index: 1;'>${escapeHtml(secNum)}</span><span style='position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; z-index: 2; color: red; color: #DC2626; font-family: Arial, "Segoe UI Symbol", sans-serif; font-size: 20px; font-weight: 900; line-height: 1; pointer-events: none;'>✗</span>`
+                : `<span style='color: red; color: #DC2626; font-size: 16px; font-weight: 900;'>✗</span>`;
+            } else if (secNum) {
+              activeCountEb++;
+              cellInner = `<span style='color: #000000; position: relative; z-index: 1;'>${escapeHtml(secNum)}</span>`;
+            }
+          }
+          cells += `<td style='border: 1.5px solid black; width: 10%; height: 28px; padding: 0; text-align: center; vertical-align: middle; font-weight: bold; font-size: 12px;'><div style='position: relative; width: 100%; height: 28px; display: flex; align-items: center; justify-content: center;'>${cellInner}</div></td>`;
+        }
+        rowsEb.push(`<tr>${cells}</tr>`);
+      }
+      const matrizHtmlEb = `<table style='width: 100%; border-collapse: collapse; margin: 10px 0; font-family: Arial, sans-serif; table-layout: fixed;'><tbody>${rowsEb.join('')}</tbody></table>`;
+      return {
+        ...baseVars,
+        Fecha: fechaBase,
+        Supervisor: eb.supervisorNombre || baseVars.Supervisor || '',
+        Vuelo: vueloNo,
+        Operador: eb.nombreOperador || user.usuario || '',
+        HoraInicio: extractHHMM(eb.horaInicio),
+        MatrizHTML: matrizHtmlEb,
+        Correos: eb.correos ?? 0,
+        Comat: eb.comat ?? 0,
+        EqTransito: eb.eqTransito ?? 0,
+        HoraCierre: extractHHMM(eb.horaCierre),
+        TotalEquipajes: activeCountEb,
+        Observaciones: eb.observaciones || ''
       };
     }
 
@@ -1378,6 +1458,41 @@
           `<tr>${blankCells(12)}</tr>` +
           `<tr>${blankCells(12)}</tr>` +
           `</tbody></table>`;
+      } else {
+        const detallesCec = Array.isArray(cec.detalles) ? cec.detalles : [];
+        const totalFilasCec = Math.max(10, Math.ceil(detallesCec.length / 10));
+        let activeCountCec = 0;
+        const rowsCec = [];
+        for (let f = 0; f < totalFilasCec; f++) {
+          let cells = '';
+          for (let c = 0; c < 10; c++) {
+            const item = detallesCec[f * 10 + c];
+            let cellInner = '';
+            if (item) {
+              const isWithdrawn = String(item.Valor || '').trim().toUpperCase() === 'X' || Boolean(item.EstaEliminado) || Boolean(item.anulado);
+              const secNum = item.Secuencia !== undefined && item.Secuencia !== null && String(item.Secuencia).trim() !== '' && String(item.Secuencia).trim() !== '0'
+                ? String(item.Secuencia).trim()
+                : (String(item.Valor || '').trim().toUpperCase() !== 'X' ? String(item.Valor || '').trim() : '');
+              if (isWithdrawn) {
+                cellInner = secNum
+                  ? `<span style='color: #000000; position: relative; z-index: 1;'>${escapeHtml(secNum)}</span><span style='position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; z-index: 2; color: red; color: #DC2626; font-family: Arial, "Segoe UI Symbol", sans-serif; font-size: 16px; font-weight: 900; line-height: 1; pointer-events: none;'>✗</span>`
+                  : `<span style='color: red; color: #DC2626; font-size: 14px; font-weight: 900;'>✗</span>`;
+              } else if (secNum) {
+                activeCountCec++;
+                cellInner = `<span style='color: #000000; position: relative; z-index: 1;'>${escapeHtml(secNum)}</span>`;
+              }
+            }
+            cells += `<td style='border: 1px solid black; width: 8.5%; height: 20px; padding: 0; text-align: center; vertical-align: middle; font-weight: bold; font-size: 10px;'><div style='position: relative; width: 100%; height: 20px; display: flex; align-items: center; justify-content: center;'>${cellInner}</div></td>`;
+          }
+          let totalCol = `<td style='border: none; width: 15%;'></td>`;
+          if (f === totalFilasCec - 2) {
+            totalCol = `<td style='border: 1px solid black; width: 15%; text-align: center; font-weight: bold; font-size: 11px; background-color: #e2e8f0;'>TOTAL</td>`;
+          } else if (f === totalFilasCec - 1) {
+            totalCol = `<td style='border: 1px solid black; width: 15%; text-align: center; font-weight: bold; font-size: 12px;'>${activeCountCec}</td>`;
+          }
+          rowsCec.push(`<tr>${cells}${totalCol}</tr>`);
+        }
+        tablaEmbarqueOut = `<table style='width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 10px; table-layout: fixed;'><tbody>${rowsCec.join('')}</tbody></table>`;
       }
 
       return {

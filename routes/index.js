@@ -9,8 +9,9 @@ const router = express.Router();
 const AuthController = require('../controllers/AuthController');
 const OperacionesController = require('../controllers/OperacionesController');
 const FormatosController = require('../controllers/FormatosController');
+const SharePointController = require('../controllers/SharePointController');
 
-const { requireAuth, verifyHoneypot } = require('../middlewares/auth');
+const { requireAuth, verifyHoneypot, requireRole } = require('../middlewares/auth');
 const { loginLimiter, apiLimiter } = require('../middlewares/rateLimiter');
 
 // ============================================================================
@@ -47,6 +48,18 @@ router.get('/api/offline/plantilla/:formatoId', apiLimiter, FormatosController.a
 router.post('/api/formatos/procesar', apiLimiter, FormatosController.apiProcesarGuardado);
 router.post('/api/formatos/guardar', apiLimiter, FormatosController.apiProcesarGuardado);
 router.post('/api/formatos/matriz/anular-secuencia', apiLimiter, FormatosController.apiAnularSecuenciaMatriz);
+
+// API de Integración con SharePoint Online (Microsoft Entra ID / Microsoft Graph)
+router.get('/api/sharepoint/status', apiLimiter, SharePointController.apiStatus);
+router.get('/api/sharepoint/test', apiLimiter, SharePointController.apiTestConnection);
+router.get('/api/sharepoint/drives', apiLimiter, SharePointController.apiListDrives);
+router.get('/api/sharepoint/files', apiLimiter, SharePointController.apiListFiles);
+router.post('/api/sharepoint/folders', apiLimiter, SharePointController.apiEnsureFolder);
+router.post('/api/sharepoint/files/upload', apiLimiter, SharePointController.apiUploadFile);
+router.get('/api/sharepoint/files/download', apiLimiter, SharePointController.apiDownloadFile);
+router.delete('/api/sharepoint/files', apiLimiter, requireRole(['SUPERVISOR']), SharePointController.apiDeleteItem);
+router.get('/api/sharepoint/pendientes', apiLimiter, SharePointController.apiListQueue);
+router.post('/api/sharepoint/pendientes/procesar', apiLimiter, SharePointController.apiFlushQueue);
 
 module.exports = router;
 

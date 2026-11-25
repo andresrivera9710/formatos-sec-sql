@@ -82,7 +82,10 @@ class SioSearchableCombo {
     this.clearBtn.setAttribute('tabindex', '-1');
     this.clearBtn.setAttribute('title', 'Limpiar selección');
     this.clearBtn.setAttribute('aria-label', 'Limpiar selección');
-    this.clearBtn.innerHTML = '<i class="fas fa-times"></i>';
+    const clearIcon = document.createElement('i');
+    clearIcon.className = 'fas fa-times';
+    clearIcon.setAttribute('aria-hidden', 'true');
+    this.clearBtn.replaceChildren(clearIcon);
     this.clearBtn.style.display = 'none';
 
     this.chevron = document.createElement('i');
@@ -204,7 +207,7 @@ class SioSearchableCombo {
       ? this.allItems.filter((item) => item.normalized.includes(normQuery))
       : [...this.allItems];
 
-    this.listEl.innerHTML = '';
+    this.listEl.replaceChildren();
 
     if (this.filteredItems.length === 0) {
       const emptyLi = document.createElement('li');

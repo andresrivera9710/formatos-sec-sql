@@ -10,14 +10,15 @@
 
 'use strict';
 
-const STATIC_CACHE = 'sio-laats-static-v10';
-const PAGES_CACHE = 'sio-laats-pages-v10';
+const STATIC_CACHE = 'sio-laats-static-v13';
+const PAGES_CACHE = 'sio-laats-pages-v13';
 const PREVIEW_CACHE = 'sio-offline-previews-v1';
 
 const CORE_ASSETS = [
   '/css/laats-theme.css',
   '/css/tab-bar.css',
   '/css/styles.css',
+  '/css/searchable-select.css',
   '/css/preview-toolbar.css',
   '/js/theme-init.js',
   '/js/navigation-manager.js',
@@ -25,6 +26,7 @@ const CORE_ASSETS = [
   '/js/tab-bar.js',
   '/js/signature-pad.js',
   '/js/searchable-combo.js',
+  '/js/searchable-select.js',
   '/js/offline-manager.js',
   '/js/formato-validator.js',
   '/js/baggage-matrix.js',

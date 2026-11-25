@@ -201,29 +201,33 @@
         encabezadoId: typeof encabezadoId !== 'undefined' && encabezadoId ? encabezadoId : null,
         esNuevo: Boolean(esNuevo),
         vuelo: vuelo || {},
-        user: user ? { usuario: user.usuario || user.nombreCompleto || '', puestoSec: user.puestoSec || '' } : {}
+        user: user ? {
+          usuario: user.usuario || user.nombreCompleto || '',
+          nombreCompleto: user.nombreCompleto || user.usuario || '',
+          puestoSec: user.puestoSec || ''
+        } : {}
       }).replace(/</g, '\\u003c') %></script>
       <%- include('partials/tab-bar', { activeTab: 'formatos', user: user, vueloActivo: vuelo }) %>
       <%- include('partials/footer') %>
     </div>
   </div>
 
-  <script src="/js/formato-validator.js?v=1.0.21"></script>
-  <script src="/js/baggage-matrix.js?v=1.0.21"></script>
+  <script src="/js/formato-validator.js?v=1.0.24"></script>
+  <script src="/js/baggage-matrix.js?v=1.0.24"></script>
   <% if (formato && formato.id && formato.id.endsWith('-cp')) { %>
-    <script src="/js/formato-cp.js?v=1.0.21"></script>
+    <script src="/js/formato-cp.js?v=1.0.24"></script>
   <% } else if (formato && formato.id && formato.id.endsWith('-er')) { %>
-    <script src="/js/formato-er.js?v=1.0.21"></script>
+    <script src="/js/formato-er.js?v=1.0.24"></script>
   <% } else if (formato && formato.id && formato.id.endsWith('-eb')) { %>
-    <script src="/js/formato-eb.js?v=1.0.21"></script>
+    <script src="/js/formato-eb.js?v=1.0.24"></script>
   <% } else if (formato && formato.id && formato.id.endsWith('-cec')) { %>
-    <script src="/js/formato-cec.js?v=1.0.21"></script>
+    <script src="/js/formato-cec.js?v=1.0.24"></script>
   <% } else if (formato && formato.id && formato.id.endsWith('-ciec')) { %>
-    <script src="/js/formato-ciec.js?v=1.0.21"></script>
+    <script src="/js/formato-ciec.js?v=1.0.24"></script>
   <% } else if (formato && formato.id && formato.id.endsWith('-mecd')) { %>
-    <script src="/js/formato-mecd.js?v=1.0.21"></script>
+    <script src="/js/formato-mecd.js?v=1.0.24"></script>
   <% } else if (formato && formato.id && formato.id.endsWith('-po')) { %>
-    <script src="/js/formato-po.js?v=1.0.21"></script>
+    <script src="/js/formato-po.js?v=1.0.24"></script>
   <% } else if (formato && formato.id && formato.id.endsWith('-cfr')) { %>
     <script src="/js/formato-cfr.js?v=1.0.21"></script>
   <% } else if (formato && formato.id && formato.id.endsWith('-rx')) { %>

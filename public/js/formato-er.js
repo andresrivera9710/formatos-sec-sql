@@ -47,6 +47,9 @@
     }
 
     // Hidratar filas iniciales desde Azure SQL (si existen)
+    const isAmxInit = String(_state.formatoId || '').trim().toLowerCase() === 'amx-er' || Boolean(_state.isAmxER);
+    const lockedAgenteInit = String(_state.agenteSeguridadInspeccion || _state.agenteActual || '').trim();
+
     const normalizeErRows = (list) => (Array.isArray(list) ? list : []).map((d) => ({
       uid: _nextUid++,
       DetalleControlERId: parseInt(d.DetalleControlERId, 10) || 0,
@@ -57,7 +60,9 @@
       Destino: String(d.Destino || _state.destinoVuelo || '').trim(),
       HoraRevision: normalizarHora5(d.HoraRevision),
       AgenteAVSEC: String(d.AgenteAVSEC || '').trim(),
-      AgenteSeguridad: String(d.AgenteSeguridad || _state.agenteActual || '').trim()
+      AgenteSeguridad: isAmxInit
+        ? String(d.AgenteSeguridad || lockedAgenteInit || '').trim()
+        : String(d.AgenteSeguridad || _state.agenteActual || '').trim()
     }));
 
     const initialDetalles = Array.isArray(_state.detalles) ? _state.detalles : [];
@@ -106,11 +111,47 @@
       });
     }
 
+    // Bloqueo estricto de "Agente de seguridad AMX durante la inspección" (#erInputAgenteSeguridad) en amx-er
+    const inputAgenteSegEl = document.getElementById('erInputAgenteSeguridad');
+    if (inputAgenteSegEl && isAmxERFormat()) {
+      const enforceLockedAgente = () => {
+        const fixedVal = getLockedAgenteSeguridad();
+        if (fixedVal && inputAgenteSegEl.value !== fixedVal) {
+          inputAgenteSegEl.value = fixedVal;
+        }
+      };
+      inputAgenteSegEl.classList.add('input-locked', 'er-cell-readonly');
+      inputAgenteSegEl.setAttribute('readonly', 'readonly');
+      inputAgenteSegEl.setAttribute('tabindex', '-1');
+      inputAgenteSegEl.setAttribute('aria-readonly', 'true');
+      enforceLockedAgente();
+      inputAgenteSegEl.addEventListener('input', enforceLockedAgente);
+      inputAgenteSegEl.addEventListener('change', enforceLockedAgente);
+      inputAgenteSegEl.addEventListener('paste', (e) => {
+        e.preventDefault();
+        enforceLockedAgente();
+      });
+    }
+
     // Botón: Agregar equipaje desde el panel "Ingrese los Datos:" (btnAgregarAMatriz_1)
     const btnAgregarEquipaje = document.getElementById('btnAgregarEquipajeER');
     if (btnAgregarEquipaje) {
       btnAgregarEquipaje.addEventListener('click', agregarDesdePanelCaptura);
     }
+
+    const erLastCaptureEls = [
+      document.getElementById('erInputAgenteAVSEC'),
+      document.getElementById('erInputAgenteSeguridad')
+    ].filter(Boolean);
+    erLastCaptureEls.forEach((inpEl) => {
+      inpEl.addEventListener('keydown', (e) => {
+        const isEnter = e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter' || e.keyCode === 13;
+        if (!isEnter) return;
+        if (e.isComposing || e.keyCode === 229) return;
+        e.preventDefault();
+        agregarDesdePanelCaptura();
+      });
+    });
 
     // Botón: Ver Datos Agregados (lblVerDatos_1 + icoVerDatosAgregados_1)
     const btnVerDatos = document.getElementById('btnVerDatosAgregadosER');
@@ -192,6 +233,15 @@
   function isDeltaERFormat() {
     const id = (_state && _state.formatoId) || document.getElementById('erFormatoId')?.value || '';
     return String(id).trim().toLowerCase() === 'dl-er';
+  }
+
+  function isAmxERFormat() {
+    const id = (_state && _state.formatoId) || document.getElementById('erFormatoId')?.value || '';
+    return String(id).trim().toLowerCase() === 'amx-er' || Boolean(_state && _state.isAmxER);
+  }
+
+  function getLockedAgenteSeguridad() {
+    return String((_state && (_state.agenteSeguridadInspeccion || _state.agenteActual)) || '').trim();
   }
 
   function renderizarCuadricula() {
@@ -337,14 +387,15 @@
               aria-label="Fila ${num} Nombre Agente AVSEC"
             >
           </td>
-          <td class="er-td-seguridad" data-label="Agente ${sigla} *">
+          <td class="er-td-seguridad" data-label="Agente ${sigla}${isAmxERFormat() ? '' : ' *'}">
             <input
               type="text"
-              class="form-control er-cell-input"
+              class="form-control er-cell-input ${isAmxERFormat() ? 'input-locked er-cell-readonly' : ''}"
               data-field="AgenteSeguridad"
               maxlength="150"
-              placeholder="Agente Seguridad ${sigla} *"
-              value="${escapeHtml(r.AgenteSeguridad)}"
+              placeholder="Agente Seguridad ${sigla}"
+              value="${escapeHtml(isAmxERFormat() ? (r.AgenteSeguridad || getLockedAgenteSeguridad()) : r.AgenteSeguridad)}"
+              ${isAmxERFormat() ? 'readonly tabindex="-1" aria-readonly="true"' : ''}
               aria-label="Fila ${num} Agente de Seguridad"
             >
           </td>
@@ -384,6 +435,13 @@
     const field = input.dataset.field;
     const rowObj = _erRows.find(r => r.uid === uid);
     if (!rowObj || !field) return;
+
+    if (field === 'AgenteSeguridad' && isAmxERFormat()) {
+      const lockedVal = rowObj.AgenteSeguridad || getLockedAgenteSeguridad();
+      input.value = lockedVal;
+      rowObj.AgenteSeguridad = lockedVal;
+      return;
+    }
 
     rowObj[field] = input.value;
   }
@@ -429,6 +487,11 @@
 
     const validator = window.SioFormatValidator;
     const isDeltaER = isDeltaERFormat();
+    const isAmxER = isAmxERFormat();
+    const lockedAgenteVal = getLockedAgenteSeguridad();
+    if (isAmxER && elSeguridad && lockedAgenteVal) {
+      elSeguridad.value = lockedAgenteVal;
+    }
     const quickRules = [
       { field: 'Pasajero', label: 'Nombre del Pasajero', el: elPasajero, required: true, type: 'string', maxLength: 200 },
       ...(isDeltaER ? [] : [{ field: 'Secuencia', label: 'Secuencia', el: elSecuencia, required: true, type: 'integer', min: 1 }]),
@@ -475,20 +538,35 @@
       Destino: String(elDestino?.value || '').trim(),
       HoraRevision: normalizarHora5(elHora.value),
       AgenteAVSEC: String(elAvsec.value || '').trim(),
-      AgenteSeguridad: String(elSeguridad?.value || '').trim()
+      AgenteSeguridad: isAmxER ? lockedAgenteVal : String(elSeguridad?.value || '').trim()
     });
 
-    // 4. Limpiamos los campos igual que en Power Apps (Reset de los inputs de captura)
-    elPasajero.value = '';
-    if (elSecuencia) elSecuencia.value = '';
-    elColilla.value = '';
-    if (elDestino) elDestino.value = '';
-    elHora.value = '';
-    elAvsec.value = '';
-    if (elSeguridad) elSeguridad.value = '';
+    const commitErRow = () => {
+      // 4. Limpiamos los campos igual que en Power Apps (conservando bloqueado el Agente en sesión para amx-er)
+      elPasajero.value = '';
+      if (elSecuencia) elSecuencia.value = '';
+      elColilla.value = '';
+      if (elDestino) elDestino.value = '';
+      elHora.value = '';
+      elAvsec.value = '';
+      if (elSeguridad) {
+        elSeguridad.value = isAmxER ? lockedAgenteVal : '';
+      }
 
-    renderizarCuadricula();
-    window.SioOfflineManager?.notifyStateChange?.();
+      renderizarCuadricula();
+      window.SioOfflineManager?.notifyStateChange?.();
+      if (validator && typeof validator.focusWithoutScroll === 'function') {
+        validator.focusWithoutScroll(elPasajero);
+      } else {
+        try { elPasajero.focus({ preventScroll: true }); } catch (_) { elPasajero.focus(); }
+      }
+    };
+
+    if (validator && typeof validator.preserveScroll === 'function') {
+      validator.preserveScroll(commitErRow);
+    } else {
+      commitErRow();
+    }
 
     if (typeof window.Swal !== 'undefined') {
       window.Swal.fire({
@@ -497,12 +575,11 @@
         icon: 'success',
         title: 'Pasajero agregado a la lista',
         showConfirmButton: false,
+        returnFocus: false,
         timer: 1600,
         timerProgressBar: true
       });
     }
-
-    elPasajero.focus();
   }
 
   /**
@@ -525,7 +602,7 @@
       Destino: String(_state.destinoVuelo || '').trim(),
       HoraRevision: obtenerHoraActualHHMM(),
       AgenteAVSEC: '',
-      AgenteSeguridad: String(_state.agenteActual || '').trim()
+      AgenteSeguridad: isAmxERFormat() ? getLockedAgenteSeguridad() : String(_state.agenteActual || '').trim()
     });
 
     renderizarCuadricula();
@@ -645,7 +722,13 @@
       tr.querySelectorAll('.er-cell-input[data-field]').forEach((inp) => {
         const f = inp.dataset.field;
         if (f) {
-          rowObj[f] = inp.value;
+          if (f === 'AgenteSeguridad' && isAmxERFormat()) {
+            const lockedVal = getLockedAgenteSeguridad();
+            inp.value = lockedVal;
+            rowObj[f] = lockedVal;
+          } else {
+            rowObj[f] = inp.value;
+          }
         }
       });
     });
@@ -801,6 +884,7 @@
       }
     }
 
+    const lockedAmxAgente = isAmxERFormat() ? getLockedAgenteSeguridad() : '';
     const payload = {
       formatoId: _state.formatoId || 'amx-er',
       itinerarioId: parseInt(_state.itinerarioId, 10),
@@ -811,7 +895,7 @@
           fecha: fechaFijaItinerario,
           observaciones: obsEl ? obsEl.value.trim() : '',
           firmaBase64,
-          agente: _state.agenteActual || '',
+          agente: isAmxERFormat() ? lockedAmxAgente : (_state.agenteActual || ''),
           registros: _erRows.map((r, idx) => ({
             DetalleControlERId: parseInt(r.DetalleControlERId, 10) || 0,
             Pasajero: String(r.Pasajero || '').trim(),
@@ -821,7 +905,7 @@
             Destino: String(r.Destino || '').trim() || 'N/A',
             HoraRevision: normalizarHora5(r.HoraRevision),
             AgenteAVSEC: String(r.AgenteAVSEC || '').trim(),
-            AgenteSeguridad: String(r.AgenteSeguridad || _state.agenteActual || '').trim()
+            AgenteSeguridad: isAmxERFormat() ? lockedAmxAgente : String(r.AgenteSeguridad || _state.agenteActual || '').trim()
           }))
         }
       }

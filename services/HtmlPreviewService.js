@@ -360,10 +360,12 @@ class HtmlPreviewService {
     const numericId = parseInt(explicitId ?? text, 10);
     if (Number.isInteger(numericId) && numericId > 0) {
       const pools = [
+        ...(Array.isArray(hydrated?.empleadosCCO) ? hydrated.empleadosCCO : []),
         ...(Array.isArray(hydrated?.supervisores) ? hydrated.supervisores : []),
         ...(Array.isArray(hydrated?.usuariosSEC) ? hydrated.usuariosSEC : []),
         ...(Array.isArray(hydrated?.usuariosLogin) ? hydrated.usuariosLogin : []),
         ...(Array.isArray(hydrated?.empleados) ? hydrated.empleados : []),
+        ...(Array.isArray(hydrated?.catalogos?.empleadosCCO) ? hydrated.catalogos.empleadosCCO : []),
         ...(Array.isArray(hydrated?.catalogos?.supervisores) ? hydrated.catalogos.supervisores : []),
         ...(Array.isArray(hydrated?.catalogos?.usuariosSEC) ? hydrated.catalogos.usuariosSEC : []),
         ...(Array.isArray(hydrated?.catalogos?.usuariosLogin) ? hydrated.catalogos.usuariosLogin : []),
@@ -438,16 +440,43 @@ class HtmlPreviewService {
       }
 
       const dbEqPuerta = Array.isArray(ciecDb.equipajePuerta) ? ciecDb.equipajePuerta : [];
-      const hasLiveEqArray = !preferPersisted && Array.isArray(ciecData.equipajePuerta);
+      const liveEqArr = Array.isArray(ciecData.equipajePuerta) ? ciecData.equipajePuerta : null;
+      const hasLiveEqArray = !preferPersisted && Array.isArray(liveEqArr);
+      const hasLiveEqWithdrawn = Array.isArray(liveEqArr) && liveEqArr.some((x) => {
+        if (typeof x === 'string') return /^X:\d+$/i.test(x.trim());
+        return Boolean(x && (String(x.Valor || '').toUpperCase() === 'X' || x.EstaEliminado || x.anulado));
+      });
       const rawEqPuerta = preferPersisted
-        ? (dbEqPuerta.length > 0 ? dbEqPuerta : (Array.isArray(ciecData.equipajePuerta) ? ciecData.equipajePuerta : []))
-        : (hasLiveEqArray ? ciecData.equipajePuerta : dbEqPuerta);
-      const eqPuertaList = rawEqPuerta
-        .map(x => String(x?.Valor ?? x?.Secuencia ?? x ?? '').trim())
-        .filter(v => v && v.toUpperCase() !== 'X' && v !== '0');
+        ? (hasLiveEqWithdrawn ? liveEqArr : (dbEqPuerta.length > 0 ? dbEqPuerta : (liveEqArr || [])))
+        : (hasLiveEqArray ? liveEqArr : dbEqPuerta);
+      const parsedEqPuerta = rawEqPuerta
+        .map((x) => {
+          if (x === null || x === undefined) return null;
+          if (typeof x === 'string' || typeof x === 'number') {
+            const s = String(x).trim();
+            if (!s || s === '0' || s.toUpperCase() === 'X') return null;
+            const wm = s.match(/^X:(\d+)$/i);
+            if (wm) return { sec: wm[1], withdrawn: true };
+            return { sec: s, withdrawn: false };
+          }
+          const rawVal = String(x.Valor ?? '').trim();
+          const rawSec = String(x.Secuencia ?? '').trim();
+          const withdrawn = rawVal.toUpperCase() === 'X' || Boolean(x.EstaEliminado) || Boolean(x.anulado);
+          const sec = (rawSec && rawSec !== '0' && rawSec.toUpperCase() !== 'X')
+            ? rawSec
+            : ((rawVal && rawVal !== '0' && rawVal.toUpperCase() !== 'X') ? rawVal : '');
+          if (!sec) return null;
+          return { sec, withdrawn };
+        })
+        .filter(Boolean);
 
-      const equipajePuertaHtml = eqPuertaList.length > 0
-        ? esc(eqPuertaList.join(', '))
+      const activeEqPuertaCount = parsedEqPuerta.filter(item => !item.withdrawn).length;
+      const equipajePuertaHtml = parsedEqPuerta.length > 0
+        ? parsedEqPuerta.map((item) => (
+            item.withdrawn
+              ? `<span style='position: relative; display: inline-flex; align-items: center; justify-content: center; padding: 0 4px; font-weight: bold; color: #000000; vertical-align: middle;'><span style='position: relative; z-index: 1;'>${esc(item.sec)}</span><span style='position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; z-index: 2; color: red; color: #DC2626; font-family: Arial, "Segoe UI Symbol", sans-serif; font-size: 16px; font-weight: 900; line-height: 1; pointer-events: none;'>✗</span></span>`
+              : esc(item.sec)
+          )).join(', ')
         : (hasLiveEqArray ? '' : esc(compDb.EquipajePuertaHTML || ''));
 
       const emps = Array.isArray(hydrated?.empleados) ? hydrated.empleados : [];
@@ -551,8 +580,8 @@ class HtmlPreviewService {
         EgresoTripulacion: pickTime(ciecData.egresoTripulacion, compDb.EgresoTripulacion, '', hasKey('egresoTripulacion')),
         DesacoplePasarela: pickTime(ciecData.desacoplePasarela, compDb.DesacoplePasarela, '', hasKey('desacoplePasarela')),
         IngresoTripulacion: pickTime(ciecData.ingresoTripulacion, compDb.IngresoTripulacion, '', hasKey('ingresoTripulacion')),
-        TotalEquipajePuerta: (hasLiveEqArray || eqPuertaList.length > 0)
-          ? eqPuertaList.length
+        TotalEquipajePuerta: (hasLiveEqArray || parsedEqPuerta.length > 0)
+          ? activeEqPuertaCount
           : (compDb.TotalEquipaje ?? 0),
         PushBack: pickTime(ciecData.pushBack, compDb.PushBack, '', hasKey('pushBack')),
         PaxEntrandoGUA: resolvePax('paxEntrando', compDb.PaxEntrando),
@@ -662,8 +691,9 @@ class HtmlPreviewService {
       const sourceRows = liveRows ? liveRows : ebRowsDb.map((r, idx) => ({
         Orden: idx + 1,
         Secuencia: r.Secuencia,
-        Valor: r.Valor || String(r.Secuencia || ''),
-        Motivo: r.Motivo || ''
+        Valor: r.Valor || (r.EstaEliminado ? 'X' : String(r.Secuencia || '')),
+        Motivo: r.Motivo || '',
+        EstaEliminado: Boolean(r.EstaEliminado)
       }));
 
       const totalFilas = Math.max(15, Math.ceil(sourceRows.length / 10));
@@ -677,19 +707,24 @@ class HtmlPreviewService {
         for (let col = 1; col <= 10; col++) {
           const idx = (fila - 1) * 10 + col - 1;
           const reg = sourceRows[idx];
-          const secStr = reg && reg.Secuencia !== undefined && reg.Secuencia !== null ? esc(reg.Secuencia) : '';
-          const isAnulado = reg && String(reg.Valor || '').toUpperCase() === 'X';
-          const tacheHtml = isAnulado
-            ? `<div style='position: absolute; top: -2px; left: 0; width: 100%; height: 100%; color: red; font-size: 26px; font-weight: bold;'>✗</div>`
+          const secStr = reg && reg.Secuencia !== undefined && reg.Secuencia !== null && Number(reg.Secuencia) > 0
+            ? `<span style='color: #000000; position: relative; z-index: 1;'>${esc(reg.Secuencia)}</span>`
             : '';
-          bodyRows += `<td style='border: 1px solid black; text-align: center; height: 30px; width: 45px; color: #000000; font-size: 16px; font-weight: bold; position: relative;'>${secStr}${tacheHtml}</td>`;
+          const isAnulado = Boolean(reg && (String(reg.Valor || '').toUpperCase() === 'X' || reg.EstaEliminado || reg.anulado));
+          const tacheHtml = isAnulado
+            ? `<span style='position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; z-index: 2; color: red; color: #DC2626; font-family: Arial, "Segoe UI Symbol", sans-serif; font-size: 24px; font-weight: 900; line-height: 1; pointer-events: none;'>✗</span>`
+            : '';
+          const cellInner = (secStr || tacheHtml)
+            ? `<div style='position: relative; width: 100%; height: 28px; display: flex; align-items: center; justify-content: center;'>${secStr}${tacheHtml}</div>`
+            : '';
+          bodyRows += `<td style='border: 1px solid black; text-align: center; height: 30px; width: 45px; padding: 0; color: #000000; font-size: 16px; font-weight: bold; vertical-align: middle;'>${cellInner}</td>`;
         }
         bodyRows += `</tr>`;
       }
       const matrizHTML = `<table style='width: 100%; border-collapse: collapse; font-family: Segoe UI, sans-serif;'><thead><tr>${thCols}</tr></thead><tbody>${bodyRows}</tbody></table>`;
 
-      const activosCount = sourceRows.filter(r => r && String(r.Valor || '').toUpperCase() !== 'X' && Number(r.Secuencia) > 0).length;
-      const anulados = sourceRows.filter(r => r && String(r.Valor || '').toUpperCase() === 'X' && r.Motivo);
+      const activosCount = sourceRows.filter(r => r && String(r.Valor || '').toUpperCase() !== 'X' && !r.EstaEliminado && !r.anulado && Number(r.Secuencia) > 0).length;
+      const anulados = sourceRows.filter(r => r && (String(r.Valor || '').toUpperCase() === 'X' || r.EstaEliminado || r.anulado) && (r.Motivo || r.motivoRetiro));
       const baseObs = ebData.observaciones !== undefined
         ? String(ebData.observaciones || '').trim()
         : String(ebCompDb.Observaciones ?? ebCompDb.Observacion ?? observaciones ?? '').trim();
@@ -727,14 +762,15 @@ class HtmlPreviewService {
         : rows.map((r, idx) => ({
             Orden: idx + 1,
             Secuencia: r.Secuencia,
-            Valor: String(r.Secuencia || ''),
-            Motivo: ''
+            Valor: r.Valor || (r.EstaEliminado ? 'X' : String(r.Secuencia || '')),
+            Motivo: r.Motivo || '',
+            EstaEliminado: Boolean(r.EstaEliminado)
           }));
       const liveSecs = Array.isArray(cecData.secuencias)
         ? cecData.secuencias
         : (Array.isArray(cecData.detalles) ? cecData.detalles : null);
       const hasMarkedX = Array.isArray(liveSecs) && liveSecs.some(
-        s => s && (String(s.Valor || '').toUpperCase() === 'X' || Number(s.Secuencia) === 0 || s.EstaEliminado)
+        s => s && (String(s.Valor || '').toUpperCase() === 'X' || Number(s.Secuencia) === 0 || s.EstaEliminado || s.anulado)
       );
       const sourceSecs = (preferPersisted && cecDbRows.length > 0 && !hasMarkedX)
         ? cecDbRows
@@ -742,7 +778,7 @@ class HtmlPreviewService {
 
       const totalFilas = Math.max(10, Math.ceil(sourceSecs.length / 10));
       const activosEmbarque = sourceSecs.filter(
-        s => s && String(s.Valor || '').toUpperCase() !== 'X' && Number(s.Secuencia) > 0 && !s.EstaEliminado
+        s => s && String(s.Valor || '').toUpperCase() !== 'X' && Number(s.Secuencia) > 0 && !s.EstaEliminado && !s.anulado
       ).length;
 
       let embarqueRowsHtml = '';
@@ -753,15 +789,17 @@ class HtmlPreviewService {
           const reg = sourceSecs[idx];
           let cellContent = '';
           if (reg) {
-            const isTachado = String(reg.Valor || '').toUpperCase() === 'X' || Number(reg.Secuencia) === 0 || reg.EstaEliminado;
+            const isTachado = String(reg.Valor || '').toUpperCase() === 'X' || Number(reg.Secuencia) === 0 || Boolean(reg.EstaEliminado) || Boolean(reg.anulado);
             if (isTachado) {
-              const secPrefix = Number(reg.Secuencia) > 0 ? esc(reg.Secuencia) : '';
-              cellContent = `${secPrefix}<div style='position: absolute; top: 0; left: 0; width: 100%; height: 100%; line-height: 20px; color: red; font-size: 20px; font-weight: bold;'>✗</div>`;
+              const secPrefix = Number(reg.Secuencia) > 0
+                ? `<span style='color: #000000; position: relative; z-index: 1;'>${esc(reg.Secuencia)}</span>`
+                : '';
+              cellContent = `<div style='position: relative; width: 100%; height: 20px; display: flex; align-items: center; justify-content: center;'>${secPrefix}<span style='position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; z-index: 2; color: red; color: #DC2626; font-family: Arial, "Segoe UI Symbol", sans-serif; font-size: 20px; font-weight: 900; line-height: 1; pointer-events: none;'>✗</span></div>`;
             } else {
               cellContent = esc(reg.Secuencia);
             }
           }
-          embarqueRowsHtml += `<td style='border: 1px solid black; text-align: center; height: 20px; width: 8.5%; font-size: 14px; font-weight: bold; position: relative;'>${cellContent}</td>`;
+          embarqueRowsHtml += `<td style='border: 1px solid black; text-align: center; height: 20px; width: 8.5%; padding: 0; font-size: 14px; font-weight: bold; vertical-align: middle;'>${cellContent}</td>`;
         }
         if (fila < totalFilas - 1) {
           embarqueRowsHtml += `<td style='border: none; width: 15%;'></td>`;
@@ -1061,7 +1099,15 @@ class HtmlPreviewService {
         return htmlRows;
       };
 
+      const ccoEmpPool = [
+        ...(Array.isArray(hydrated?.empleadosCCO) ? hydrated.empleadosCCO : []),
+        ...(Array.isArray(hydrated?.empleados) ? hydrated.empleados : [])
+      ];
+      const ccoByEmp = encMecd.EmpleadoId
+        ? ccoEmpPool.find(e => Number(e?.EmpleadoId) === Number(encMecd.EmpleadoId))
+        : null;
       const ccoDbNombre = mecdDb.ccoNombre
+        || (ccoByEmp ? String(ccoByEmp.Nombre || '').trim() : '')
         || (encMecd.EmpleadoId ? HtmlPreviewService.resolvePersonaNombre('', encMecd.EmpleadoId, hydrated) : '');
       const agDbNombre = mecdDb.agenteNombre
         || (encMecd.AgenteId ? HtmlPreviewService.resolvePersonaNombre('', encMecd.AgenteId, hydrated) : '')

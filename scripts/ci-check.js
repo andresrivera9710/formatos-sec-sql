@@ -1531,14 +1531,238 @@ async function runUnitChecks() {
           fecha: '2026-01-01',
           horaInicio: '10:45',
           supervisorEmpleadoId: 289,
-          registros: [{ Nombre: 'Brandon', NoTIA: '470', Empresa: 'LAATS', HoraIngreso: '10:46', Motivo: 'Insp', HoraSalida: '10:55' }]
+          registros: [{ Nombre: 'Brandon', NoTIA: '0470', Empresa: 'LAATS', HoraIngreso: '10:46', Motivo: 'Insp', HoraSalida: '10:55' }]
         }
       }
     },
     userMock,
     { itinerarioId: 39901, FechaItinerado: '2026-01-01' }
   );
-  assert.strictEqual(cpOk.valido, true, 'validarControlCP debe aceptar payload completo válido');
+  assert.strictEqual(cpOk.valido, true, 'validarControlCP debe aceptar payload completo válido con NoTIA numérico (incluyendo ceros a la izquierda)');
+
+  const cpAlphaTia = FormatoValidationService.validarControlCP(
+    {
+      formatoId: 'amx-cp',
+      itinerarioId: 39901,
+      datos: {
+        cpPayload: {
+          fecha: '2026-01-01',
+          horaInicio: '10:45',
+          supervisorEmpleadoId: 289,
+          registros: [{ Nombre: 'Brandon', NoTIA: '12AB', Empresa: 'LAATS', HoraIngreso: '10:46', Motivo: 'Insp', HoraSalida: '10:55' }]
+        }
+      }
+    },
+    userMock,
+    { itinerarioId: 39901, FechaItinerado: '2026-01-01' }
+  );
+  assert.strictEqual(cpAlphaTia.valido, false, 'validarControlCP debe rechazar NoTIA alfanumérico');
+  assert.strictEqual(cpAlphaTia.statusCode, 400);
+  assert(cpAlphaTia.errors.some(e => e.field === 'NoTIA'), 'validarControlCP debe reportar error en campo NoTIA');
+
+  // Validar reglas exclusivas de AEROMEXICO CP (amx-cp): Nombre en MAYÚSCULAS + Catálogo exacto de 6 empresas
+  const FormatosService = require(path.join(ROOT_DIR, 'services', 'FormatosService'));
+  assert.deepStrictEqual(
+    FormatosService.EMPRESAS_CP_AMX,
+    ['ODA', 'ODA (Combustible)', 'AEROEXPRESS', 'OIRSA', 'AEROMEXICO', 'LAATS'],
+    'EMPRESAS_CP_AMX debe contener exactamente las 6 empresas autorizadas (incluyendo ambos registros de ODA)'
+  );
+  const cpAmxUpperAndOdaOk = FormatoValidationService.validarControlCP(
+    {
+      formatoId: 'amx-cp',
+      itinerarioId: 39901,
+      datos: {
+        cpPayload: {
+          fecha: '2026-01-01',
+          horaInicio: '10:45',
+          supervisorEmpleadoId: 289,
+          registros: [
+            { Nombre: 'juan carlos pérez', NoTIA: '789', Empresa: 'ODA', HoraIngreso: '10:46', Motivo: 'Rampa', HoraSalida: '10:55' },
+            { Nombre: 'maría lópez', NoTIA: '790', Empresa: 'ODA (Combustible)', HoraIngreso: '10:47', Motivo: 'Abastecimiento', HoraSalida: '10:58' }
+          ]
+        }
+      }
+    },
+    userMock,
+    { itinerarioId: 39901, FechaItinerado: '2026-01-01' }
+  );
+  assert.strictEqual(cpAmxUpperAndOdaOk.valido, true, 'amx-cp debe aceptar ODA y ODA (Combustible)');
+  assert.strictEqual(cpAmxUpperAndOdaOk.normalized.registros[0].Nombre, 'JUAN CARLOS PÉREZ', 'amx-cp debe transformar Nombre a MAYÚSCULAS en backend');
+  assert.strictEqual(cpAmxUpperAndOdaOk.normalized.registros[1].Nombre, 'MARÍA LÓPEZ', 'amx-cp debe transformar Nombre a MAYÚSCULAS en backend');
+
+  const cpAmxForbiddenEmpresa = FormatoValidationService.validarControlCP(
+    {
+      formatoId: 'amx-cp',
+      itinerarioId: 39901,
+      datos: {
+        cpPayload: {
+          fecha: '2026-01-01',
+          horaInicio: '10:45',
+          supervisorEmpleadoId: 289,
+          registros: [
+            { Nombre: 'Pedro', NoTIA: '123', Empresa: 'GODARD(Cocinas)', HoraIngreso: '10:46', Motivo: 'Cocina', HoraSalida: '10:55' }
+          ]
+        }
+      }
+    },
+    userMock,
+    { itinerarioId: 39901, FechaItinerado: '2026-01-01' }
+  );
+  assert.strictEqual(cpAmxForbiddenEmpresa.valido, false, 'amx-cp debe rechazar empresas fuera de las 6 autorizadas');
+  assert(cpAmxForbiddenEmpresa.errors.some(e => e.field === 'Empresa'), 'amx-cp debe reportar error en campo Empresa');
+
+  // Validar preservación de secuencia original + X roja superpuesta en vistas preliminares (EB, CEC y CIEC)
+  const ebWithdrawnVars = HtmlPreviewService.buildAeromexicoOtherData({
+    formatoId: 'amx-eb',
+    formDatos: {
+      fecha: '2026-01-01',
+      horaInicio: '10:00',
+      detalles: [{ Secuencia: 501 }, { Secuencia: 502, Valor: 'X', Motivo: 'Retiro inspección' }]
+    },
+    vuelo: { novuelo: '672/673', Matricula: 'XA-AMX', FechaItinerado: '2026-01-01' },
+    user: userMock
+  });
+  assert(ebWithdrawnVars.MatrizHTML.includes('>502</span>') && ebWithdrawnVars.MatrizHTML.includes('✗'), 'amx-eb debe conservar el número 502 visible debajo de la ✗ roja');
+  assert.strictEqual(ebWithdrawnVars.TotalEquipajes, 1, 'amx-eb TotalEquipajes solo debe contar maletas activas');
+
+  const cecWithdrawnVars = HtmlPreviewService.buildAeromexicoOtherData({
+    formatoId: 'amx-cec',
+    formDatos: {
+      fecha: '2026-01-01',
+      horaInicio: '10:00',
+      compartimiento: 2,
+      secuencias: [{ Secuencia: 301, Valor: '301' }, { Secuencia: 302, Valor: 'X', Motivo: 'Retiro puerta' }]
+    },
+    vuelo: { novuelo: '672/673', Matricula: 'XA-AMX', FechaItinerado: '2026-01-01' },
+    user: userMock
+  });
+  assert(cecWithdrawnVars.TablaEmbarqueHTML.includes('>302</span>') && cecWithdrawnVars.TablaEmbarqueHTML.includes('✗'), 'amx-cec debe conservar el número 302 visible debajo de la ✗ roja');
+
+  const ciecWithdrawnVars = HtmlPreviewService.buildAeromexicoOtherData({
+    formatoId: 'amx-ciec',
+    formDatos: {
+      ciecPayload: {
+        fecha: '2026-01-01',
+        horaInicio: '10:00',
+        equipajePuerta: [
+          { Secuencia: 401, Valor: '401', EstaEliminado: false },
+          { Secuencia: 405, Valor: 'X', Motivo: 'Pasajero llevó a cabina', EstaEliminado: true }
+        ],
+        registros: [{ Nombre: 'CARLOS', NoTIA: '101', Empresa: 'LAATS', HoraIngreso: '10:05', Motivo: 'Cabina', HoraSalida: '10:20' }]
+      }
+    },
+    vuelo: { novuelo: '672/673', Matricula: 'XA-AMX', FechaItinerado: '2026-01-01' },
+    user: userMock
+  });
+  assert.strictEqual(ciecWithdrawnVars.TotalEquipajePuerta, 1, 'amx-ciec TotalEquipajePuerta debe contar solo secuencias activas');
+  assert(ciecWithdrawnVars.EquipajePuertaHTML.includes('401') && ciecWithdrawnVars.EquipajePuertaHTML.includes('>405</span>') && ciecWithdrawnVars.EquipajePuertaHTML.includes('✗'), 'amx-ciec EquipajePuertaHTML debe mostrar 405 con ✗ roja encima');
+
+  const ciecAlphaTia = FormatoValidationService.validarControlCIEC(
+    {
+      formatoId: 'amx-ciec',
+      itinerarioId: 39901,
+      datos: {
+        ciecPayload: {
+          fecha: '2026-01-01',
+          horaInicio: '10:45',
+          supervisorEmpleadoId: 289,
+          registros: [{ Nombre: 'Brandon', NoTIA: 'TIA-99', Empresa: 'LAATS', HoraIngreso: '10:46', Motivo: 'Cabina', HoraSalida: '10:55' }]
+        }
+      }
+    },
+    userMock,
+    { itinerarioId: 39901, FechaItinerado: '2026-01-01' }
+  );
+  assert.strictEqual(ciecAlphaTia.valido, false, 'validarControlCIEC debe rechazar NoTIA no numérico');
+  assert(ciecAlphaTia.errors.some(e => e.field === 'NoTIA'), 'validarControlCIEC debe reportar error en campo NoTIA');
+
+  const cecAlphaTia = FormatoValidationService.validarControlCEC(
+    {
+      formatoId: 'amx-cec',
+      itinerarioId: 39901,
+      datos: {
+        cecPayload: {
+          fecha: '2026-01-01',
+          horaInicio: '10:45',
+          supervisor: 'KARLA ORTIZ',
+          agente: 'ANDRES RIVERA',
+          compartimientoNo: 2,
+          equipaje: 20,
+          tiaOirsa: 'ABC123'
+        }
+      }
+    },
+    userMock,
+    { itinerarioId: 39901, FechaItinerado: '2026-01-01' }
+  );
+  assert.strictEqual(cecAlphaTia.valido, false, 'validarControlCEC en amx-cec debe rechazar TIA alfanumérico');
+  assert(cecAlphaTia.errors.some(e => e.field === 'tiaOirsa'), 'validarControlCEC debe reportar error en tiaOirsa');
+
+  const cecNumericLeadingZeroOk = FormatoValidationService.validarControlCEC(
+    {
+      formatoId: 'amx-cec',
+      itinerarioId: 39901,
+      datos: {
+        cecPayload: {
+          fecha: '2026-01-01',
+          horaInicio: '10:45',
+          supervisor: 'KARLA ORTIZ',
+          agente: 'ANDRES RIVERA',
+          compartimientoNo: 2,
+          equipaje: 20,
+          tiaOirsa: '005',
+          tiaPilotoCombustible: '00'
+        }
+      }
+    },
+    userMock,
+    { itinerarioId: 39901, FechaItinerado: '2026-01-01' }
+  );
+  assert.strictEqual(cecNumericLeadingZeroOk.valido, true, 'validarControlCEC en amx-cec debe aceptar TIA numérico con ceros iniciales');
+
+  // Validar imposición de Agente de Seguridad AMX desde sesión autenticada en amx-er
+  const erAmxSessionEnforced = FormatoValidationService.validarControlER(
+    {
+      formatoId: 'amx-er',
+      itinerarioId: 39901,
+      datos: {
+        erPayload: {
+          fecha: '2026-01-01',
+          firmaBase64: dummySig,
+          registros: [
+            {
+              Pasajero: 'JUAN PEREZ',
+              Secuencia: '12',
+              Colilla: '452376',
+              Destino: 'MEX',
+              HoraRevision: '10:30',
+              AgenteAVSEC: 'CESAR POP',
+              AgenteSeguridad: 'NOMBRE FALSIFICADO CLIENTE'
+            }
+          ]
+        }
+      }
+    },
+    { empleadoId: 393, usuario: 'ANDRES RIVERA', nombreCompleto: 'ANDRES EDUARDO RIVERA ACABAL', puesto: 'SUPERVISOR' },
+    { itinerarioId: 39901, FechaItinerado: '2026-01-01', novuelo: '678/679', Destino: 'MEX' }
+  );
+  assert.strictEqual(erAmxSessionEnforced.valido, true, 'validarControlER amx-er válido debe aprobar');
+  assert.strictEqual(
+    erAmxSessionEnforced.normalized.registros[0].AgenteSeguridad,
+    'ANDRES EDUARDO RIVERA ACABAL',
+    'validarControlER en amx-er debe imponer siempre el nombre completo del usuario autenticado en sesión'
+  );
+
+  // Verificar componente Searchable Select CSP-safe y reglas SQL sobre EmpleadosView
+  const searchableJsSrc = fs.readFileSync(path.join(ROOT_DIR, 'public', 'js', 'searchable-select.js'), 'utf8');
+  assert(/\bwindow\.SioSearchableSelect\b/.test(searchableJsSrc), 'searchable-select.js debe exponer window.SioSearchableSelect');
+  assert(!/\.style\b/.test(searchableJsSrc) && !/setAttribute\s*\(\s*['"]style['"]/i.test(searchableJsSrc), 'searchable-select.js debe ser 100% compatible con Helmet CSP sin mutar atributos style inline');
+
+  const formatosModelSrc = fs.readFileSync(path.join(ROOT_DIR, 'models', 'FormatosModel.js'), 'utf8');
+  const loginModelSrc = fs.readFileSync(path.join(ROOT_DIR, 'models', 'LoginModel.js'), 'utf8');
+  assert(/FROM\s+dbo\.EmpleadosView/i.test(formatosModelSrc) && /EstaBaja/i.test(formatosModelSrc), 'FormatosModel debe consultar dbo.EmpleadosView filtrando EstaBaja');
+  assert(/obtenerEmpleadosCCO/.test(formatosModelSrc) && /DepartamentoInterno[\s\S]*?'CCO'/.test(formatosModelSrc), 'FormatosModel.obtenerEmpleadosCCO debe exigir DepartamentoInterno = CCO y EstaBaja falso');
+  assert((loginModelSrc.match(/\bdbo\.EmpleadosView\b/gi) || []).length >= 4 && (loginModelSrc.match(/\bEstaBaja\b/gi) || []).length >= 4, 'LoginModel debe filtrar catálogos contra dbo.EmpleadosView activo');
 
   const docErPrelim = HtmlPreviewService.buildDocumentName({
     vuelo: { novuelo: '1803/1803', Matricula: 'N418LA' },
@@ -1914,6 +2138,390 @@ async function runSignatureRepositoryChecks() {
         renderedAmx && renderedAmx.includes(`data:image/jpeg;base64,${amxLogoInfo.b64}`),
         `${amxId} debe renderizar el nuevo logotipo oficial aeromexico.jpeg (data:image/jpeg;base64,...)`
       );
+    }
+
+    // 5.7 Superposición de X roja (#DC2626) sobre número original en los 3 formatos con matriz de AEROMEXICO (amx-ciec, amx-eb, amx-cec)
+    {
+      const amxStylesCss = fs.readFileSync(path.join(ROOT_DIR, 'public', 'css', 'styles.css'), 'utf8');
+      const amxBaggageMatrixSrc = fs.readFileSync(path.join(ROOT_DIR, 'public', 'js', 'baggage-matrix.js'), 'utf8');
+      const amxOfflineMgrSrc = fs.readFileSync(path.join(ROOT_DIR, 'public', 'js', 'offline-manager.js'), 'utf8');
+      assert(amxStylesCss.includes('.sio-mx-cell-inner') && amxStylesCss.includes('.sio-mx-x-overlay::before') && amxStylesCss.includes('.sio-mx-x-overlay::after') && amxStylesCss.includes('#DC2626'),
+        'styles.css debe definir .sio-mx-cell-inner y la X roja geométrica #DC2626 independiente de fuente');
+      assert(amxBaggageMatrixSrc.includes('sio-mx-cell-inner') && amxBaggageMatrixSrc.includes('data-anulado=') && amxBaggageMatrixSrc.includes('motivoRetiro') && amxBaggageMatrixSrc.includes('const targetIdx = selectedIdx'),
+        'baggage-matrix.js debe envolver celdas en .sio-mx-cell-inner, serializar data-anulado/anulado/motivoRetiro y re-resolver targetIdx tras await');
+      assert(amxOfflineMgrSrc.includes('anulado: isTachado') && amxOfflineMgrSrc.includes('motivoRetiro') && amxOfflineMgrSrc.includes("formatoId.endsWith('-eb')"),
+        'offline-manager.js debe serializar anulado/motivoRetiro y renderizar matrices offline con X roja en ciec/eb/cec');
+
+      const amxVueloTest = { itinerarioId: 39841, novuelo: '672/673', operador: 'AEROMEXICO', Matricula: 'XA-GNS', FechaItinerado: '2026-09-24', puertaposicion: '12' };
+      const amxUserTest = { empleadoId: 263, usuario: 'ANDRES RIVERA', puesto: 'SUPERVISOR' };
+      const amxEbVars = HtmlPreviewService.buildAeromexicoOtherData({
+        formatoId: 'amx-eb',
+        formDatos: {
+          fecha: '2026-09-24',
+          horaInicio: '10:00',
+          supervisorNombre: 'KARLA ORTIZ',
+          nombreOperador: 'ANDRES RIVERA',
+          detalles: [
+            { Secuencia: 101, Valor: '101', anulado: false },
+            { Secuencia: 102, Valor: 'X', anulado: true, motivoRetiro: 'Inspección AVSEC', EstaEliminado: true },
+            { Secuencia: 103, Valor: '103', anulado: false }
+          ]
+        },
+        vuelo: amxVueloTest,
+        user: amxUserTest,
+        hydrated: {}
+      });
+      assert.strictEqual(amxEbVars.TotalEquipajes, 2, 'amx-eb debe descontar maletas anuladas del total activo');
+      assert(amxEbVars.MatrizHTML.includes("<div style='position: relative;") && amxEbVars.MatrizHTML.includes('>102<') && amxEbVars.MatrizHTML.includes('#DC2626') && amxEbVars.MatrizHTML.includes('✗'),
+        'amx-eb MatrizHTML debe renderizar 102 visible con X roja #DC2626 superpuesta dentro de contenedor relativo');
+
+      const amxCecVars = HtmlPreviewService.buildAeromexicoOtherData({
+        formatoId: 'amx-cec',
+        formDatos: {
+          fecha: '2026-09-24',
+          horaInicio: '10:00',
+          supervisorNombre: 'KARLA ORTIZ',
+          agenteNombre: 'ANDRES RIVERA',
+          compartimiento: 2,
+          detalles: [
+            { Secuencia: 201, Valor: '201', anulado: false },
+            { Secuencia: 202, Valor: 'X', anulado: true, motivoRetiro: 'Retiro puerta', EstaEliminado: true }
+          ]
+        },
+        vuelo: amxVueloTest,
+        user: amxUserTest,
+        hydrated: {}
+      });
+      assert(amxCecVars.TablaEmbarqueHTML.includes("<div style='position: relative;") && amxCecVars.TablaEmbarqueHTML.includes('>202<') && amxCecVars.TablaEmbarqueHTML.includes('#DC2626') && amxCecVars.TablaEmbarqueHTML.includes('✗') && amxCecVars.TablaEmbarqueHTML.includes('>TOTAL<') && amxCecVars.TablaEmbarqueHTML.includes('>1<'),
+        'amx-cec TablaEmbarqueHTML debe renderizar 202 visible con X roja #DC2626 superpuesta y descontar del total');
+
+      const amxCiecVars = HtmlPreviewService.buildAeromexicoOtherData({
+        formatoId: 'amx-ciec',
+        formDatos: {
+          ciecPayload: {
+            fecha: '2026-09-24',
+            horaInicio: '10:00',
+            supervisorNombre: 'KARLA ORTIZ',
+            agente: 'ANDRES RIVERA',
+            equipajePuerta: [
+              { Secuencia: 301, Valor: '301', anulado: false },
+              { Secuencia: 302, Valor: 'X', anulado: true, motivoRetiro: 'Pasajero llevó a cabina', EstaEliminado: true }
+            ],
+            registros: []
+          }
+        },
+        vuelo: amxVueloTest,
+        user: amxUserTest,
+        hydrated: {}
+      });
+      assert.strictEqual(amxCiecVars.TotalEquipajePuerta, 1, 'amx-ciec debe descontar equipajes anulados de TotalEquipajePuerta');
+      assert(amxCiecVars.EquipajePuertaHTML.includes('inline-flex') && amxCiecVars.EquipajePuertaHTML.includes('>302<') && amxCiecVars.EquipajePuertaHTML.includes('#DC2626') && amxCiecVars.EquipajePuertaHTML.includes('✗'),
+        'amx-ciec EquipajePuertaHTML debe renderizar 302 visible con X roja #DC2626 superpuesta');
+    }
+
+    // 6. Integración SharePoint Online (Microsoft Entra ID + Graph Sites.ReadWrite.All) offline con fetch mockeado
+    const SharePointService = require(path.join(ROOT_DIR, 'services', 'SharePointService'));
+    const SharePointController = require(path.join(ROOT_DIR, 'controllers', 'SharePointController'));
+    const parsedSite = SharePointService.parseSiteUrl('https://laatsnet.sharepoint.com/sites/ArchivosOperativosSEC');
+    assert.strictEqual(parsedSite.hostname, 'laatsnet.sharepoint.com');
+    assert.strictEqual(parsedSite.sitePath, '/sites/ArchivosOperativosSEC');
+    assert.strictEqual(parsedSite.graphSiteIdentifier, 'laatsnet.sharepoint.com:/sites/ArchivosOperativosSEC');
+
+    assert.strictEqual(
+      SharePointService.normalizeRelativePath('/Aeromexico//2026/Noviembre/'),
+      'Aeromexico/2026/Noviembre'
+    );
+    assert.throws(() => SharePointService.normalizeRelativePath('../secreto'), /inválida/i);
+    assert.throws(() => SharePointService.sanitizeFileName('bad/name.html'), /no es válido/i);
+
+    const origFetch = global.fetch;
+    const spEnvKeys = [
+      'SHAREPOINT_ENABLED', 'AZURE_TENANT_ID', 'AZURE_CLIENT_ID', 'AZURE_CLIENT_SECRET',
+      'SHAREPOINT_SITE_URL', 'SHAREPOINT_DRIVE_NAME', 'SHAREPOINT_BASE_FOLDER'
+    ];
+    const savedSpEnv = {};
+    for (const k of spEnvKeys) savedSpEnv[k] = process.env[k];
+
+    try {
+      SharePointService.clearCaches();
+      process.env.SHAREPOINT_ENABLED = 'true';
+      process.env.AZURE_TENANT_ID = '11111111-1111-1111-1111-111111111111';
+      process.env.AZURE_CLIENT_ID = '22222222-2222-2222-2222-222222222222';
+      process.env.AZURE_CLIENT_SECRET = 'ci-mock-secret-value';
+      process.env.SHAREPOINT_SITE_URL = 'https://laatsnet.sharepoint.com/sites/ArchivosOperativosSEC';
+      process.env.SHAREPOINT_BASE_FOLDER = 'FormatosSEC';
+      process.env.SHAREPOINT_DRIVE_NAME = '';
+
+      const publicStatus = SharePointService.getPublicStatus();
+      assert.strictEqual(publicStatus.configured, true);
+      assert.strictEqual(publicStatus.resourceAppId, '00000003-0000-0000-c000-000000000000');
+      assert.strictEqual(publicStatus.permissionId, '9492366f-7969-46a4-8d15-ed1a20078fff');
+      assert(!JSON.stringify(publicStatus).includes('ci-mock-secret-value'), 'getPublicStatus nunca debe exponer clientSecret');
+
+      const jwtHeader = Buffer.from(JSON.stringify({ alg: 'none', typ: 'JWT' })).toString('base64url');
+      const jwtPayload = Buffer.from(JSON.stringify({
+        appid: process.env.AZURE_CLIENT_ID,
+        roles: ['Sites.ReadWrite.All']
+      })).toString('base64url');
+      const mockJwt = `${jwtHeader}.${jwtPayload}.sig`;
+
+      const fetchCalls = [];
+      global.fetch = async (url, opts = {}) => {
+        fetchCalls.push({ url: String(url), method: opts.method || 'GET', headers: opts.headers || {}, body: opts.body });
+        const u = String(url);
+
+        if (u.includes('login.microsoftonline.com/') && u.endsWith('/oauth2/v2.0/token')) {
+          return new Response(JSON.stringify({ access_token: mockJwt, expires_in: 3600, token_type: 'Bearer' }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          });
+        }
+        if (u.includes('/sites/laatsnet.sharepoint.com:/sites/ArchivosOperativosSEC') && !u.includes('/drive')) {
+          return new Response(JSON.stringify({
+            id: 'laatsnet.sharepoint.com,site-guid,web-guid',
+            name: 'ArchivosOperativosSEC',
+            displayName: 'Archivos Operativos SEC',
+            webUrl: 'https://laatsnet.sharepoint.com/sites/ArchivosOperativosSEC'
+          }), { status: 200, headers: { 'content-type': 'application/json' } });
+        }
+        if (u.endsWith('/drives')) {
+          return new Response(JSON.stringify({
+            value: [{ id: 'drive-docs-id', name: 'Documentos', driveType: 'documentLibrary', webUrl: 'https://laatsnet.sharepoint.com/sites/ArchivosOperativosSEC/Shared%20Documents' }]
+          }), { status: 200, headers: { 'content-type': 'application/json' } });
+        }
+        if (u.endsWith('/drives')) {
+          return new Response(JSON.stringify({
+            value: [{ id: 'drive-shared', name: 'Documentos', driveType: 'documentLibrary', webUrl: 'https://laatsnet.sharepoint.com/sites/ArchivosOperativosSEC/Shared%20Documents' }]
+          }), { status: 200, headers: { 'content-type': 'application/json' } });
+        }
+        if (u.endsWith('/drive')) {
+          return new Response(JSON.stringify({
+            id: 'drive-docs-id',
+            name: 'Documentos',
+            driveType: 'documentLibrary',
+            webUrl: 'https://laatsnet.sharepoint.com/sites/ArchivosOperativosSEC/Shared%20Documents'
+          }), { status: 200, headers: { 'content-type': 'application/json' } });
+        }
+        if (u.includes('/root:/FormatosSEC/AEROMEXICO:/children') || u.includes('/root:/FormatosSEC:/children')) {
+          return new Response(JSON.stringify({ value: [] }), { status: 200, headers: { 'content-type': 'application/json' } });
+        }
+        if (u.includes('/root:/FormatosSEC/AEROMEXICO/test_formato.html:/content')) {
+          return new Response(JSON.stringify({
+            id: 'item-html-1',
+            name: 'test_formato.html',
+            size: 28,
+            webUrl: 'https://laatsnet.sharepoint.com/sites/ArchivosOperativosSEC/Shared%20Documents/FormatosSEC/AEROMEXICO/test_formato.html',
+            file: { mimeType: 'text/html' }
+          }), { status: 201, headers: { 'content-type': 'application/json' } });
+        }
+        if (u.includes('/root:/FormatosSEC/AEROMEXICO') && !u.includes(':/content') && !u.includes(':/children')) {
+          return new Response(JSON.stringify({ id: 'folder-amx', name: 'AEROMEXICO', folder: { childCount: 0 } }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          });
+        }
+        if (u.includes('/root:/FormatosSEC') && !u.includes(':/content') && !u.includes(':/children')) {
+          return new Response(JSON.stringify({ id: 'folder-root', name: 'FormatosSEC', folder: { childCount: 1 } }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          });
+        }
+        return new Response(JSON.stringify({ error: { code: 'itemNotFound', message: 'Not found in mock' } }), {
+          status: 404,
+          headers: { 'content-type': 'application/json' }
+        });
+      };
+
+      const connTest = await SharePointService.testConnection();
+      assert.strictEqual(connTest.connected, true);
+      assert.strictEqual(connTest.auth.hasSitesReadWriteAll, true);
+      assert.strictEqual(connTest.site.displayName, 'Archivos Operativos SEC');
+      assert.strictEqual(connTest.activeDrive.id, 'drive-docs-id');
+
+      const uploadRes = await SharePointService.uploadHtmlFormat({
+        folderPath: 'AEROMEXICO',
+        fileName: 'test_formato',
+        htmlContent: '<html><body>OK</body></html>'
+      });
+      assert.strictEqual(uploadRes.path, 'FormatosSEC/AEROMEXICO/test_formato.html');
+      assert.strictEqual(uploadRes.file.id, 'item-html-1');
+      assert(fetchCalls.some(c => c.method === 'PUT' && c.url.includes('test_formato.html:/content')));
+
+      let statusPayload = null;
+      await SharePointController.apiStatus({}, { json: (d) => { statusPayload = d; } });
+      assert(statusPayload && statusPayload.success === true && statusPayload.sharepoint.configured === true);
+
+      // 6.1 Ruta dinámica exacta: Documentos Compartidos/{CLIENTE}/{AÑO}/{MES}/{DD-MM-YYYY}/{NOVUELO}/{NOMBRE_ARCHIVO}.html
+      process.env.SHAREPOINT_BASE_FOLDER = '';
+      assert.strictEqual(SharePointService.resolveClientFolderName({ vuelo: { operador: 'DELTA AIR LINES' } }), 'DELTA');
+      assert.strictEqual(SharePointService.resolveClientFolderName({ vuelo: { operador: 'LATAM' } }), 'LAN CARGO');
+      assert.strictEqual(SharePointService.resolveClientFolderName({ vuelo: { operador: 'AMERIJET INTERNATIONAL' } }), 'AMERIJET');
+      assert.strictEqual(SharePointService.resolveClientFolderName({ formatoId: 'ac-cp' }), 'AIR CANADA');
+      assert.strictEqual(SharePointService.sanitizeFlightFolderName('672/673'), '672-673');
+      assert.strictEqual(SharePointService.sanitizeFlightFolderName('672 / 671'), '672-671');
+
+      const utcFechaParts = SharePointService.extractFechaItineradoParts(new Date('2026-09-24T00:00:00.000Z'));
+      assert.deepStrictEqual(utcFechaParts, {
+        anio: '2026',
+        mes: 'Septiembre',
+        fechaCompleta: '24-09-2026'
+      });
+
+      const dynPath = SharePointService.buildDynamicFormatPath({
+        vuelo: { operador: 'AEROMEXICO', FechaItinerado: new Date('2026-09-24T00:00:00.000Z'), novuelo: '672/673' },
+        formatoId: 'amx-cp',
+        fileName: '672_673_NA_Control de Perimétrica (unificado)_1.html'
+      });
+      assert.strictEqual(
+        dynPath.displayPath,
+        'Documentos Compartidos/AEROMEXICO/2026/Septiembre/24-09-2026/672-673/672_673_NA_Control de Perimétrica (unificado)_1.html'
+      );
+
+      // 6.2 Simulación de creación recursiva de carpetas + reemplazo controlado en reanudación
+      const createdFolders = new Set();
+      let uploadedPutCount = 0;
+      let lastUploadedHtml = '';
+      global.fetch = async (url, opts = {}) => {
+        const u = String(url);
+        const method = String(opts.method || 'GET').toUpperCase();
+        if (u.includes('login.microsoftonline.com/') && u.endsWith('/oauth2/v2.0/token')) {
+          return new Response(JSON.stringify({ access_token: mockJwt, expires_in: 3600 }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          });
+        }
+        if (u.includes('/sites/laatsnet.sharepoint.com:/sites/ArchivosOperativosSEC') && !u.includes('/drive')) {
+          return new Response(JSON.stringify({ id: 'site-1', name: 'ArchivosOperativosSEC', displayName: 'Archivos Operativos SEC' }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          });
+        }
+        if (u.endsWith('/drives')) {
+          return new Response(JSON.stringify({
+            value: [{ id: 'drive-shared', name: 'Documentos', driveType: 'documentLibrary', webUrl: 'https://laatsnet.sharepoint.com/sites/ArchivosOperativosSEC/Shared%20Documents' }]
+          }), { status: 200, headers: { 'content-type': 'application/json' } });
+        }
+        if (u.endsWith('/drive')) {
+          return new Response(JSON.stringify({ id: 'drive-shared', name: 'Documentos', driveType: 'documentLibrary' }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          });
+        }
+        if (u.includes(':/children') && method === 'GET') {
+          return new Response(JSON.stringify({ value: [] }), { status: 200, headers: { 'content-type': 'application/json' } });
+        }
+        if (u.endsWith('/content?@microsoft.graph.conflictBehavior=replace') && method === 'PUT') {
+          uploadedPutCount += 1;
+          lastUploadedHtml = Buffer.isBuffer(opts.body) ? opts.body.toString('utf8') : String(opts.body || '');
+          return new Response(JSON.stringify({
+            id: 'html-dyn-1',
+            name: '672_673_NA_Control de Perimétrica (unificado)_1.html',
+            size: lastUploadedHtml.length,
+            webUrl: 'https://laatsnet.sharepoint.com/sites/ArchivosOperativosSEC/Shared%20Documents/AEROMEXICO/2026/Septiembre/24-09-2026/672-673/672_673_NA_Control%20de%20Perim%C3%A9trica%20(unificado)_1.html'
+          }), { status: uploadedPutCount === 1 ? 201 : 200, headers: { 'content-type': 'application/json' } });
+        }
+        if (method === 'POST' && u.endsWith('/children')) {
+          const parsedBody = JSON.parse(opts.body || '{}');
+          const segName = parsedBody.name || 'folder';
+          createdFolders.add(segName);
+          return new Response(JSON.stringify({ id: `id-${segName}`, name: segName, folder: { childCount: 0 } }), {
+            status: 201,
+            headers: { 'content-type': 'application/json' }
+          });
+        }
+        const rootMatch = u.match(/\/root:\/([^:?]+)/);
+        if (rootMatch && method === 'GET') {
+          const decodedPath = decodeURIComponent(rootMatch[1]);
+          const parts = decodedPath.split('/');
+          const seg = parts[parts.length - 1];
+          if (createdFolders.has(seg)) {
+            return new Response(JSON.stringify({ id: `id-${seg}`, name: seg, folder: { childCount: 0 } }), {
+              status: 200,
+              headers: { 'content-type': 'application/json' }
+            });
+          }
+          return new Response(JSON.stringify({ error: { code: 'itemNotFound', message: 'Not found' } }), {
+            status: 404,
+            headers: { 'content-type': 'application/json' }
+          });
+        }
+        return new Response(JSON.stringify({ error: { code: 'itemNotFound', message: 'Unexpected mock URL' } }), {
+          status: 404,
+          headers: { 'content-type': 'application/json' }
+        });
+      };
+
+      SharePointService.clearCaches();
+      const vueloMock = { operador: 'AEROMEXICO', FechaItinerado: new Date('2026-09-24T00:00:00.000Z'), novuelo: '672/673' };
+      const firstUpload = await SharePointService.uploadControlledFormatHtml({
+        vuelo: vueloMock,
+        formatoId: 'amx-cp',
+        fileName: '672_673_NA_Control de Perimétrica (unificado)_1.html',
+        htmlContent: '<html><body>VERSION_1</body></html>'
+      });
+      assert.strictEqual(firstUpload.uploaded, true);
+      assert.strictEqual(
+        firstUpload.displayPath,
+        'Documentos Compartidos/AEROMEXICO/2026/Septiembre/24-09-2026/672-673/672_673_NA_Control de Perimétrica (unificado)_1.html'
+      );
+      for (const expectedSeg of ['AEROMEXICO', '2026', 'Septiembre', '24-09-2026', '672-673']) {
+        assert(createdFolders.has(expectedSeg), `Debe crear automáticamente la carpeta ${expectedSeg}`);
+      }
+
+      const resumeUpload = await SharePointService.uploadControlledFormatHtml({
+        vuelo: vueloMock,
+        formatoId: 'amx-cp',
+        fileName: '672_673_NA_Control de Perimétrica (unificado)_1.html',
+        htmlContent: '<html><body>VERSION_2_REANUDADA</body></html>'
+      });
+      assert.strictEqual(resumeUpload.uploaded, true);
+      assert.strictEqual(uploadedPutCount, 2);
+      assert(lastUploadedHtml.includes('VERSION_2_REANUDADA'));
+
+      // 6.3 Resiliencia y bloqueo de subida en estado PENDIENTE (sin matrícula)
+      const FormatosController = require(path.join(ROOT_DIR, 'controllers', 'FormatosController'));
+      const SharePointSyncQueueService = require(path.join(ROOT_DIR, 'services', 'SharePointSyncQueueService'));
+      assert.strictEqual(SharePointSyncQueueService.tieneMatriculaValida({ Matricula: null, MatriculaAeronaveId: null }), false);
+      assert.strictEqual(SharePointSyncQueueService.tieneMatriculaValida({ Matricula: 'Pendiente' }), false);
+      assert.strictEqual(SharePointSyncQueueService.tieneMatriculaValida({ Matricula: 'NA' }), false);
+      assert.strictEqual(SharePointSyncQueueService.tieneMatriculaValida({ Matricula: 'XA-DAP', MatriculaAeronaveId: 12 }), true);
+
+      let fetchCalledWhenPending = false;
+      global.fetch = async () => {
+        fetchCalledWhenPending = true;
+        throw new Error('Should not call SharePoint when Matricula is PENDIENTE');
+      };
+      const deferredRes = await FormatosController._syncHtmlToSharePoint({
+        vuelo: { ...vueloMock, Matricula: null, MatriculaAeronaveId: null },
+        formatoId: 'amx-cp',
+        fileName: '672_673_NA_Control de Perimétrica (unificado)_1.html',
+        htmlContent: '<html><body>PENDING</body></html>',
+        encabezadoId: 1
+      });
+      assert.strictEqual(deferredRes.uploaded, false);
+      assert.strictEqual(deferredRes.deferred, true);
+      assert.strictEqual(deferredRes.status, 'PENDIENTE_MATRICULA');
+      assert.strictEqual(fetchCalledWhenPending, false, 'No debe invocar Graph/SharePoint cuando la matrícula es PENDIENTE');
+
+      global.fetch = async () => { throw new Error('Simulated Graph Outage'); };
+      SharePointService.clearCaches();
+      const resilientRes = await FormatosController._syncHtmlToSharePoint({
+        vuelo: { ...vueloMock, Matricula: 'XA-TEST', MatriculaAeronaveId: 99 },
+        formatoId: 'amx-cp',
+        fileName: '672_673_XA-TEST_Control de Perimétrica (unificado)_1.html',
+        htmlContent: '<html><body>RESILIENCE</body></html>',
+        encabezadoId: 1
+      });
+      assert.strictEqual(resilientRes.uploaded, false);
+      assert(resilientRes.error && resilientRes.error.includes('Simulated Graph Outage'));
+      console.log('  ✔ Servicio y API SharePoint (Entra OAuth2, ruta dinámica, bloqueo PENDIENTE y resiliencia) verificados offline.');
+    } finally {
+      global.fetch = origFetch;
+      SharePointService.clearCaches();
+      for (const k of spEnvKeys) {
+        if (savedSpEnv[k] === undefined) delete process.env[k];
+        else process.env[k] = savedSpEnv[k];
+      }
     }
   } finally {
     if (prevCacheDir === undefined) delete process.env.SIGNATURES_CACHE_DIR;

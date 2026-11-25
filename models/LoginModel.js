@@ -73,24 +73,24 @@ class LoginModel {
   }
 
   /**
-   * Obtiene datos del Empleado y sus departamentos
+   * Obtiene datos del Empleado activo y sus departamentos desde dbo.EmpleadosView
    * @param {number} empleadoId
    */
   static async obtenerDatosEmpleado(empleadoId) {
     const query = `
       SELECT TOP 1
-        e.EmpleadoId,
-        e.Nombre,
-        e.DepartamentoId,
-        d.Nombre AS DepartamentoNombre,
-        di.DepartamentoInternoId,
-        di.DepartamentoInterno AS DepartamentoInternoNombre
-      FROM Empleado e
-      LEFT JOIN Departamento d ON e.DepartamentoId = d.DepartamentoId
-      LEFT JOIN DepartamentoDepInterno ddi ON d.DepartamentoId = ddi.DepartamentoId
-      LEFT JOIN DepartamentoInterno di ON ddi.DepartamentoInternoId = di.DepartamentoInternoId
-      WHERE e.EmpleadoId = @empleadoId
-        AND ISNULL(e.EstaEliminado, 0) = 0
+        ev.EmpleadoId,
+        ev.Codigo,
+        ev.Nombre,
+        ev.Puesto,
+        ev.DepartamentoId,
+        ev.Departamento AS DepartamentoNombre,
+        ev.DepartamentoInternoId,
+        ev.DepartamentoInterno AS DepartamentoInternoNombre
+      FROM dbo.EmpleadosView ev
+      WHERE ev.EmpleadoId = @empleadoId
+        AND UPPER(LTRIM(RTRIM(ISNULL(CONVERT(NVARCHAR(30), ev.EstaBaja), '')))) IN ('FALSE', '0')
+        AND ISNULL(ev.EstaEliminado, 0) = 0
     `;
     const params = [
       { name: 'empleadoId', type: sql.Int, value: empleadoId }
@@ -100,7 +100,7 @@ class LoginModel {
   }
 
   /**
-   * Obtiene la lista de supervisores autorizados desde LoginSEC (Puesto = SUPERVISOR)
+   * Obtiene la lista de supervisores activos autorizados desde LoginSEC + EmpleadosView (Puesto = SUPERVISOR y EstaBaja = FALSE)
    */
   static async obtenerSupervisores() {
     const query = `
@@ -109,10 +109,17 @@ class LoginModel {
         L.Usuario,
         L.EmpleadoId,
         L.Puesto,
+        L.Puesto AS Rol,
+        E.Codigo,
+        E.Puesto AS PuestoEmpleado,
+        E.DepartamentoInterno,
         ISNULL(E.Nombre, L.Usuario) AS NombreCompleto
       FROM LoginSEC L
-      LEFT JOIN Empleado E ON L.EmpleadoId = E.EmpleadoId
+      INNER JOIN dbo.EmpleadosView E
+        ON L.EmpleadoId = E.EmpleadoId
       WHERE UPPER(LTRIM(RTRIM(ISNULL(L.Puesto, '')))) = 'SUPERVISOR'
+        AND UPPER(LTRIM(RTRIM(ISNULL(CONVERT(NVARCHAR(30), E.EstaBaja), '')))) IN ('FALSE', '0')
+        AND ISNULL(E.EstaEliminado, 0) = 0
       ORDER BY L.Usuario ASC
     `;
     const result = await executeQuery(query, []);
@@ -120,7 +127,7 @@ class LoginModel {
   }
 
   /**
-   * Obtiene todos los usuarios de LoginSEC (Agentes y Supervisores) para desplegables de formatos SEC
+   * Obtiene todos los usuarios activos de LoginSEC + EmpleadosView (EstaBaja = FALSE) para desplegables de formatos SEC
    */
   static async obtenerUsuariosSEC() {
     const query = `
@@ -129,9 +136,16 @@ class LoginModel {
         L.Usuario,
         L.EmpleadoId,
         L.Puesto,
+        L.Puesto AS Rol,
+        E.Codigo,
+        E.Puesto AS PuestoEmpleado,
+        E.DepartamentoInterno,
         ISNULL(E.Nombre, L.Usuario) AS NombreCompleto
       FROM LoginSEC L
-      LEFT JOIN Empleado E ON L.EmpleadoId = E.EmpleadoId
+      INNER JOIN dbo.EmpleadosView E
+        ON L.EmpleadoId = E.EmpleadoId
+      WHERE UPPER(LTRIM(RTRIM(ISNULL(CONVERT(NVARCHAR(30), E.EstaBaja), '')))) IN ('FALSE', '0')
+        AND ISNULL(E.EstaEliminado, 0) = 0
       ORDER BY L.Usuario ASC
     `;
     const result = await executeQuery(query, []);
@@ -139,7 +153,7 @@ class LoginModel {
   }
 
   /**
-   * Obtiene todos los usuarios activos de LogIn (para CCO, Aleros y Tractoristas)
+   * Obtiene todos los usuarios activos de LogIn + EmpleadosView (EstaBaja = FALSE)
    */
   static async obtenerUsuariosLogIn() {
     const query = `
@@ -147,10 +161,17 @@ class LoginModel {
         L.LoginId,
         L.Usuario,
         L.EmpleadoId,
+        E.Codigo,
+        E.Puesto,
+        E.DepartamentoInterno,
+        E.Nombre,
         ISNULL(E.Nombre, L.Usuario) AS NombreCompleto
       FROM LogIn L
-      LEFT JOIN Empleado E ON L.EmpleadoId = E.EmpleadoId
+      INNER JOIN dbo.EmpleadosView E
+        ON L.EmpleadoId = E.EmpleadoId
       WHERE ISNULL(L.EstaEliminado, 0) = 0
+        AND UPPER(LTRIM(RTRIM(ISNULL(CONVERT(NVARCHAR(30), E.EstaBaja), '')))) IN ('FALSE', '0')
+        AND ISNULL(E.EstaEliminado, 0) = 0
       ORDER BY L.Usuario ASC
     `;
     const result = await executeQuery(query, []);

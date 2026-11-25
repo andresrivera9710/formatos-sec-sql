@@ -27,11 +27,19 @@
     return 'light';
   }
 
+  function syncColorSchemeMeta(scheme) {
+    const meta = document.querySelector('meta[name="color-scheme"]');
+    if (meta) {
+      meta.setAttribute('content', scheme);
+    }
+  }
+
   /**
-   * Aplica el tema ('dark' | 'light') al documento sincronizando [data-theme="dark"] y body.dark-mode
+   * Aplica el tema ('dark' | 'light') al documento sincronizando [data-theme="dark"], body.dark-mode y <meta name="color-scheme">
    */
-  function applyTheme(theme) {
+  function applyTheme(theme, { persist = true } = {}) {
     const isDark = theme === 'dark';
+    const scheme = isDark ? 'dark' : 'light';
     const root = document.documentElement;
     const body = document.body;
 
@@ -48,12 +56,15 @@
         body.classList.remove('dark-mode');
       }
     }
+    syncColorSchemeMeta(scheme);
 
-    try {
-      localStorage.setItem(THEME_STORAGE_KEY, isDark ? 'dark' : 'light');
-      localStorage.setItem(LEGACY_DARK_KEY, isDark ? 'true' : 'false');
-    } catch (_) {
-      // Ignorar bloqueo de localStorage
+    if (persist) {
+      try {
+        localStorage.setItem(THEME_STORAGE_KEY, scheme);
+        localStorage.setItem(LEGACY_DARK_KEY, isDark ? 'true' : 'false');
+      } catch (_) {
+        // Ignorar bloqueo de localStorage
+      }
     }
 
     const btnTabTheme = document.getElementById('btnTabThemeToggle');
@@ -68,6 +79,13 @@
 
   // Aplicación temprana antes de DOMContentLoaded para evitar parpadeo visual
   applyTheme(getStoredTheme());
+
+  // Sincronización de tema entre pestañas abiertas
+  window.addEventListener('storage', (e) => {
+    if (e.key === THEME_STORAGE_KEY || e.key === LEGACY_DARK_KEY) {
+      applyTheme(getStoredTheme(), { persist: false });
+    }
+  });
 
   document.addEventListener('DOMContentLoaded', () => {
     // Re-aplicar cuando body ya está disponible

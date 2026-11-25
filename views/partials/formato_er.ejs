@@ -13,8 +13,15 @@
   }
 
   const observacionInicial = comp.Observacion ? String(comp.Observacion).trim() : '';
+  const isAmxER = Boolean(formato && formato.id === 'amx-er');
+  const nombreCompletoSesion = (user && (user.nombreCompleto || user.usuario))
+    ? String(user.nombreCompleto || user.usuario).trim()
+    : '';
   const agenteSesion = (user && user.usuario) ? String(user.usuario).trim() : '';
-  const agenteActual = (!esNuevo && comp.CreadoPor) ? String(comp.CreadoPor).trim() : agenteSesion;
+  const agenteActual = (!esNuevo && comp.CreadoPor)
+    ? String(comp.CreadoPor).trim()
+    : (isAmxER ? nombreCompletoSesion : agenteSesion);
+  const agenteSeguridadInspeccion = isAmxER ? nombreCompletoSesion : '';
   const noVueloActivo = (vuelo && vuelo.novuelo) ? String(vuelo.novuelo).trim() : '';
   const destinoActivo = (vuelo && (vuelo.Destino || vuelo.destino)) ? String(vuelo.Destino || vuelo.destino).trim() : '';
 
@@ -31,10 +38,12 @@
     itinerarioId: vuelo.itinerarioId,
     encabezadoId: encabezadoId || null,
     esNuevo: Boolean(esNuevo),
+    isAmxER,
     fecha: fechaItinerario,
     noVuelo: noVueloActivo,
     destinoVuelo: destinoActivo,
     agenteActual,
+    agenteSeguridadInspeccion,
     siglaAgenteSeguridad,
     observaciones: observacionInicial,
     detalles
@@ -200,14 +209,21 @@
 
       <!-- 8. Agente de seguridad AMX durante la inspección: (txtNombreAVSEC_2) -->
       <div class="form-group">
-        <label for="erInputAgenteSeguridad">Agente de seguridad <%= siglaAgenteSeguridad %> durante la inspección: <span class="sio-required-star">*</span></label>
+        <label for="erInputAgenteSeguridad">
+          Agente de seguridad <%= siglaAgenteSeguridad %> durante la inspección:
+          <% if (isAmxER) { %>
+            <i class="fas fa-lock input-lock-icon" title="Vinculado al usuario autenticado en sesión (Solo lectura)"></i>
+          <% } else { %>
+            <span class="sio-required-star">*</span>
+          <% } %>
+        </label>
         <input
           type="text"
           id="erInputAgenteSeguridad"
-          class="form-control"
+          class="form-control <%= isAmxER ? 'input-locked er-cell-readonly' : '' %>"
           maxlength="150"
-          value=""
-          placeholder="Escriba el nombre del Agente"
+          value="<%= agenteSeguridadInspeccion %>"
+          <%= isAmxER ? 'readonly tabindex="-1" aria-readonly="true"' : 'placeholder="Escriba el nombre del Agente"' %>
           autocomplete="off"
         >
       </div>
@@ -304,11 +320,11 @@
 
       <!-- Nombre de Seguridad Aerolínea: (lblNameSeguridadAerolinea_5 + cmbNameSeguridadAerolinea_5 en DisplayMode.View) -->
       <div class="form-group sio-mt-14">
-        <label for="erAgenteSeguridadHeader"><i class="fas fa-user-shield"></i> Nombre de Seguridad Aerolínea:</label>
+        <label for="erAgenteSeguridadHeader"><i class="fas fa-user-shield"></i> Nombre de Seguridad Aerolínea: <i class="fas fa-lock input-lock-icon" title="Vinculado al usuario autenticado (Solo lectura)"></i></label>
         <input
           type="text"
           id="erAgenteSeguridadHeader"
-          class="form-control er-cell-readonly"
+          class="form-control input-locked er-cell-readonly"
           value="<%= agenteActual %>"
           readonly
           disabled

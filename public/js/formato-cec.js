@@ -222,6 +222,26 @@ document.addEventListener('DOMContentLoaded', () => {
       errors.push({ rowNumber: null, label: 'Nombre del Agente', message: 'Debe seleccionar el Agente.', element: selectAgente });
     }
 
+    const tiaInputsCec = [
+      { el: inputTiaOirsa, label: 'TIA (OIRSA)' },
+      { el: inputTiaPilotoComb, label: 'TIA (Piloto Combustible)' },
+      { el: inputTiaAyudanteComb, label: 'TIA (Ayudante Combustible)' },
+      { el: inputTiaPilotoCoc, label: 'TIA (Piloto Cocinas)' },
+      { el: inputTiaAyudanteCoc, label: 'TIA (Ayudante Cocinas)' }
+    ];
+    tiaInputsCec.forEach(({ el, label }) => {
+      const val = String(el?.value || '').trim();
+      if (val !== '' && !/^\d+$/.test(val)) {
+        Validator?.markElementInvalid(el);
+        errors.push({
+          rowNumber: null,
+          label,
+          message: `El campo ${label} debe contener únicamente dígitos numéricos (0-9).`,
+          element: el
+        });
+      }
+    });
+
     const tieneDesembarque =
       isDeltaCEC ||
       parseOptionalInt(inputEquipaje) > 0 ||
@@ -284,12 +304,21 @@ document.addEventListener('DOMContentLoaded', () => {
         Swal.close();
         if (Validator && Array.isArray(json.errors) && json.errors.length > 0) {
           Validator.applyBackendErrors(json.errors, {
-            headerMap: {
+            root: form,
+            headerElementMap: {
               fecha: inputFecha,
               horaInicio: inputHoraInicio,
               compartimiento: inputCompartimiento,
+              compartimientoNo: inputCompartimiento,
+              supervisor: selectSupervisor,
               supervisorLoginId: selectSupervisor,
+              agente: selectAgente,
               agenteLoginId: selectAgente,
+              tiaOirsa: inputTiaOirsa,
+              tiaPilotoCombustible: inputTiaPilotoComb,
+              tiaAyudanteCombustible: inputTiaAyudanteComb,
+              tiaPilotoCocinas: inputTiaPilotoCoc,
+              tiaAyudanteCocinas: inputTiaAyudanteCoc,
               detalles: inputSecuencia
             }
           });

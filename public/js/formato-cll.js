@@ -123,21 +123,32 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    registros.push({
-      No: registros.length + 1,
-      DetalleCLLId: 0,
-      Guia: String(inputGuia.value || '').trim(),
-      Contenido: String(inputContenido.value || '').trim(),
-      Piezas: String(inputPiezas.value || '').trim(),
-      BIN: String(inputBIN.value || '').trim()
-    });
+    const applyAddCll = () => {
+      registros.push({
+        No: registros.length + 1,
+        DetalleCLLId: 0,
+        Guia: String(inputGuia.value || '').trim(),
+        Contenido: String(inputContenido.value || '').trim(),
+        Piezas: String(inputPiezas.value || '').trim(),
+        BIN: String(inputBIN.value || '').trim()
+      });
 
-    inputGuia.value = '';
-    inputContenido.value = '';
-    inputPiezas.value = '';
-    inputBIN.value = '';
-    inputGuia.focus();
-    renderTabla();
+      inputGuia.value = '';
+      inputContenido.value = '';
+      inputPiezas.value = '';
+      inputBIN.value = '';
+      renderTabla();
+      Validator?.focusWithoutScroll ? Validator.focusWithoutScroll(inputGuia) : inputGuia.focus({ preventScroll: true });
+    };
+    if (Validator?.preserveScroll) Validator.preserveScroll(applyAddCll);
+    else applyAddCll();
+  });
+
+  inputBIN?.addEventListener('keydown', (e) => {
+    if ((e.key === 'Enter' || e.keyCode === 13) && !e.isComposing && e.keyCode !== 229) {
+      e.preventDefault();
+      document.getElementById('btnAgregarRegistroCLL')?.click();
+    }
   });
 
   document.getElementById('btnAgregarFilaVaciaCLL')?.addEventListener('click', () => {

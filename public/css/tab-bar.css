@@ -981,3 +981,21 @@ body.dark-mode .op-hero-eyebrow {
     padding: 12px 10px 120px;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-pill-indicator {
+    transition: opacity 0.2s ease, background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+
+  .tab-bar-item {
+    transition: color 0.22s ease;
+  }
+
+  .op-active-flight-pill {
+    transition: box-shadow 0.15s ease;
+  }
+
+  .op-active-flight-pill:hover {
+    transform: none;
+  }
+}

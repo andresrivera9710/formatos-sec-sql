@@ -180,11 +180,22 @@ document.addEventListener('DOMContentLoaded', () => {
       Validator?.notifyValidationErrors(errs, 'Datos Incompletos — Personal SAG');
       return;
     }
-    personalSAG.push({ No: personalSAG.length + 1, PersonalSAGId: 0, Nombre: nombre, Id: id });
-    inputSagNombre.value = '';
-    inputSagId.value = '';
-    inputSagNombre.focus();
-    renderTablaSag();
+    const applyAddSag = () => {
+      personalSAG.push({ No: personalSAG.length + 1, PersonalSAGId: 0, Nombre: nombre, Id: id });
+      inputSagNombre.value = '';
+      inputSagId.value = '';
+      renderTablaSag();
+      Validator?.focusWithoutScroll ? Validator.focusWithoutScroll(inputSagNombre) : inputSagNombre.focus({ preventScroll: true });
+    };
+    if (Validator?.preserveScroll) Validator.preserveScroll(applyAddSag);
+    else applyAddSag();
+  });
+
+  inputSagId?.addEventListener('keydown', (e) => {
+    if ((e.key === 'Enter' || e.keyCode === 13) && !e.isComposing && e.keyCode !== 229) {
+      e.preventDefault();
+      document.getElementById('btnAgregarSagRX')?.click();
+    }
   });
 
   document.getElementById('btnAgregarFilaSagRX')?.addEventListener('click', () => {

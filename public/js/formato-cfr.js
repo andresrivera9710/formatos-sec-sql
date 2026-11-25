@@ -128,7 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderTabla() {
     if (!tbody) return;
-    tbody.innerHTML = '';
+    tbody.replaceChildren();
 
     if (carretas.length === 0) {
       const trEmpty = document.createElement('tr');

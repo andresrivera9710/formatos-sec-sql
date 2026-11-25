@@ -28,40 +28,42 @@
         </header>
 
         <!-- Barra de Filtros de Itinerario -->
-        <form id="formFiltrosOperaciones" class="filter-bar">
-          <div class="form-group form-group-date">
-            <label for="filtroFecha1"><i class="far fa-calendar-alt"></i> Fecha de Operación</label>
-            <input type="date" id="filtroFecha1" name="fecha" class="form-control" required>
-          </div>
+        <search>
+          <form id="formFiltrosOperaciones" class="filter-bar">
+            <div class="form-group form-group-date">
+              <label for="filtroFecha1"><i class="far fa-calendar-alt" aria-hidden="true"></i> Fecha de Operación</label>
+              <input type="date" id="filtroFecha1" name="fecha" class="form-control" required>
+            </div>
 
-          <div class="form-group form-group-date is-hidden" id="grupoFecha2">
-            <label for="filtroFecha2"><i class="far fa-calendar-alt"></i> Hasta (Rango)</label>
-            <input type="date" id="filtroFecha2" name="fecha2" class="form-control">
-          </div>
+            <div class="form-group form-group-date is-hidden" id="grupoFecha2">
+              <label for="filtroFecha2"><i class="far fa-calendar-alt" aria-hidden="true"></i> Hasta (Rango)</label>
+              <input type="date" id="filtroFecha2" name="fecha2" class="form-control">
+            </div>
 
-          <div class="form-group">
-            <label for="filtroOperador"><i class="fas fa-plane"></i> Aerolínea / Operador</label>
-            <select id="filtroOperador" name="operadorId" class="form-control">
-              <option value="">-- Seleccione una aerolínea / operador --</option>
-              <% if (operadores && operadores.length > 0) { %>
-                <% operadores.forEach(op => { %>
-                  <option value="<%= op.OperadorId %>"><%= op.Nombre %></option>
-                <% }) %>
-              <% } %>
-            </select>
-          </div>
+            <div class="form-group">
+              <label for="filtroOperador"><i class="fas fa-plane" aria-hidden="true"></i> Aerolínea / Operador</label>
+              <select id="filtroOperador" name="operadorId" class="form-control">
+                <option value="">-- Seleccione una aerolínea / operador --</option>
+                <% if (operadores && operadores.length > 0) { %>
+                  <% operadores.forEach(op => { %>
+                    <option value="<%= op.OperadorId %>"><%= op.Nombre %></option>
+                  <% }) %>
+                <% } %>
+              </select>
+            </div>
 
-          <div class="filter-range-toggle">
-            <input type="checkbox" id="checkRangoFechas" class="filter-range-checkbox">
-            <label for="checkRangoFechas" class="filter-range-label">
-              Activar Rango
-            </label>
-          </div>
+            <div class="filter-range-toggle">
+              <input type="checkbox" id="checkRangoFechas" class="filter-range-checkbox">
+              <label for="checkRangoFechas" class="filter-range-label">
+                Activar Rango
+              </label>
+            </div>
 
-          <button type="submit" id="btnConsultarOperaciones" class="btn btn-primary filter-submit-btn">
-            <i class="fas fa-search"></i> Consultar
-          </button>
-        </form>
+            <button type="submit" id="btnConsultarOperaciones" class="btn btn-primary filter-submit-btn">
+              <i class="fas fa-search" aria-hidden="true"></i> Consultar
+            </button>
+          </form>
+        </search>
 
         <!-- Barra de estado de resultados -->
         <div id="barraResumenOperaciones" class="op-summary-bar is-hidden">

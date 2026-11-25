@@ -32,7 +32,67 @@ const EMPRESAS_CP = [
   'OTROS...'
 ];
 
+const EMPRESAS_CP_AMX = [
+  'ODA',
+  'ODA (Combustible)',
+  'AEROEXPRESS',
+  'OIRSA',
+  'AEROMEXICO',
+  'LAATS'
+];
+
 class FormatosService {
+  static get EMPRESAS_CP_AMX() {
+    return EMPRESAS_CP_AMX.slice();
+  }
+
+  static _hidratarDetallesMatrizConAnulados(activeRows = [], allRows = [], obsText = '', idField = 'DetalleId') {
+    const obs = String(obsText || '');
+    const source = Array.isArray(allRows) && allRows.length > 0 ? allRows : activeRows;
+    const result = [];
+
+    for (const row of source) {
+      if (!row || row.Secuencia === undefined || row.Secuencia === null) continue;
+      const secNum = parseInt(row.Secuencia, 10) || 0;
+      if (secNum <= 0) continue;
+      const recId = parseInt(row[idField], 10) || 0;
+      const isSoftDeleted = Boolean(row.EstaEliminado) || Number(row.EstaEliminado) === 1;
+
+      if (isSoftDeleted) {
+        const mentionedInObs = new RegExp(`Sec\\.\\s*#?${secNum}\\b`, 'i').test(obs);
+        if (!mentionedInObs) continue;
+
+        let motivo = '';
+        const bracketMatch = obs.match(new RegExp(`Anulada\\s+Sec\\.\\s*#?${secNum}(?:\\s*\\([^)]*\\))?\\s*:\\s*([^\\]|]+)`, 'i'));
+        const tailMatch = obs.match(new RegExp(`Motivos de anulaci[oó]n:[\\s\\S]*?Sec\\.\\s*#?${secNum}\\s*:\\s*([^,|]+)`, 'i'));
+        if (bracketMatch && bracketMatch[1]) {
+          motivo = bracketMatch[1].trim();
+        } else if (tailMatch && tailMatch[1]) {
+          motivo = tailMatch[1].trim();
+        }
+
+        result.push({
+          Orden: result.length + 1,
+          [idField]: recId,
+          Secuencia: secNum,
+          Valor: 'X',
+          Motivo: motivo,
+          EstaEliminado: true
+        });
+      } else {
+        result.push({
+          Orden: result.length + 1,
+          [idField]: recId,
+          Secuencia: secNum,
+          Valor: String(secNum),
+          Motivo: '',
+          EstaEliminado: false
+        });
+      }
+    }
+
+    return result;
+  }
   /**
    * Compara nombres de TipoFormato tolerando singular/plural ("Equipaje" vs "Equipajes") y acentos
    */
@@ -170,20 +230,22 @@ class FormatosService {
       }
     }
 
-    // Cargar catálogos transversales (Supervisores, Usuarios LoginSEC, Usuarios LogIn, Empleados, Maquinaria, PosicionesPO)
+    // Cargar catálogos transversales (Supervisores, Usuarios LoginSEC, Usuarios LogIn, Empleados activos, Empleados CCO activos, Maquinaria, PosicionesPO)
     let supervisores = [];
     let usuariosSEC = [];
     let usuariosLogin = [];
     let empleados = [];
+    let empleadosCCO = [];
     let maquinaria = [];
     let posicionesPO = [];
 
     try {
-      const [supList, secList, loginList, empList, maqList, posList] = await Promise.all([
+      const [supList, secList, loginList, empList, ccoList, maqList, posList] = await Promise.all([
         LoginModel.obtenerSupervisores().catch(() => []),
         LoginModel.obtenerUsuariosSEC().catch(() => []),
         LoginModel.obtenerUsuariosLogIn().catch(() => []),
         FormatosModel.obtenerEmpleadosActivos().catch(() => []),
+        FormatosModel.obtenerEmpleadosCCO().catch(() => []),
         FormatosModel.obtenerMaquinariaActiva().catch(() => []),
         isPO ? FormatosModel.obtenerPosicionesPO().catch(() => []) : Promise.resolve([])
       ]);
@@ -191,6 +253,7 @@ class FormatosService {
       usuariosSEC = secList || [];
       usuariosLogin = loginList || [];
       empleados = empList || [];
+      empleadosCCO = ccoList || [];
       maquinaria = maqList || [];
       posicionesPO = posList || [];
     } catch (catErr) {
@@ -218,15 +281,20 @@ class FormatosService {
     let lisaState = null;
 
     if (isCP) {
+      const isAmxCP = String(formatoId || '').trim().toLowerCase() === 'amx-cp';
       const complemento = complementos?.[0]?.[0] || null;
       const detalles = (datosExistentes?.[0] || [])
         .filter(d => d && d.Nombre && String(d.Nombre).trim() !== '')
-        .sort((a, b) => (parseInt(a.DetalleCPId, 10) || 0) - (parseInt(b.DetalleCPId, 10) || 0));
+        .sort((a, b) => (parseInt(a.DetalleCPId, 10) || 0) - (parseInt(b.DetalleCPId, 10) || 0))
+        .map(d => ({
+          ...d,
+          Nombre: isAmxCP ? String(d.Nombre || '').trim().toUpperCase() : String(d.Nombre || '').trim()
+        }));
 
       cpState = {
         complemento,
         detalles,
-        empresas: EMPRESAS_CP
+        empresas: isAmxCP ? EMPRESAS_CP_AMX : EMPRESAS_CP
       };
     }
 
@@ -257,15 +325,16 @@ class FormatosService {
     if (isEB) {
       const complemento = complementos?.[0]?.[0] || null;
       const rawRows = datosExistentes?.[0] || [];
-      const detalles = rawRows
-        .filter(d => d && d.Secuencia !== undefined && d.Secuencia !== null)
-        .map((d, idx) => ({
-          Orden: idx + 1,
-          DetalleControlEBId: parseInt(d.DetalleControlEBId, 10) || 0,
-          Secuencia: parseInt(d.Secuencia, 10) || 0,
-          Valor: String(d.Secuencia || '').trim(),
-          Motivo: ''
-        }));
+      const allEbRows = encIdNum
+        ? await FormatosModel.obtenerDetallesMatrizConAnulados('eb', encIdNum).catch(() => [])
+        : [];
+      const obsEb = complemento?.Observaciones ?? complemento?.Observacion ?? '';
+      const detalles = FormatosService._hidratarDetallesMatrizConAnulados(
+        rawRows,
+        allEbRows,
+        obsEb,
+        'DetalleControlEBId'
+      );
 
       ebState = {
         complemento,
@@ -276,15 +345,16 @@ class FormatosService {
     if (isCEC) {
       const complemento = complementos?.[0]?.[0] || null;
       const rawRows = datosExistentes?.[0] || [];
-      const detalles = rawRows
-        .filter(d => d && d.Secuencia !== undefined && d.Secuencia !== null)
-        .map((d, idx) => ({
-          Orden: idx + 1,
-          DetalleCECDespId: parseInt(d.DetalleCECDespId, 10) || 0,
-          Secuencia: parseInt(d.Secuencia, 10) || 0,
-          Valor: String(d.Secuencia || '').trim(),
-          Motivo: ''
-        }));
+      const allCecRows = encIdNum
+        ? await FormatosModel.obtenerDetallesMatrizConAnulados('cec', encIdNum).catch(() => [])
+        : [];
+      const obsCec = complemento?.Observaciones ?? complemento?.Observacion ?? '';
+      const detalles = FormatosService._hidratarDetallesMatrizConAnulados(
+        rawRows,
+        allCecRows,
+        obsCec,
+        'DetalleCECDespId'
+      );
 
       cecState = {
         complemento,
@@ -312,16 +382,20 @@ class FormatosService {
 
       const textoObsBruto = String(complemento?.Observaciones || '').trim();
       const totalEq = parseInt(complemento?.TotalEquipaje, 10) || 0;
+      const hasEncodedTail = /(?:^|\s\/\s)(?:X:\d+|\d+)(?:,(?:X:\d+|\d+))*$/i.test(textoObsBruto);
       let observacionesLimpia = textoObsBruto;
       let equipajePuerta = [];
 
-      if (totalEq > 0 && textoObsBruto) {
+      if ((totalEq > 0 || hasEncodedTail) && textoObsBruto) {
+        const seqListRegex = /^(?:X:\d+|\d+)(?:\s*,\s*(?:X:\d+|\d+))*$/i;
         if (textoObsBruto.includes(' / ')) {
           const parts = textoObsBruto.split(' / ');
-          const tail = parts[parts.length - 1] || '';
-          observacionesLimpia = parts.slice(0, -1).join(' / ').trim();
-          equipajePuerta = tail.split(',').map(s => s.trim()).filter(Boolean);
-        } else {
+          const tail = (parts[parts.length - 1] || '').trim();
+          if (seqListRegex.test(tail)) {
+            observacionesLimpia = parts.slice(0, -1).join(' / ').trim();
+            equipajePuerta = tail.split(',').map(s => s.trim()).filter(Boolean);
+          }
+        } else if (seqListRegex.test(textoObsBruto)) {
           equipajePuerta = textoObsBruto.split(',').map(s => s.trim()).filter(Boolean);
           observacionesLimpia = '';
         }
@@ -361,7 +435,29 @@ class FormatosService {
         };
       };
 
-      const ccoInfo = resolverPersonaMecd(encMecd?.EmpleadoId ?? encMecd?.LoginId, usuariosLogin);
+      const resolverCcoMecd = (rawId) => {
+        const n = parseInt(rawId, 10) || 0;
+        if (!n) return { empleadoId: '', nombre: '' };
+        const byCco = empleadosCCO.find(e => Number(e.EmpleadoId) === n);
+        if (byCco) {
+          return { empleadoId: String(byCco.EmpleadoId), nombre: String(byCco.Nombre || '').trim() };
+        }
+        const byEmp = empleados.find(e => Number(e.EmpleadoId) === n);
+        if (byEmp) {
+          return { empleadoId: String(byEmp.EmpleadoId), nombre: String(byEmp.Nombre || '').trim() };
+        }
+        const byLegacyLogin = usuariosLogin.find(u => Number(u.LoginId) === n);
+        if (byLegacyLogin) {
+          const matchedCco = empleadosCCO.find(e => Number(e.EmpleadoId) === Number(byLegacyLogin.EmpleadoId));
+          return {
+            empleadoId: matchedCco ? String(matchedCco.EmpleadoId) : '',
+            nombre: String(byLegacyLogin.Nombre || byLegacyLogin.NombreCompleto || byLegacyLogin.Usuario || '').trim()
+          };
+        }
+        return { empleadoId: '', nombre: '' };
+      };
+
+      const ccoInfo = resolverCcoMecd(encMecd?.EmpleadoId ?? encMecd?.LoginId);
       const agenteInfo = resolverPersonaMecd(encMecd?.AgenteId ?? encMecd?.AgenteLoginSECId, usuariosSEC);
       const supInfo = resolverPersonaMecd(encMecd?.SupervisorId ?? encMecd?.SupervisorLoginSECId, supervisores);
 
@@ -378,7 +474,8 @@ class FormatosService {
       mecdState = {
         encabezado: encMecd,
         complemento: encMecd,
-        ccoLoginId: ccoInfo.loginId,
+        ccoEmpleadoId: ccoInfo.empleadoId,
+        ccoLoginId: ccoInfo.empleadoId,
         ccoNombre: ccoInfo.nombre,
         agenteLoginSecId: agenteInfo.loginId,
         agenteNombre: agenteInfo.nombre || String(encMecd?.CreadoPor || '').trim(),
@@ -774,6 +871,7 @@ class FormatosService {
       usuariosSEC,
       usuariosLogin,
       empleados,
+      empleadosCCO,
       maquinaria,
       posicionesPO,
       cpState,
@@ -1066,18 +1164,20 @@ class FormatosService {
       ? detallesDb
       : (Array.isArray(fallbackPayload.registros) ? fallbackPayload.registros : []);
 
+    const isAmxCP = String(formatoMeta?.id || 'amx-cp').trim().toLowerCase() === 'amx-cp';
     const filasNormalizadas = sourceRows.map((r, idx) => {
       const hIn = FormatosService.normalizarHora5(r.HoraIngreso, '');
       const hOut = FormatosService.normalizarHora5(r.HoraSalidaReal || r.HoraSalida || r.HoraSalidaEstimada, '');
+      const rawNombre = String(r.Nombre || '').trim();
       return {
         numero: idx + 1,
-        nombre: String(r.Nombre || '').trim(),
+        nombre: isAmxCP ? rawNombre.toUpperCase() : rawNombre,
         noTia: String(r.NoTIA || '').trim(),
         horaIngreso: hIn,
         empresa: String(r.Empresa || '').trim(),
         motivo: String(r.Motivo || '').trim(),
         horaSalida: hOut,
-        estaPendiente: Boolean(r.Nombre && !hOut)
+        estaPendiente: Boolean(rawNombre && !hOut)
       };
     });
 
@@ -1163,7 +1263,11 @@ class FormatosService {
       ? cp.alerosNombres.map(n => String(n || '').trim()).filter(Boolean).slice(0, 2)
       : [];
 
-    const registros = Array.isArray(cp.registros) ? cp.registros : [];
+    const isAmxCP = String(formatoMeta?.id || payload?.formatoId || '').trim().toLowerCase() === 'amx-cp';
+    const registros = (Array.isArray(cp.registros) ? cp.registros : []).map((r) => ({
+      ...r,
+      Nombre: isAmxCP ? String(r?.Nombre || '').trim().toUpperCase() : String(r?.Nombre || '').trim()
+    }));
     const pendientesSalida = registros.filter(r => !r.HoraSalida || String(r.HoraSalida).trim() === '');
 
     const resumenPreliminar = {
@@ -1390,6 +1494,9 @@ class FormatosService {
       }
     }
 
+    const isAmxER = String(payload.formatoId || formatoMeta?.id || '').trim().toLowerCase() === 'amx-er';
+    const nombreAgenteSesion = String(user?.nombreCompleto || user?.usuario || '').trim();
+
     // Si es Vista Preliminar (guardar: false), construimos el modelo en memoria
     if (!guardar) {
       const fechaIso = fechaItinerarioAutoritativa || String(er.fecha || new Date().toISOString()).trim().substring(0, 10);
@@ -1407,7 +1514,9 @@ class FormatosService {
         Destino: String(r?.Destino || 'N/A').trim() || 'N/A',
         HoraRevision: FormatosService.normalizarHora5(r?.HoraRevision ?? r?.Hora, ''),
         AgenteAVSEC: String(r?.AgenteAVSEC ?? r?.Avsec ?? '').trim(),
-        AgenteSeguridad: String(r?.AgenteSeguridad ?? r?.Seguridad ?? r?.CreadoPor ?? user?.usuario ?? '').trim()
+        AgenteSeguridad: isAmxER
+          ? nombreAgenteSesion
+          : String(r?.AgenteSeguridad ?? r?.Seguridad ?? r?.CreadoPor ?? user?.usuario ?? '').trim()
       }));
 
       return {
@@ -1422,13 +1531,13 @@ class FormatosService {
           fecha: fechaIso,
           totalEquipajes: filasNormalizadas.length,
           timestamp: new Date().toISOString(),
-          usuario: user?.usuario || ''
+          usuario: isAmxER ? nombreAgenteSesion : (user?.usuario || '')
         },
         preview: {
           fecha: fechaIso,
           observaciones,
           firmaBase64,
-          agente: user?.usuario || user?.nombreCompleto || '',
+          agente: isAmxER ? nombreAgenteSesion : (user?.usuario || user?.nombreCompleto || ''),
           totalEquipajes: filasNormalizadas.length,
           registros: filasNormalizadas
         }
@@ -1462,7 +1571,7 @@ class FormatosService {
       itinerarioId: norm.itinerarioId,
       loginId,
       empleadoId: parseInt(user.empleadoId, 10) || 0,
-      usuarioAuditoria: String(user.usuario || '').trim(),
+      usuarioAuditoria: isAmxER ? nombreAgenteSesion : String(user.usuario || '').trim(),
       fechaIso: norm.fechaIso,
       observaciones: norm.observaciones,
       registros: norm.registros
@@ -1772,6 +1881,28 @@ class FormatosService {
     }
 
     const norm = validacion.normalized;
+
+    // Validar en Backend que el Representante CCO pertenezca a EmpleadosView activo (EstaBaja = FALSE) y DepartamentoInterno = 'CCO'
+    const ccoActivos = await FormatosModel.obtenerEmpleadosCCO().catch(() => null);
+    if (Array.isArray(ccoActivos) && ccoActivos.length > 0) {
+      const ccoMatch = ccoActivos.find(e => Number(e.EmpleadoId) === Number(norm.ccoEmpleadoId));
+      if (!ccoMatch) {
+        return {
+          success: false,
+          statusCode: 400,
+          message: 'El Representante CCO seleccionado no pertenece al departamento CCO o no se encuentra activo en EmpleadosView.',
+          errors: [{
+            scope: 'header',
+            row: null,
+            field: 'ccoEmpleadoId',
+            label: 'Representante CCO / Operaciones',
+            message: 'Seleccione un empleado activo del departamento CCO.'
+          }]
+        };
+      }
+      norm.ccoNombre = String(ccoMatch.Nombre || norm.ccoNombre || '').trim();
+    }
+
     const txResult = await FormatosModel.guardarEquipMECDTransaccional({
       encabezadoId: norm.encabezadoId,
       itinerarioId: norm.itinerarioId,

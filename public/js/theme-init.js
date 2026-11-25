@@ -6,13 +6,23 @@
  */
 (function () {
   'use strict';
+  function syncColorSchemeMeta(scheme) {
+    const meta = document.querySelector('meta[name="color-scheme"]');
+    if (meta) {
+      meta.setAttribute('content', scheme);
+    }
+  }
+
   try {
     const savedTheme = localStorage.getItem('sio_theme');
     const legacyDark = localStorage.getItem('sio_dark_mode');
     const isDark = savedTheme === 'dark' || (savedTheme !== 'light' && legacyDark === 'true');
-    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    const scheme = isDark ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', scheme);
+    syncColorSchemeMeta(scheme);
   } catch (_) {
     document.documentElement.setAttribute('data-theme', 'light');
+    syncColorSchemeMeta('light');
   }
 
   // Protección temprana universal contra pantalla de carga infinita al retroceder en dispositivos móviles (BFCache)

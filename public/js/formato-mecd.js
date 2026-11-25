@@ -258,6 +258,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  const bindMecdEnter = (inpEl, btnEl) => {
+    if (!inpEl || !btnEl) return;
+    inpEl.addEventListener('keydown', (e) => {
+      const isEnter = e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter' || e.keyCode === 13;
+      if (!isEnter) return;
+      if (e.isComposing || e.keyCode === 229) return;
+      e.preventDefault();
+      btnEl.click();
+    });
+  };
+
   if (btnAgregarRev) {
     btnAgregarRev.addEventListener('click', () => {
       const ctrl = String(inputRevControl?.value || '').trim();
@@ -265,17 +276,22 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!ctrl || !col) {
         if (!ctrl) Validator?.markElementInvalid(inputRevControl);
         if (!col) Validator?.markElementInvalid(inputRevColilla);
-        Swal.fire({ icon: 'warning', title: 'Datos incompletos', text: 'Ingrese No. de Control y No. de Colilla para Revisión.', confirmButtonColor: '#0F2744' });
+        Swal.fire({ icon: 'warning', title: 'Datos incompletos', text: 'Ingrese No. de Control y No. de Colilla para Revisión.', confirmButtonColor: '#0F2744', returnFocus: false });
         return;
       }
-      revision.push({ EquipajeRevId: 0, Control: ctrl, Colilla: col });
-      inputRevControl.value = '';
-      inputRevColilla.value = '';
-      renderGrids();
-      window.SioOfflineManager?.notifyStateChange?.();
+      const applyAdd = () => {
+        revision.push({ EquipajeRevId: 0, Control: ctrl, Colilla: col });
+        inputRevControl.value = '';
+        inputRevColilla.value = '';
+        renderGrids();
+        window.SioOfflineManager?.notifyStateChange?.();
+        Validator?.focusWithoutScroll ? Validator.focusWithoutScroll(inputRevControl) : inputRevControl.focus({ preventScroll: true });
+      };
+      if (Validator?.preserveScroll) Validator.preserveScroll(applyAdd);
+      else applyAdd();
       notifyMecdToast('Equipaje agregado a Revisión');
-      inputRevControl.focus();
     });
+    bindMecdEnter(inputRevColilla, btnAgregarRev);
   }
 
   if (btnAgregarCF) {
@@ -288,19 +304,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!pax) Validator?.markElementInvalid(inputCFPasajero);
         if (!col) Validator?.markElementInvalid(inputCFColilla);
         if (!ctrl) Validator?.markElementInvalid(inputCFControl);
-        Swal.fire({ icon: 'warning', title: 'Datos incompletos', text: 'Complete Nombre del Pasajero, No. de Colilla y No. de Control.', confirmButtonColor: '#0F2744' });
+        Swal.fire({ icon: 'warning', title: 'Datos incompletos', text: 'Complete Nombre del Pasajero, No. de Colilla y No. de Control.', confirmButtonColor: '#0F2744', returnFocus: false });
         return;
       }
-      conFirma.push({ EquipajeMEId: 0, NombrePasajero: pax, Colilla: col, Control: ctrl, Destino: dest });
-      inputCFPasajero.value = '';
-      inputCFColilla.value = '';
-      inputCFControl.value = '';
-      if (inputCFDestino) inputCFDestino.value = '';
-      renderGrids();
-      window.SioOfflineManager?.notifyStateChange?.();
+      const applyAdd = () => {
+        conFirma.push({ EquipajeMEId: 0, NombrePasajero: pax, Colilla: col, Control: ctrl, Destino: dest });
+        inputCFPasajero.value = '';
+        inputCFColilla.value = '';
+        inputCFControl.value = '';
+        if (inputCFDestino) inputCFDestino.value = '';
+        renderGrids();
+        window.SioOfflineManager?.notifyStateChange?.();
+        Validator?.focusWithoutScroll ? Validator.focusWithoutScroll(inputCFPasajero) : inputCFPasajero.focus({ preventScroll: true });
+      };
+      if (Validator?.preserveScroll) Validator.preserveScroll(applyAdd);
+      else applyAdd();
       notifyMecdToast('Maleta Con Firma agregada');
-      inputCFPasajero.focus();
     });
+    bindMecdEnter(inputCFControl, btnAgregarCF);
+    bindMecdEnter(inputCFDestino, btnAgregarCF);
   }
 
   if (btnAgregarSF) {
@@ -313,19 +335,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!pax) Validator?.markElementInvalid(inputSFPasajero);
         if (!col) Validator?.markElementInvalid(inputSFColilla);
         if (!ctrl) Validator?.markElementInvalid(inputSFControl);
-        Swal.fire({ icon: 'warning', title: 'Datos incompletos', text: 'Complete Nombre del Pasajero, No. de Colilla y No. de Control.', confirmButtonColor: '#0F2744' });
+        Swal.fire({ icon: 'warning', title: 'Datos incompletos', text: 'Complete Nombre del Pasajero, No. de Colilla y No. de Control.', confirmButtonColor: '#0F2744', returnFocus: false });
         return;
       }
-      sinFirma.push({ EquipajeMEDSFId: 0, NombrePasajero: pax, Colilla: col, Control: ctrl, Destino: dest });
-      inputSFPasajero.value = '';
-      inputSFColilla.value = '';
-      inputSFControl.value = '';
-      if (inputSFDestino) inputSFDestino.value = '';
-      renderGrids();
-      window.SioOfflineManager?.notifyStateChange?.();
+      const applyAdd = () => {
+        sinFirma.push({ EquipajeMEDSFId: 0, NombrePasajero: pax, Colilla: col, Control: ctrl, Destino: dest });
+        inputSFPasajero.value = '';
+        inputSFColilla.value = '';
+        inputSFControl.value = '';
+        if (inputSFDestino) inputSFDestino.value = '';
+        renderGrids();
+        window.SioOfflineManager?.notifyStateChange?.();
+        Validator?.focusWithoutScroll ? Validator.focusWithoutScroll(inputSFPasajero) : inputSFPasajero.focus({ preventScroll: true });
+      };
+      if (Validator?.preserveScroll) Validator.preserveScroll(applyAdd);
+      else applyAdd();
       notifyMecdToast('Maleta Sin Firma agregada');
-      inputSFPasajero.focus();
     });
+    bindMecdEnter(inputSFControl, btnAgregarSF);
+    bindMecdEnter(inputSFDestino, btnAgregarSF);
   }
 
   function recopilarPayload(guardarDefinitivo) {
@@ -345,6 +373,7 @@ document.addEventListener('DOMContentLoaded', () => {
       guardar: Boolean(guardarDefinitivo),
       datos: {
         fecha: String(inputFecha?.value || '').trim(),
+        ccoEmpleadoId: selectCCO?.value ? parseInt(selectCCO.value, 10) : null,
         ccoLoginId: selectCCO?.value ? parseInt(selectCCO.value, 10) : null,
         ccoNombre,
         agenteLoginSecId: selectAgente?.value ? parseInt(selectAgente.value, 10) : null,
@@ -442,10 +471,14 @@ document.addEventListener('DOMContentLoaded', () => {
         Swal.close();
         if (Validator && Array.isArray(json.errors) && json.errors.length > 0) {
           Validator.applyBackendErrors(json.errors, {
-            headerMap: {
+            root: form,
+            headerElementMap: {
               fecha: inputFecha,
+              ccoEmpleadoId: selectCCO,
               ccoLoginId: selectCCO,
+              agenteEmpleadoId: selectAgente,
               agenteLoginSecId: selectAgente,
+              supervisorEmpleadoId: selectSupervisor,
               supervisorLoginSecId: selectSupervisor,
               detalles: inputRevControl
             }

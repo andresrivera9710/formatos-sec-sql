@@ -31,6 +31,32 @@ document.addEventListener('DOMContentLoaded', () => {
     return match ? match[1] : '';
   };
 
+  const cpFormatoId = String(document.getElementById('cpFormatoId')?.value || '').trim().toLowerCase();
+  const isAmxCP = cpFormatoId === 'amx-cp';
+
+  const normalizeCpNombre = (val) => {
+    const clean = String(val || '').trim();
+    return isAmxCP ? clean.toUpperCase() : clean;
+  };
+
+  const focusNoScroll = (el) => {
+    if (!el || typeof el.focus !== 'function') return;
+    try {
+      el.focus({ preventScroll: true });
+    } catch (_) {
+      el.focus();
+    }
+  };
+
+  const preserveViewportScroll = (fn) => {
+    const sx = window.scrollX;
+    const sy = window.scrollY;
+    const res = fn();
+    window.scrollTo(sx, sy);
+    window.requestAnimationFrame(() => window.scrollTo(sx, sy));
+    return res;
+  };
+
   // Cargar datos iniciales hidratados desde Azure SQL
   const bootstrapEl = document.getElementById('cpBootstrapData');
   let rawRegistros = [];
@@ -48,7 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let registros = (Array.isArray(rawRegistros) ? rawRegistros : []).map((r) => ({
     DetalleCPId: parseInt(r.DetalleCPId, 10) || 0,
-    Nombre: String(r.Nombre || '').trim(),
+    Nombre: normalizeCpNombre(r.Nombre),
     NoTIA: String(r.NoTIA || '').trim(),
     HoraIngreso: extractHHMM(r.HoraIngreso),
     Empresa: String(r.Empresa || '').trim(),
@@ -69,7 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const normalizeCpRegistros = (list) => (Array.isArray(list) ? list : []).map((r) => ({
     DetalleCPId: parseInt(r.DetalleCPId, 10) || 0,
-    Nombre: String(r.Nombre || '').trim(),
+    Nombre: normalizeCpNombre(r.Nombre),
     NoTIA: String(r.NoTIA || '').trim(),
     HoraIngreso: extractHHMM(r.HoraIngreso),
     Empresa: String(r.Empresa || '').trim(),
@@ -92,45 +118,46 @@ document.addEventListener('DOMContentLoaded', () => {
   const selNoUnidad = document.getElementById('cpNoUnidad');
   const selAlero = document.getElementById('cpAleroSelect');
 
-  const comboSupervisor = selSupervisor && window.SioSearchableCombo
-    ? new window.SioSearchableCombo(selSupervisor, {
-        placeholder: '-- Seleccione el Supervisor --',
-        searchPlaceholder: 'Buscar supervisor en LoginSEC...',
-        emptyText: 'No se encontró el supervisor.'
-      })
-    : null;
+  const createSearchableControl = (el, opts) => {
+    if (!el) return null;
+    if (window.SioSearchableSelect && typeof window.SioSearchableSelect.enhance === 'function') {
+      return window.SioSearchableSelect.enhance(el, opts);
+    }
+    if (window.SioSearchableCombo) {
+      return new window.SioSearchableCombo(el, opts);
+    }
+    return null;
+  };
 
-  const comboEmpresa = selEmpresa && window.SioSearchableCombo
-    ? new window.SioSearchableCombo(selEmpresa, {
-        placeholder: '-- Seleccione la Empresa --',
-        searchPlaceholder: 'Buscar empresa...',
-        emptyText: 'No se encontró la empresa.'
-      })
-    : null;
+  const comboSupervisor = createSearchableControl(selSupervisor, {
+    placeholder: '-- Seleccione el Supervisor --',
+    searchPlaceholder: 'Buscar supervisor por nombre, código o puesto...',
+    emptyText: 'No se encontró el supervisor.'
+  });
 
-  const comboTractorista = selTractorista && window.SioSearchableCombo
-    ? new window.SioSearchableCombo(selTractorista, {
-        placeholder: '-- Seleccione a la persona que realiza PushBack --',
-        searchPlaceholder: 'Buscar tractorista...',
-        emptyText: 'No se encontró empleado.'
-      })
-    : null;
+  const comboEmpresa = createSearchableControl(selEmpresa, {
+    placeholder: '-- Seleccione la Empresa --',
+    searchPlaceholder: 'Buscar empresa...',
+    emptyText: 'No se encontró la empresa.'
+  });
 
-  const comboNoUnidad = selNoUnidad && window.SioSearchableCombo
-    ? new window.SioSearchableCombo(selNoUnidad, {
-        placeholder: '-- Seleccione la unidad --',
-        searchPlaceholder: 'Buscar No. de Unidad...',
-        emptyText: 'No se encontró unidad.'
-      })
-    : null;
+  const comboTractorista = createSearchableControl(selTractorista, {
+    placeholder: '-- Seleccione a la persona que realiza PushBack --',
+    searchPlaceholder: 'Buscar tractorista por nombre, código o puesto...',
+    emptyText: 'No se encontró empleado.'
+  });
 
-  const comboAlero = selAlero && window.SioSearchableCombo
-    ? new window.SioSearchableCombo(selAlero, {
-        placeholder: '-- Seleccionar agentes para aleros --',
-        searchPlaceholder: 'Buscar agente para alero...',
-        emptyText: 'No se encontró agente.'
-      })
-    : null;
+  const comboNoUnidad = createSearchableControl(selNoUnidad, {
+    placeholder: '-- Seleccione la unidad --',
+    searchPlaceholder: 'Buscar No. de Unidad o tipo...',
+    emptyText: 'No se encontró unidad.'
+  });
+
+  const comboAlero = createSearchableControl(selAlero, {
+    placeholder: '-- Seleccionar agentes para aleros --',
+    searchPlaceholder: 'Buscar agente por nombre, código o puesto...',
+    emptyText: 'No se encontró agente.'
+  });
 
   // Referencias del DOM
   const inputArribo = document.getElementById('cpArriboVuelo');
@@ -167,12 +194,32 @@ document.addEventListener('DOMContentLoaded', () => {
   bindClockButton('btnCpHoraRevisionActual', inputHoraRevision);
   bindClockButton('btnCpHoraIngresoActual', inputRegHoraIngreso);
 
+  // Regla AEROMEXICO CP: Nombre siempre en MAYÚSCULAS en tiempo real (Web + Móvil)
+  if (inputRegNombre && isAmxCP) {
+    const forceUppercaseNombre = () => {
+      const raw = inputRegNombre.value;
+      const upper = raw.toUpperCase();
+      if (raw !== upper) {
+        const start = inputRegNombre.selectionStart;
+        const end = inputRegNombre.selectionEnd;
+        inputRegNombre.value = upper;
+        if (typeof start === 'number' && typeof end === 'number') {
+          try {
+            inputRegNombre.setSelectionRange(start, end);
+          } catch (_) {}
+        }
+      }
+    };
+    inputRegNombre.addEventListener('input', forceUppercaseNombre);
+    inputRegNombre.addEventListener('change', forceUppercaseNombre);
+  }
+
   // Toggle campo manual cuando Empresa === 'OTROS...'
   if (selEmpresa && grupoEmpresaOtros) {
     selEmpresa.addEventListener('change', () => {
       if (selEmpresa.value === 'OTROS...') {
         grupoEmpresaOtros.style.display = 'block';
-        inputRegEmpresaOtros?.focus();
+        focusNoScroll(inputRegEmpresaOtros);
       } else {
         grupoEmpresaOtros.style.display = 'none';
         if (inputRegEmpresaOtros) inputRegEmpresaOtros.value = '';
@@ -285,30 +332,65 @@ document.addEventListener('DOMContentLoaded', () => {
     }).join('');
   };
 
-  // Agregar nuevo registro desde el subformulario REGISTRO
+  // Agregar nuevo registro desde el subformulario REGISTRO (con reseteo selectivo conservando Empresa y sin saltos de scroll)
   const btnAgregarRegistro = document.getElementById('btnCpAgregarRegistro');
-  if (btnAgregarRegistro) {
-    btnAgregarRegistro.addEventListener('click', () => {
-      const nombre = String(inputRegNombre?.value || '').trim();
-      const noTia = String(inputRegNoTIA?.value || '').trim();
-      const horaIngreso = extractHHMM(inputRegHoraIngreso?.value || '');
-      const empresaSel = String(selEmpresa?.value || '').trim();
-      const empresaFinal = empresaSel === 'OTROS...'
-        ? String(inputRegEmpresaOtros?.value || '').trim()
-        : empresaSel;
-      const motivo = String(inputRegMotivo?.value || '').trim();
+  let lastCpPointerTarget = null;
+  let lastCpPointerTimestamp = 0;
+  let cpShiftHeld = false;
 
-      if (!nombre || !noTia || !horaIngreso || !empresaFinal || !motivo) {
-        if (!empresaSel && comboEmpresa) comboEmpresa.setInvalid(true);
-        Swal.fire({
-          icon: 'warning',
-          title: 'Campos Incompletos en Registro',
-          text: 'Por favor complete Nombre, No. TIA, Hora de Ingreso, Empresa y Motivo antes de agregar.',
-          confirmButtonColor: '#275B88'
-        });
-        return;
-      }
+  document.addEventListener('pointerdown', (e) => {
+    lastCpPointerTarget = e.target;
+    lastCpPointerTimestamp = Date.now();
+  }, true);
 
+  const wasRecentCpPointerOn = (el) => {
+    if (!el || !lastCpPointerTarget) return false;
+    if (Date.now() - lastCpPointerTimestamp > 450) return false;
+    return lastCpPointerTarget === el || (typeof el.contains === 'function' && el.contains(lastCpPointerTarget));
+  };
+
+  const hadRecentCpPointerAnywhere = () =>
+    Boolean(lastCpPointerTarget) && (Date.now() - lastCpPointerTimestamp <= 450);
+
+  const agregarRegistroCP = (opts = {}) => {
+    const silentIncomplete = Boolean(opts.silentIncomplete);
+    const nombre = normalizeCpNombre(inputRegNombre?.value || '');
+    const noTia = String(inputRegNoTIA?.value || '').trim();
+    const horaIngreso = extractHHMM(inputRegHoraIngreso?.value || '');
+    const empresaSel = String(selEmpresa?.value || '').trim();
+    const empresaFinal = empresaSel === 'OTROS...'
+      ? String(inputRegEmpresaOtros?.value || '').trim()
+      : empresaSel;
+    const motivo = String(inputRegMotivo?.value || '').trim();
+
+    if (!nombre || !noTia || !horaIngreso || !empresaFinal || !motivo) {
+      if (silentIncomplete) return false;
+      if (!empresaSel && comboEmpresa) comboEmpresa.setInvalid(true);
+      Swal.fire({
+        icon: 'warning',
+        title: 'Campos Incompletos en Registro',
+        text: 'Por favor complete Nombre, No. TIA, Hora de Ingreso, Empresa y Motivo antes de agregar.',
+        confirmButtonColor: '#275B88',
+        returnFocus: false
+      });
+      return false;
+    }
+
+    if (!/^\d+$/.test(noTia)) {
+      if (silentIncomplete) return false;
+      Validator?.markElementInvalid(inputRegNoTIA);
+      Swal.fire({
+        icon: 'warning',
+        title: 'No. TIA Inválido',
+        text: 'El campo No. TIA debe contener únicamente valores numéricos (dígitos del 0 al 9).',
+        confirmButtonColor: '#275B88',
+        returnFocus: false
+      });
+      focusNoScroll(inputRegNoTIA);
+      return false;
+    }
+
+    preserveViewportScroll(() => {
       registros.push({
         DetalleCPId: 0,
         Nombre: nombre,
@@ -319,22 +401,100 @@ document.addEventListener('DOMContentLoaded', () => {
         HoraSalida: ''
       });
 
+      // Reseteo selectivo: limpia todos los campos de captura EXCEPTUANDO Empresa
       if (inputRegNombre) inputRegNombre.value = '';
       if (inputRegNoTIA) inputRegNoTIA.value = '';
       if (inputRegHoraIngreso) inputRegHoraIngreso.value = '';
-      if (inputRegEmpresaOtros) inputRegEmpresaOtros.value = '';
-      if (grupoEmpresaOtros) grupoEmpresaOtros.style.display = 'none';
       if (inputRegMotivo) inputRegMotivo.value = '';
-      if (comboEmpresa) {
-        comboEmpresa.clearSelection();
-      } else if (selEmpresa) {
-        selEmpresa.value = '';
+      if (empresaSel !== 'OTROS...') {
+        if (inputRegEmpresaOtros) inputRegEmpresaOtros.value = '';
+        if (grupoEmpresaOtros) grupoEmpresaOtros.style.display = 'none';
       }
 
       renderRegistros();
       window.SioOfflineManager?.notifyStateChange?.();
-      inputRegNombre?.focus();
+      focusNoScroll(inputRegNombre);
     });
+
+    return true;
+  };
+
+  if (btnAgregarRegistro) {
+    btnAgregarRegistro.addEventListener('click', () => {
+      agregarRegistroCP();
+    });
+  }
+
+  // Avance rápido sin saltos de scroll entre campos de REGISTRO + Guardado automático al dar Enter o Sig. en Motivo
+  const focusEmpresaOrMotivo = () => {
+    const currentEmp = String(selEmpresa?.value || '').trim();
+    if (currentEmp && (currentEmp !== 'OTROS...' || String(inputRegEmpresaOtros?.value || '').trim())) {
+      focusNoScroll(inputRegMotivo);
+      return;
+    }
+    const comboTrigger = selEmpresa?.closest('.sio-select, .sio-combo, .sio-combo-wrapper')?.querySelector('button, .sio-select-trigger, .sio-combo-trigger');
+    focusNoScroll(comboTrigger || selEmpresa || inputRegMotivo);
+  };
+
+  const bindEnterAdvance = (el, nextFn) => {
+    if (!el) return;
+    el.addEventListener('keydown', (e) => {
+      const isEnter = e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter' || e.keyCode === 13;
+      if (!isEnter) return;
+      if (e.isComposing || e.keyCode === 229) return;
+      e.preventDefault();
+      preserveViewportScroll(nextFn);
+    });
+  };
+
+  bindEnterAdvance(inputRegNombre, () => focusNoScroll(inputRegNoTIA));
+  bindEnterAdvance(inputRegNoTIA, () => focusNoScroll(inputRegHoraIngreso));
+  bindEnterAdvance(inputRegHoraIngreso, focusEmpresaOrMotivo);
+  bindEnterAdvance(inputRegEmpresaOtros, () => focusNoScroll(inputRegMotivo));
+
+  if (inputRegMotivo) {
+    inputRegMotivo.addEventListener('keydown', (e) => {
+      cpShiftHeld = Boolean(e.shiftKey);
+      const isEnter = (e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter' || e.keyCode === 13) && !e.shiftKey;
+      const isNextKey = e.key === 'Next' || e.key === 'Go' || (e.key === 'Tab' && !e.shiftKey);
+
+      if (isEnter) {
+        if (e.isComposing || e.keyCode === 229) return;
+        e.preventDefault();
+        agregarRegistroCP();
+        return;
+      }
+
+      if (isNextKey && String(inputRegMotivo.value || '').trim() !== '') {
+        e.preventDefault();
+        agregarRegistroCP();
+      }
+    });
+
+    inputRegMotivo.addEventListener('keyup', (e) => {
+      cpShiftHeld = Boolean(e.shiftKey);
+    });
+
+    // Soporte IME / Gboard / iOS Return en <textarea> cuando emite insertLineBreak/insertParagraph
+    inputRegMotivo.addEventListener('beforeinput', (e) => {
+      if ((e.inputType === 'insertLineBreak' || e.inputType === 'insertParagraph') && !cpShiftHeld) {
+        e.preventDefault();
+        agregarRegistroCP();
+      }
+    });
+
+    // Soporte tecla móvil "Sig." cuando desplaza el foco fuera de Motivo sin disparar Enter
+    const handleMotivoMobileNext = () => {
+      const motivoVal = String(inputRegMotivo.value || '').trim();
+      if (!motivoVal) return;
+      if (wasRecentCpPointerOn(btnAgregarRegistro)) return;
+      if (!hadRecentCpPointerAnywhere() || wasRecentCpPointerOn(inputRegMotivo)) {
+        agregarRegistroCP({ silentIncomplete: true });
+      }
+    };
+
+    inputRegMotivo.addEventListener('change', handleMotivoMobileNext);
+    inputRegMotivo.addEventListener('blur', handleMotivoMobileNext);
   }
 
   // Delegación de eventos en tarjetas de Registro (Marcar salida / Eliminar)
@@ -535,6 +695,15 @@ document.addEventListener('DOMContentLoaded', () => {
           label: 'Supervisor de Turno',
           message: 'Debe seleccionar un Supervisor de Turno del cuadro combinado.',
           element: selSupervisor?.closest('.sio-combo-wrapper')?.querySelector('button') || selSupervisor
+        });
+      }
+
+      const tiaInvalido = registros.find((r) => !/^\d+$/.test(String(r.NoTIA || '').trim()));
+      if (tiaInvalido) {
+        errors.push({
+          label: 'No. TIA Inválido',
+          message: `El registro de "${tiaInvalido.Nombre || 'Personal'}" tiene un No. TIA no numérico ("${tiaInvalido.NoTIA}"). Solo se permiten dígitos.`,
+          element: listaRegistrosEl
         });
       }
 

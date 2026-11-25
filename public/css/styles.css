@@ -679,7 +679,12 @@ body.dark-mode .fmt-ref-correlativo {
   border: 1px solid var(--border);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
-  animation: modalFadeIn 0.25s ease;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .modal-content {
+    animation: modalFadeIn 0.25s ease;
+  }
 }
 
 @keyframes modalFadeIn {
@@ -2511,12 +2516,37 @@ section {
   color: var(--brand-deep);
 }
 
+.sio-input-uppercase {
+  text-transform: uppercase;
+}
+
 .sio-mx-cell {
   position: relative;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   transition: background-color 0.14s ease, box-shadow 0.14s ease, color 0.14s ease;
+}
+
+.sio-baggage-matrix-table tbody td.sio-mx-cell-occupied {
+  padding: 2px;
+}
+
+.sio-mx-cell-inner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 32px;
+  height: 100%;
+}
+
+.sio-mx-seq-val {
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+  line-height: 1.1;
 }
 
 .sio-mx-cell-empty {
@@ -2541,25 +2571,54 @@ section {
 
 .sio-mx-cell-withdrawn {
   background: #FEE2E2;
-  color: #991B1B;
+  color: #0F172A;
 }
 
 .sio-mx-cell-withdrawn .sio-mx-seq-val {
-  opacity: 0.52;
-  text-decoration: line-through;
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+  opacity: 0.92;
+  color: #0F172A;
+  font-weight: 800;
+  text-decoration: none;
 }
 
 .sio-mx-x-overlay {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(220, 38, 38, 0.92);
-  font-size: 20px;
-  font-weight: 900;
-  line-height: 1;
   pointer-events: none;
+  color: #DC2626;
+  font-family: Arial, "Segoe UI Symbol", sans-serif;
+  font-size: 0;
+  line-height: 0;
+}
+
+.sio-mx-x-overlay::before,
+.sio-mx-x-overlay::after {
+  content: "";
+  position: absolute;
+  width: 24px;
+  height: 3px;
+  border-radius: 2px;
+  background-color: #DC2626;
+  opacity: 0.9;
+  box-shadow: 0 0 2px rgba(255, 255, 255, 0.85);
+}
+
+.sio-mx-x-overlay::before {
+  transform: rotate(45deg);
+}
+
+.sio-mx-x-overlay::after {
+  transform: rotate(-45deg);
 }
 
 .sio-mx-cell-selected {
@@ -2617,8 +2676,19 @@ section {
 }
 
 [data-theme="dark"] .sio-mx-cell-withdrawn {
-  background: rgba(220, 38, 38, 0.24);
-  color: #FECACA;
+  background: rgba(220, 38, 38, 0.22);
+  color: #F8FAFC;
+}
+
+[data-theme="dark"] .sio-mx-cell-withdrawn .sio-mx-seq-val {
+  color: #F8FAFC;
+}
+
+[data-theme="dark"] .sio-mx-cell-withdrawn .sio-mx-x-overlay::before,
+[data-theme="dark"] .sio-mx-cell-withdrawn .sio-mx-x-overlay::after {
+  background-color: #EF4444;
+  opacity: 0.92;
+  box-shadow: 0 0 2px rgba(15, 23, 42, 0.9);
 }
 
 [data-theme="dark"] .sio-mx-cell-selected {
@@ -3543,8 +3613,18 @@ section {
     padding: 6px 1px;
   }
 
-  .sio-mx-x-overlay {
-    font-size: 18px;
+  .sio-baggage-matrix-table tbody td.sio-mx-cell-occupied {
+    padding: 1px;
+  }
+
+  .sio-mx-cell-inner {
+    min-height: 30px;
+  }
+
+  .sio-mx-x-overlay::before,
+  .sio-mx-x-overlay::after {
+    width: 20px;
+    height: 2.5px;
   }
 
   /* Tarjetas CP / CIEC y Canvas de Firmas */
@@ -3642,8 +3722,14 @@ section {
     height: 34px;
   }
 
-  .sio-mx-x-overlay {
-    font-size: 16px;
+  .sio-mx-cell-inner {
+    min-height: 28px;
+  }
+
+  .sio-mx-x-overlay::before,
+  .sio-mx-x-overlay::after {
+    width: 18px;
+    height: 2.5px;
   }
 
   .er-pasajeros-table tbody tr.er-grid-row,

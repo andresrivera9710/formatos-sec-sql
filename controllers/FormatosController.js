@@ -4,9 +4,12 @@
  */
 
 const FormatosModel = require('../models/FormatosModel');
+const OperacionesModel = require('../models/OperacionesModel');
 const OperacionesService = require('../services/OperacionesService');
 const FormatosService = require('../services/FormatosService');
 const HtmlPreviewService = require('../services/HtmlPreviewService');
+const SharePointService = require('../services/SharePointService');
+const SharePointSyncQueueService = require('../services/SharePointSyncQueueService');
 const { resolveDepartmentId } = require('../middlewares/auth');
 
 class FormatosController {
@@ -14,13 +17,24 @@ class FormatosController {
    * Vista de selección de formatos aplicables a la operación activa
    */
   static async renderFormatos(req, res) {
-    const vuelo = req.session.vueloSeleccionado;
+    let vuelo = req.session.vueloSeleccionado;
 
     if (!vuelo) {
       return res.redirect('/operaciones');
     }
 
     try {
+      if (!SharePointSyncQueueService.tieneMatriculaValida(vuelo) && vuelo.itinerarioId) {
+        const freshVuelo = await SharePointSyncQueueService.obtenerEstadoOperacionFresco(vuelo.itinerarioId, vuelo);
+        if (freshVuelo && freshVuelo.itinerarioId) {
+          vuelo = freshVuelo;
+          req.session.vueloSeleccionado = freshVuelo;
+        }
+      }
+      if (SharePointSyncQueueService.tieneMatriculaValida(vuelo) && vuelo.itinerarioId) {
+        SharePointSyncQueueService.triggerAsyncFlushForItinerario(vuelo.itinerarioId);
+      }
+
       const user = req.session.user;
       const formatosDisponibles = OperacionesService.obtenerFormatosParaAerolinea(
         vuelo.operador,
@@ -126,6 +140,7 @@ class FormatosController {
         usuariosSEC: formatoData.usuariosSEC || [],
         usuariosLogin: formatoData.usuariosLogin || [],
         empleados: formatoData.empleados || [],
+        empleadosCCO: formatoData.empleadosCCO || [],
         maquinaria: formatoData.maquinaria || [],
         posicionesPO: formatoData.posicionesPO || [],
         cpState: formatoData.cpState || null,
@@ -205,9 +220,18 @@ class FormatosController {
 
       if (resultado.modo === 'preliminar' || resultado.modo === 'persistido') {
         const formatoId = String(payload?.formatoId || '');
-        const vuelo = req.session.vueloSeleccionado || {};
+        let vuelo = vueloSesion || req.session?.vueloSeleccionado || {};
         const esPersistido = resultado.modo === 'persistido';
         const targetEncId = resultado.encabezadoId || payload.encabezadoId || null;
+
+        const targetItinerarioId = vuelo.itinerarioId || payload.itinerarioId;
+        if (targetItinerarioId) {
+          vuelo = await SharePointSyncQueueService.obtenerEstadoOperacionFresco(targetItinerarioId, vuelo);
+          if (req.session?.vueloSeleccionado && Number(req.session.vueloSeleccionado.itinerarioId) === Number(targetItinerarioId)) {
+            req.session.vueloSeleccionado = vuelo;
+          }
+        }
+
         req.session.formatPreviews = req.session.formatPreviews || {};
 
         let hydrated = { datos: [], complementos: [] };
@@ -215,7 +239,7 @@ class FormatosController {
           try {
             hydrated = await FormatosService.prepararFormato({
               formatoId,
-              itinerarioId: vuelo.itinerarioId,
+              itinerarioId: vuelo.itinerarioId || payload.itinerarioId,
               encabezadoId: targetEncId,
               user: req.session.user
             });
@@ -240,59 +264,39 @@ class FormatosController {
         resultado.documentoTitulo = docNameInfo.documentBaseName;
 
         if (HtmlPreviewService.hasControlledTemplate(formatoId)) {
-          let vars;
-          let meta = {};
-
-          if (formatoId.endsWith('-cp')) {
-            const basePreview = (esPersistido && hydrated && hydrated.cpState)
-              ? FormatosService.construirPreviewCPDesdeBD({
-                  hydrated,
-                  formatoMeta: hydrated.meta,
-                  vuelo,
-                  user: req.session.user,
-                  fallbackPayload: payload.datos?.cpPayload || payload.datos || {}
-                })
-              : (resultado.preview || {});
-            const puerta = vuelo.puertaposicion || '--';
-            const horaInicio = basePreview?.horaInicio || '--:--';
-            const cpDoc = {
-              ...basePreview,
-              aerolinea: vuelo.operador || basePreview?.aerolinea || '',
-              vuelo: vuelo.novuelo || '--',
-              matricula: vuelo.Matricula || 'Pendiente',
-              puerta,
-              horaInicioPuerta: `${horaInicio} / ${puerta}`
-            };
-            vars = HtmlPreviewService.buildCpData({
-              cpDoc,
-              vuelo,
-              user: req.session.user
-            });
-            meta = { pendientesSalidaCount: cpDoc.pendientesSalidaCount || 0 };
-          } else {
-            vars = HtmlPreviewService.buildAeromexicoOtherData({
-              formatoId,
-              formDatos: payload.datos || {},
-              vuelo,
-              user: req.session.user,
-              datosPrevios: hydrated.datos || [],
-              complementos: hydrated.complementos || [],
-              hydrated,
-              preferPersisted: esPersistido
-            });
-            if (formatoId.endsWith('-ciec') || formatoId.endsWith('-anexoa') || formatoId.endsWith('-ccda')) {
-              meta = { pendientesSalidaCount: resultado.preview?.pendientesSalidaCount || 0 };
-            }
-          }
+          const builtHtml = SharePointSyncQueueService.construirHtmlControlado({
+            formatoId,
+            vuelo,
+            user: req.session.user,
+            hydrated,
+            formDatos: payload.datos || {},
+            preferPersisted: esPersistido,
+            pendientesSalidaCount: resultado.preview?.pendientesSalidaCount || 0,
+            encabezadoId: targetEncId,
+            formatoMeta: formatoMetaCatalogo
+          });
 
           req.session.formatPreviews[formatoId] = {
             type: 'controlled-html',
-            vars,
-            meta,
-            documentBaseName: docNameInfo.documentBaseName,
-            fileName: docNameInfo.fileName
+            vars: builtHtml.vars,
+            meta: builtHtml.meta,
+            documentBaseName: builtHtml.documentBaseName,
+            fileName: builtHtml.fileName
           };
           resultado.previewUrl = `/formatos/${encodeURIComponent(formatoId)}/vista-preliminar`;
+
+          if (esPersistido && builtHtml.htmlContent) {
+            resultado.sharepoint = await FormatosController._syncHtmlToSharePoint({
+              vuelo,
+              formatoMeta: formatoMetaCatalogo,
+              formatoId,
+              fileName: builtHtml.fileName,
+              htmlContent: builtHtml.htmlContent,
+              encabezadoId: targetEncId,
+              usuarioRegistro: req.session?.user?.usuario || null,
+              isOfflineSync
+            });
+          }
         } else if (formatoId.endsWith('-cp')) {
           const basePreview = (esPersistido && hydrated && hydrated.cpState)
             ? FormatosService.construirPreviewCPDesdeBD({
@@ -340,7 +344,8 @@ class FormatosController {
           previewUrl: resultado.previewUrl || null,
           documentoNombre: resultado.documentoNombre || null,
           documentoTitulo: resultado.documentoTitulo || null,
-          firmasRepo: resultado.firmasRepo || null
+          firmasRepo: resultado.firmasRepo || null,
+          sharepoint: resultado.sharepoint || null
         };
       }
 
@@ -357,6 +362,133 @@ class FormatosController {
         success: false,
         message: err.message || 'Error al persistir el formato de seguridad.'
       });
+    }
+  }
+
+  /**
+   * Publica el HTML oficial generado en SharePoint Online sin comprometer la transacción SQL ante fallos de red.
+   */
+  static async _syncHtmlToSharePoint({
+    vuelo = {},
+    formatoMeta = {},
+    formatoId = '',
+    fileName = '',
+    htmlContent = '',
+    encabezadoId = null,
+    usuarioRegistro = null,
+    isOfflineSync = false
+  } = {}) {
+    // Regla de Negocio: Si la operación está en estado PENDIENTE (sin matrícula real),
+    // se persiste en Azure SQL como pendiente y NO se publica todavía en SharePoint.
+    if (!SharePointSyncQueueService.tieneMatriculaValida(vuelo)) {
+      if (vuelo?.itinerarioId && encabezadoId) {
+        await SharePointSyncQueueService.registrarPendiente({
+          itinerarioId: vuelo.itinerarioId,
+          formatoId,
+          encabezadoId,
+          nombreArchivo: fileName,
+          usuarioRegistro,
+          estado: 'PENDIENTE_MATRICULA'
+        }).catch((dbErr) => {
+          console.warn('[SHAREPOINT QUEUE REGISTER WARN]', dbErr.message);
+        });
+      }
+      console.log(
+        `[SHAREPOINT SYNC DEFERRED]${isOfflineSync ? ' [OFFLINE-SYNC]' : ''} ${formatoId} #${encabezadoId || 'N/A'} -> Operación #${vuelo?.itinerarioId || 'N/A'} sin matrícula (PENDIENTE).`
+      );
+      return {
+        uploaded: false,
+        deferred: true,
+        status: 'PENDIENTE_MATRICULA',
+        reason: 'La tarjeta de operación está en estado PENDIENTE (sin matrícula asignada). El HTML se publicará automáticamente al asignarse la matrícula.'
+      };
+    }
+
+    const spStatus = SharePointService.getPublicStatus();
+    if (!spStatus.enabled) {
+      return {
+        uploaded: false,
+        skipped: true,
+        reason: spStatus.explicitlyDisabled
+          ? 'Integración SharePoint deshabilitada.'
+          : `Faltan credenciales de Microsoft Entra: ${spStatus.missingVars.join(', ')}`
+      };
+    }
+
+    const syncTimeoutMs = parseInt(process.env.SHAREPOINT_SAVE_TIMEOUT_MS, 10) || 15000;
+    let timer = null;
+
+    try {
+      const uploadPromise = SharePointService.uploadControlledFormatHtml({
+        vuelo,
+        formatoMeta,
+        formatoId,
+        fileName,
+        htmlContent,
+        conflictBehavior: 'replace'
+      });
+
+      const timeoutPromise = new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          reject(new Error(`Tiempo de espera excedido (${syncTimeoutMs} ms) al subir HTML a SharePoint.`));
+        }, syncTimeoutMs);
+        if (typeof timer.unref === 'function') timer.unref();
+      });
+
+      const spRes = await Promise.race([uploadPromise, timeoutPromise]);
+      console.log(
+        `[SHAREPOINT SYNC OK]${isOfflineSync ? ' [OFFLINE-SYNC]' : ''} ${formatoId} #${encabezadoId || 'N/A'} -> ${spRes.displayPath}`
+      );
+
+      if (vuelo?.itinerarioId && encabezadoId) {
+        await SharePointSyncQueueService.registrarPublicado({
+          itinerarioId: vuelo.itinerarioId,
+          formatoId,
+          encabezadoId,
+          matricula: vuelo.Matricula,
+          nombreArchivo: fileName,
+          rutaSharePoint: spRes.displayPath,
+          fileId: spRes.file?.id || null,
+          webUrl: spRes.file?.webUrl || null,
+          usuarioRegistro
+        }).catch((dbErr) => {
+          console.warn('[SHAREPOINT QUEUE PUBLISHED WARN]', dbErr.message);
+        });
+        SharePointSyncQueueService.triggerAsyncFlushForItinerario(vuelo.itinerarioId);
+      }
+
+      return {
+        uploaded: true,
+        status: 'PUBLICADO',
+        displayPath: spRes.displayPath,
+        path: spRes.path,
+        fileId: spRes.file?.id || null,
+        webUrl: spRes.file?.webUrl || null,
+        segments: spRes.segments
+      };
+    } catch (spErr) {
+      console.error(
+        `[SHAREPOINT SYNC ERROR]${isOfflineSync ? ' [OFFLINE-SYNC]' : ''} ${formatoId} #${encabezadoId || 'N/A'} (${fileName}):`,
+        spErr.message
+      );
+      if (vuelo?.itinerarioId && encabezadoId) {
+        await SharePointSyncQueueService.registrarPendiente({
+          itinerarioId: vuelo.itinerarioId,
+          formatoId,
+          encabezadoId,
+          nombreArchivo: fileName,
+          usuarioRegistro,
+          errorMsg: spErr.message,
+          estado: 'PENDIENTE_REINTENTO'
+        }).catch(() => {});
+      }
+      return {
+        uploaded: false,
+        error: spErr.message,
+        code: spErr.code || 'SHAREPOINT_SYNC_ERROR'
+      };
+    } finally {
+      if (timer) clearTimeout(timer);
     }
   }
 
@@ -400,7 +532,10 @@ class FormatosController {
         family,
         itinerarioId: itinerarioSesion,
         encabezadoId,
-        detalleId
+        detalleId,
+        secuencia: parseInt(body.secuencia, 10) || 0,
+        motivo: String(body.motivo || body.motivoRetiro || '').trim(),
+        usuarioAuditoria: req.session?.user?.usuario || 'SISTEMA'
       });
 
       return res.json({
@@ -488,6 +623,7 @@ class FormatosController {
         vuelo,
         user: {
           usuario: user.usuario || user.nombreCompleto || '',
+          nombreCompleto: user.nombreCompleto || user.usuario || '',
           puestoSec: user.puestoSec || ''
         }
       });

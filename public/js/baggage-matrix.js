@@ -34,6 +34,23 @@
     if (raw === null || raw === undefined) return null;
     if (typeof raw === 'string' || typeof raw === 'number') {
       const str = String(raw).trim();
+      const withdrawnMatch = str.match(/^X:(\d+)$/i);
+      if (withdrawnMatch) {
+        const wNum = parseInt(withdrawnMatch[1], 10) || 0;
+        if (wNum <= 0) return null;
+        return {
+          [idField]: 0,
+          Casilla: idx + 1,
+          Fila: Math.floor(idx / 10) + 1,
+          Columna: COLS[idx % 10],
+          Secuencia: wNum,
+          Valor: 'X',
+          Motivo: '',
+          motivoRetiro: '',
+          anulado: true,
+          EstaEliminado: true
+        };
+      }
       const num = parseInt(str, 10);
       if (!Number.isInteger(num) || num <= 0) return null;
       return {
@@ -44,6 +61,8 @@
         Secuencia: num,
         Valor: String(num),
         Motivo: '',
+        motivoRetiro: '',
+        anulado: false,
         EstaEliminado: false
       };
     }
@@ -54,7 +73,7 @@
     ) || 0;
 
     const rawValorStr = raw.Valor !== undefined && raw.Valor !== null ? String(raw.Valor).trim() : '';
-    const isWithdrawn = rawValorStr.toUpperCase() === 'X' || Boolean(raw.EstaEliminado);
+    const isWithdrawn = rawValorStr.toUpperCase() === 'X' || Boolean(raw.EstaEliminado) || Boolean(raw.anulado);
     const secFromField = parseInt(raw.Secuencia, 10);
     const secFromValor = parseInt(rawValorStr, 10);
     const secuencia = Number.isInteger(secFromField) && secFromField > 0
@@ -63,6 +82,7 @@
 
     if (secuencia <= 0 && !isWithdrawn) return null;
 
+    const motivoClean = String(raw.Motivo || raw.motivoRetiro || '').trim();
     return {
       [idField]: rawId,
       Casilla: parseInt(raw.Casilla ?? raw.Orden, 10) || idx + 1,
@@ -70,7 +90,9 @@
       Columna: String(raw.Columna || COLS[idx % 10]).trim().toUpperCase(),
       Secuencia: secuencia,
       Valor: isWithdrawn ? 'X' : String(secuencia),
-      Motivo: String(raw.Motivo || '').trim(),
+      Motivo: motivoClean,
+      motivoRetiro: motivoClean,
+      anulado: isWithdrawn,
       EstaEliminado: isWithdrawn
     };
   }
@@ -122,32 +144,41 @@
       inputSecuenciaEl.setAttribute('autocomplete', 'off');
     }
 
+    function preserveScroll(fn) {
+      const sx = window.scrollX;
+      const sy = window.scrollY;
+      const out = fn();
+      window.scrollTo(sx, sy);
+      window.requestAnimationFrame(() => window.scrollTo(sx, sy));
+      return out;
+    }
+
     function refocusInput() {
       if (!inputSecuenciaEl) return;
+      const sx = window.scrollX;
+      const sy = window.scrollY;
       const doFocus = () => {
         try {
           inputSecuenciaEl.focus({ preventScroll: true });
         } catch (_) {
           inputSecuenciaEl.focus();
         }
+        window.scrollTo(sx, sy);
       };
       doFocus();
       window.setTimeout(doFocus, 0);
     }
 
     function reindex() {
-      items = items.map((item, idx) => {
-        const next = {
-          ...item,
-          Casilla: idx + 1,
-          Orden: idx + 1,
-          Fila: Math.floor(idx / 10) + 1,
-          Columna: COLS[idx % 10]
-        };
+      items.forEach((item, idx) => {
+        if (!item || typeof item !== 'object') return;
+        item.Casilla = idx + 1;
+        item.Orden = idx + 1;
+        item.Fila = Math.floor(idx / 10) + 1;
+        item.Columna = COLS[idx % 10];
         if (secondaryIdField) {
-          next[secondaryIdField] = next[idField] || 0;
+          item[secondaryIdField] = item[idField] || 0;
         }
-        return next;
       });
       if (selectedIdx >= items.length) {
         selectedIdx = -1;
@@ -155,7 +186,7 @@
     }
 
     function getActiveCount() {
-      return items.filter((it) => it && it.Secuencia > 0 && String(it.Valor || '').toUpperCase() !== 'X' && !it.EstaEliminado).length;
+      return items.filter((it) => it && it.Secuencia > 0 && String(it.Valor || '').toUpperCase() !== 'X' && !it.EstaEliminado && !it.anulado).length;
     }
 
     function notifyChange(persistDraft = true) {
@@ -201,7 +232,7 @@
           const cellIdx = (f - 1) * 10 + c;
           const item = items[cellIdx];
           if (item && (item.Secuencia > 0 || String(item.Valor || '').toUpperCase() === 'X')) {
-            const isWithdrawn = String(item.Valor || '').toUpperCase() === 'X' || Boolean(item.EstaEliminado);
+            const isWithdrawn = String(item.Valor || '').toUpperCase() === 'X' || Boolean(item.EstaEliminado) || Boolean(item.anulado);
             const isSelected = cellIdx === selectedIdx;
             const classes = [
               'sio-mx-cell',
@@ -222,11 +253,15 @@
               `data-record-id="${recId}" ` +
               `data-secuencia="${escapeHtml(item.Secuencia)}" ` +
               `data-valor="${escapeHtml(isWithdrawn ? 'X' : String(item.Secuencia))}" ` +
-              `data-motivo="${escapeHtml(item.Motivo || '')}" ` +
+              `data-anulado="${isWithdrawn ? 'true' : 'false'}" ` +
+              `data-motivo="${escapeHtml(item.Motivo || item.motivoRetiro || '')}" ` +
               `role="button" tabindex="0" aria-selected="${isSelected ? 'true' : 'false'}" ` +
+              `aria-label="${escapeHtml(titleText)}" ` +
               `title="${escapeHtml(titleText)}">` +
+              `<div class="sio-mx-cell-inner">` +
               `<span class="sio-mx-seq-val">${escapeHtml(item.Secuencia > 0 ? item.Secuencia : '')}</span>` +
               (isWithdrawn ? '<span class="sio-mx-x-overlay" aria-hidden="true">✗</span>' : '') +
+              `</div>` +
               `</td>`;
           } else {
             tds += '<td class="sio-mx-cell sio-mx-cell-empty" aria-hidden="true">—</td>';
@@ -257,70 +292,81 @@
             icon: 'warning',
             title: 'Secuencia inválida',
             text: 'Ingrese un número entero positivo de secuencia de equipaje.',
-            confirmButtonColor: '#0F2744'
+            confirmButtonColor: '#0F2744',
+            returnFocus: false
           });
         }
         if (shouldRefocus) refocusInput();
         return false;
       }
 
-      const idx = items.length;
-      const newItem = {
-        [idField]: 0,
-        Casilla: idx + 1,
-        Orden: idx + 1,
-        Fila: Math.floor(idx / 10) + 1,
-        Columna: COLS[idx % 10],
-        Secuencia: num,
-        Valor: String(num),
-        Motivo: '',
-        EstaEliminado: false
-      };
-      if (secondaryIdField) {
-        newItem[secondaryIdField] = 0;
-      }
-      items.push(newItem);
+      preserveScroll(() => {
+        const idx = items.length;
+        const newItem = {
+          [idField]: 0,
+          Casilla: idx + 1,
+          Orden: idx + 1,
+          Fila: Math.floor(idx / 10) + 1,
+          Columna: COLS[idx % 10],
+          Secuencia: num,
+          Valor: String(num),
+          Motivo: '',
+          motivoRetiro: '',
+          anulado: false,
+          EstaEliminado: false
+        };
+        if (secondaryIdField) {
+          newItem[secondaryIdField] = 0;
+        }
+        items.push(newItem);
 
-      if (inputSecuenciaEl) {
-        inputSecuenciaEl.value = '';
-      }
-      if (Validator && cardEl) {
-        Validator.clearValidationErrors(cardEl);
-      }
+        if (inputSecuenciaEl) {
+          inputSecuenciaEl.value = '';
+        }
+        if (Validator && cardEl) {
+          Validator.clearValidationErrors(cardEl);
+        }
 
-      render();
-      notifyChange(true);
-      if (shouldRefocus) {
-        refocusInput();
-      }
+        render();
+        notifyChange(true);
+        if (shouldRefocus) {
+          refocusInput();
+        }
+      });
       return true;
     }
 
     function removeLast() {
       if (items.length === 0) return false;
-      const removedIdx = items.length - 1;
-      items.pop();
-      if (selectedIdx === removedIdx || selectedIdx >= items.length) {
-        selectedIdx = -1;
-      }
-      render();
-      notifyChange(true);
+      preserveScroll(() => {
+        const removedIdx = items.length - 1;
+        items.pop();
+        if (selectedIdx === removedIdx || selectedIdx >= items.length) {
+          selectedIdx = -1;
+        }
+        render();
+        notifyChange(true);
+      });
       return true;
     }
 
     function selectCell(idx) {
-      if (!Number.isInteger(idx) || idx < 0 || idx >= items.length) {
-        selectedIdx = -1;
-      } else {
-        selectedIdx = selectedIdx === idx ? -1 : idx;
-      }
-      render();
+      preserveScroll(() => {
+        if (!Number.isInteger(idx) || idx < 0 || idx >= items.length) {
+          selectedIdx = -1;
+        } else {
+          selectedIdx = selectedIdx === idx ? -1 : idx;
+        }
+        render();
+      });
     }
 
     function clearSelection() {
       if (selectedIdx === -1) return;
-      selectedIdx = -1;
-      render();
+      preserveScroll(() => {
+        selectedIdx = -1;
+        render();
+      });
     }
 
     async function persistSoftDeleteIfSaved(item) {
@@ -400,16 +446,17 @@
         return false;
       }
 
-      const target = items[selectedIdx];
-      const coord = `${target.Columna}${target.Fila}`;
-      const isAlreadyWithdrawn = String(target.Valor || '').toUpperCase() === 'X' || Boolean(target.EstaEliminado);
+      const targetIdx = selectedIdx;
+      const initialTarget = items[targetIdx];
+      const coord = `${initialTarget.Columna}${initialTarget.Fila}`;
+      const isAlreadyWithdrawn = String(initialTarget.Valor || '').toUpperCase() === 'X' || Boolean(initialTarget.EstaEliminado) || Boolean(initialTarget.anulado);
 
       if (isAlreadyWithdrawn) {
         if (window.Swal) {
           await Swal.fire({
             icon: 'info',
             title: 'Secuencia ya retirada (✗)',
-            text: `La secuencia #${target.Secuencia} en la posición ${coord} ya fue marcada como retirada/anulada.`,
+            text: `La secuencia #${initialTarget.Secuencia} en la posición ${coord} ya fue marcada como retirada/anulada.`,
             confirmButtonText: 'Aceptar',
             confirmButtonColor: '#0F2744'
           });
@@ -417,12 +464,15 @@
         return false;
       }
 
+      const savedScrollX = window.scrollX;
+      const savedScrollY = window.scrollY;
+
       let motivo = '';
       if (window.Swal) {
-        const safeSec = escapeHtml(target.Secuencia);
+        const safeSec = escapeHtml(initialTarget.Secuencia);
         const safeCoord = escapeHtml(coord);
-        const safeFila = escapeHtml(target.Fila);
-        const safeCol = escapeHtml(target.Columna);
+        const safeFila = escapeHtml(initialTarget.Fila);
+        const safeCol = escapeHtml(initialTarget.Columna);
         const safePlaceholder = escapeHtml(motivoPlaceholder);
         const inputId = `swalMxMotivo_${family}`;
 
@@ -439,6 +489,7 @@
             `<input id="${inputId}" type="text" class="swal2-input sio-swal-mx-input" placeholder="${safePlaceholder}" maxlength="200">` +
             `</div>`,
           focusConfirm: false,
+          returnFocus: false,
           showCancelButton: true,
           confirmButtonText: 'Sí, Retirar / Anular (✗)',
           cancelButtonText: 'Cancelar',
@@ -446,7 +497,13 @@
           cancelButtonColor: '#64748B',
           didOpen: () => {
             const inp = document.getElementById(inputId);
-            if (inp) inp.focus();
+            if (inp) {
+              try {
+                inp.focus({ preventScroll: true });
+              } catch (_) {
+                inp.focus();
+              }
+            }
           },
           preConfirm: () => {
             const val = String(document.getElementById(inputId)?.value || '').trim();
@@ -458,36 +515,48 @@
           }
         });
 
+        window.scrollTo(savedScrollX, savedScrollY);
+
         if (!result.isConfirmed) {
           return false;
         }
         motivo = result.value?.motivo || '';
       }
 
+      const target = items[targetIdx];
+      if (!target) return false;
       const prevState = { ...target };
+      const originalSecuencia = target.Secuencia;
+      target.Secuencia = originalSecuencia;
       target.Valor = 'X';
       target.Motivo = motivo;
+      target.motivoRetiro = motivo;
+      target.anulado = true;
       target.EstaEliminado = true;
 
       const dbRes = await persistSoftDeleteIfSaved(target);
+      const currentTarget = items[targetIdx] || target;
       if (dbRes && dbRes.attempted && !dbRes.ok) {
-        Object.assign(target, prevState);
+        Object.assign(currentTarget, prevState);
         if (window.Swal) {
           await Swal.fire({
             icon: 'error',
             title: 'No se pudo anular en servidor',
             text: dbRes.message || 'Ocurrió un error al actualizar la secuencia.',
-            confirmButtonColor: '#DC2626'
+            confirmButtonColor: '#DC2626',
+            returnFocus: false
           });
         }
         render();
+        window.scrollTo(savedScrollX, savedScrollY);
         return false;
       }
 
-      if (observacionesEl && motivo) {
-        const nota = `[Anulada Sec. ${target.Secuencia} (${coord}): ${motivo}]`;
+      if (observacionesEl) {
+        const baseTag = `Anulada Sec. ${currentTarget.Secuencia} (${coord})`;
+        const nota = motivo ? `[${baseTag}: ${motivo}]` : `[${baseTag}]`;
         const currentObs = String(observacionesEl.value || '').trim();
-        if (!currentObs.includes(nota)) {
+        if (!currentObs.includes(baseTag)) {
           observacionesEl.value = currentObs ? `${currentObs} | ${nota}` : nota;
           observacionesEl.dispatchEvent(new Event('input', { bubbles: true }));
         }
@@ -496,6 +565,8 @@
       selectedIdx = -1;
       render();
       notifyChange(true);
+      window.scrollTo(savedScrollX, savedScrollY);
+      window.requestAnimationFrame(() => window.scrollTo(savedScrollX, savedScrollY));
 
       if (window.Swal) {
         const suffix = dbRes && dbRes.softDeleted
@@ -505,7 +576,7 @@
           toast: true,
           position: 'top-end',
           icon: 'success',
-          title: `Sec. #${target.Secuencia} (${coord}) marcada con ✗${suffix}`,
+          title: `Sec. #${currentTarget.Secuencia} (${coord}) marcada con ✗${suffix}`,
           showConfirmButton: false,
           timer: 2600,
           timerProgressBar: true
@@ -544,6 +615,7 @@
         const rawVal = String(inputSecuenciaEl.value || '').trim();
 
         if (isEnter) {
+          if (e.isComposing || e.keyCode === 229) return;
           e.preventDefault();
           addSequence({ refocus: true });
           return;
@@ -555,6 +627,12 @@
       };
 
       inputSecuenciaEl.addEventListener('keydown', handleKeyCommit);
+      inputSecuenciaEl.addEventListener('beforeinput', (e) => {
+        if (e.inputType === 'insertLineBreak' || e.inputType === 'insertParagraph') {
+          e.preventDefault();
+          addSequence({ refocus: true });
+        }
+      });
       inputSecuenciaEl.addEventListener('keypress', (e) => {
         if (e.key === 'Enter' || e.keyCode === 13) {
           e.preventDefault();

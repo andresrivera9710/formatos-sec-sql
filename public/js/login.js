@@ -11,6 +11,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const loadingOverlay = document.getElementById('sioLoadingOverlay');
   let isSubmitting = false;
 
+  function setButtonIconAndLabel(buttonEl, iconClass, labelText) {
+    const icon = document.createElement('i');
+    icon.className = iconClass;
+    icon.setAttribute('aria-hidden', 'true');
+    buttonEl.replaceChildren(icon, document.createTextNode(` ${labelText}`));
+  }
+
   function resetLoginUi() {
     isSubmitting = false;
     if (navMgr && typeof navMgr.dismissAllOverlays === 'function') {
@@ -22,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('btnLoginSubmit');
     if (btn) {
       btn.disabled = false;
-      btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Iniciar Sesión';
+      setButtonIconAndLabel(btn, 'fas fa-sign-in-alt', 'Iniciar Sesión');
     }
   }
 
@@ -34,7 +41,12 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleBtn.addEventListener('click', () => {
       const isPass = pinInput.type === 'password';
       pinInput.type = isPass ? 'text' : 'password';
-      toggleBtn.innerHTML = isPass ? '<i class="fas fa-eye-slash"></i>' : '<i class="fas fa-eye"></i>';
+      toggleBtn.setAttribute('aria-pressed', isPass ? 'true' : 'false');
+      toggleBtn.setAttribute('aria-label', isPass ? 'Ocultar PIN' : 'Mostrar PIN');
+      const icon = document.createElement('i');
+      icon.className = isPass ? 'fas fa-eye-slash' : 'fas fa-eye';
+      icon.setAttribute('aria-hidden', 'true');
+      toggleBtn.replaceChildren(icon);
     });
   }
 
@@ -72,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const btn = document.getElementById('btnLoginSubmit');
       if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Validando...';
+        setButtonIconAndLabel(btn, 'fas fa-spinner fa-spin', 'Validando...');
       }
       if (loadingOverlay) {
         const t = document.getElementById('sioLoadingTitle');

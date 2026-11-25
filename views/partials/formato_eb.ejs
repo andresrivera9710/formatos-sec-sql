@@ -91,12 +91,15 @@
 
       <div class="form-group">
         <label for="ebSupervisor"><i class="fas fa-user-tie"></i> Nombre del Supervisor (LoginSEC) <span class="sio-required-star">*</span></label>
-        <select id="ebSupervisor" class="form-control" required>
+        <select id="ebSupervisor" class="form-control" required data-search-placeholder="Buscar supervisor por nombre, código o puesto...">
           <option value="">-- Seleccione Supervisor --</option>
           <% (supervisores || []).forEach(sup => { %>
             <option
               value="<%= sup.LoginId %>"
               data-usuario="<%= sup.Usuario %>"
+              data-code="<%= sup.Codigo || '' %>"
+              data-puesto="<%= sup.PuestoEmpleado || sup.Puesto || '' %>"
+              data-meta="<%= sup.NombreCompleto || '' %>"
               <%= String(sup.LoginId) === supLoginIdVal ? 'selected' : '' %>
             ><%= sup.Usuario %></option>
           <% }) %>

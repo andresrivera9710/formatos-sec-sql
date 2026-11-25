@@ -14,9 +14,10 @@
     fechaInicial = String(comp.Fecha instanceof Date ? comp.Fecha.toISOString() : comp.Fecha).substring(0, 10);
   }
 
-  const ccoLoginIdVal = (mecdState && mecdState.ccoLoginId)
-    ? String(mecdState.ccoLoginId)
-    : (comp.LoginId ? String(comp.LoginId) : (comp.EmpleadoId ? String(comp.EmpleadoId) : ''));
+  const ccoEmpleadoIdVal = (mecdState && (mecdState.ccoEmpleadoId || mecdState.ccoLoginId))
+    ? String(mecdState.ccoEmpleadoId || mecdState.ccoLoginId)
+    : (comp.EmpleadoId ? String(comp.EmpleadoId) : '');
+  const ccoList = (typeof empleadosCCO !== 'undefined' && Array.isArray(empleadosCCO)) ? empleadosCCO : [];
   const agenteLoginSecIdVal = (mecdState && mecdState.agenteLoginSecId)
     ? String(mecdState.agenteLoginSecId)
     : (comp.AgenteLoginSECId
@@ -239,19 +240,22 @@
     </div>
 
     <div class="sio-grid-auto-lg mecd-signatures-grid">
-      <!-- 5.1 FIRMA CCO (cmbFirmaCCO + penFirmaCCO) -->
+      <!-- 5.1 FIRMA CCO (cmbFirmaCCO + penFirmaCCO — EmpleadosView: DepartamentoInterno = 'CCO' AND EstaBaja = 'FALSE') -->
       <div class="mecd-sig-block">
         <div class="mecd-sig-block-title"><i class="fas fa-headset"></i> FIRMA CCO</div>
         <div class="form-group">
           <label for="mecdCCO">Representante CCO / Operaciones: <span class="sio-required-star">*</span></label>
-          <select id="mecdCCO" class="form-control" required>
+          <select id="mecdCCO" class="form-control" required data-search-placeholder="Buscar representante CCO por nombre, código o puesto...">
             <option value="">-- Seleccione CCO --</option>
-            <% (usuariosLogin || []).forEach(u => { %>
+            <% ccoList.forEach(emp => { %>
               <option
-                value="<%= u.LoginId %>"
-                data-usuario="<%= u.Nombre || u.Usuario %>"
-                <%= String(u.LoginId) === ccoLoginIdVal ? 'selected' : '' %>
-              ><%= u.Nombre || u.Usuario %> (<%= u.Usuario %>)</option>
+                value="<%= emp.EmpleadoId %>"
+                data-usuario="<%= emp.Nombre %>"
+                data-code="<%= emp.Codigo || '' %>"
+                data-puesto="<%= emp.Puesto || '' %>"
+                data-depto="<%= emp.DepartamentoInterno || 'CCO' %>"
+                <%= String(emp.EmpleadoId) === ccoEmpleadoIdVal ? 'selected' : '' %>
+              ><%= emp.Nombre %></option>
             <% }) %>
           </select>
         </div>
@@ -271,12 +275,15 @@
         <div class="mecd-sig-block-title"><i class="fas fa-user-shield"></i> AGENTE DE SECURITY, LAATS</div>
         <div class="form-group">
           <label for="mecdAgente">Agente de Seguridad: <span class="sio-required-star">*</span></label>
-          <select id="mecdAgente" class="form-control" required>
+          <select id="mecdAgente" class="form-control" required data-search-placeholder="Buscar agente SEC por nombre, código o puesto...">
             <option value="">-- Seleccione Agente SEC --</option>
             <% (usuariosSEC || []).forEach(u => { %>
               <option
                 value="<%= u.LoginId %>"
                 data-usuario="<%= u.Usuario %>"
+                data-code="<%= u.Codigo || '' %>"
+                data-puesto="<%= u.PuestoEmpleado || u.Puesto || '' %>"
+                data-meta="<%= u.NombreCompleto || '' %>"
                 <%= (String(u.LoginId) === agenteLoginSecIdVal || (!agenteLoginSecIdVal && user && u.Usuario === user.usuario)) ? 'selected' : '' %>
               ><%= u.Usuario %></option>
             <% }) %>
@@ -298,12 +305,15 @@
         <div class="mecd-sig-block-title"><i class="fas fa-user-tie"></i> SUPERVISOR SECURITY LAATS</div>
         <div class="form-group">
           <label for="mecdSupervisor">Supervisor de Seguridad: <span class="sio-required-star">*</span></label>
-          <select id="mecdSupervisor" class="form-control" required>
+          <select id="mecdSupervisor" class="form-control" required data-search-placeholder="Buscar supervisor SEC por nombre, código o puesto...">
             <option value="">-- Seleccione Supervisor SEC --</option>
             <% (supervisores || []).forEach(sup => { %>
               <option
                 value="<%= sup.LoginId %>"
                 data-usuario="<%= sup.Usuario %>"
+                data-code="<%= sup.Codigo || '' %>"
+                data-puesto="<%= sup.PuestoEmpleado || sup.Puesto || '' %>"
+                data-meta="<%= sup.NombreCompleto || '' %>"
                 <%= String(sup.LoginId) === supLoginSecIdVal ? 'selected' : '' %>
               ><%= sup.Usuario %></option>
             <% }) %>

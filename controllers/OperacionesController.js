@@ -4,6 +4,7 @@
  */
 
 const OperacionesModel = require('../models/OperacionesModel');
+const SharePointSyncQueueService = require('../services/SharePointSyncQueueService');
 const { resolveDepartmentId } = require('../middlewares/auth');
 
 class OperacionesController {
@@ -78,6 +79,8 @@ class OperacionesController {
         email: req.session.user?.usuario ? `${req.session.user.usuario}@laats.com` : 'operaciones@laats.com'
       });
 
+      SharePointSyncQueueService.triggerAsyncFlushPending();
+
       return res.json({
         success: true,
         operadorId: parsedOperadorId,
@@ -130,6 +133,10 @@ class OperacionesController {
       }
 
       req.session.vueloSeleccionado = vuelo;
+
+      if (SharePointSyncQueueService.tieneMatriculaValida(vuelo) && vuelo.itinerarioId) {
+        SharePointSyncQueueService.triggerAsyncFlushForItinerario(vuelo.itinerarioId);
+      }
 
       await new Promise((resolve, reject) => {
         req.session.save((saveErr) => (saveErr ? reject(saveErr) : resolve()));

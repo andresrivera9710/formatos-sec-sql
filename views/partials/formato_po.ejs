@@ -85,12 +85,15 @@
 
       <div class="form-group">
         <label for="poSupervisor"><i class="fas fa-user-tie"></i> Supervisor de Seguridad (LoginSEC) <span class="sio-required-star">*</span></label>
-        <select id="poSupervisor" class="form-control" required>
+        <select id="poSupervisor" class="form-control" required data-search-placeholder="Buscar supervisor por nombre, código o puesto...">
           <option value="">-- Seleccione el Supervisor --</option>
           <% (supervisores || []).forEach(sup => { %>
             <option
               value="<%= sup.LoginId %>"
               data-usuario="<%= sup.Usuario %>"
+              data-code="<%= sup.Codigo || '' %>"
+              data-puesto="<%= sup.PuestoEmpleado || sup.Puesto || '' %>"
+              data-meta="<%= sup.NombreCompleto || '' %>"
               <%= String(sup.LoginId) === supLoginSecIdVal ? 'selected' : '' %>
             ><%= sup.Usuario %></option>
           <% }) %>
@@ -120,23 +123,26 @@
     <div class="sio-inline-bar sio-inline-bar-box">
       <div class="form-group sio-flex-2">
         <label for="poSelectAgente"><i class="fas fa-user-plus"></i> Agente de Seguridad <span class="sio-required-star">*</span></label>
-        <select id="poSelectAgente" class="form-control">
+        <select id="poSelectAgente" class="form-control" data-search-placeholder="Buscar agente SEC por nombre, código o puesto...">
           <option value="">-- Seleccione Agente SEC --</option>
           <% (usuariosSEC || []).forEach(u => { %>
             <option
               value="<%= u.EmpleadoId %>"
               data-usuario="<%= u.Usuario %>"
-            ><%= u.Usuario %> (<%= u.Rol || 'AGENTE' %>)</option>
+              data-code="<%= u.Codigo || '' %>"
+              data-puesto="<%= u.PuestoEmpleado || u.Puesto || '' %>"
+              data-meta="<%= u.NombreCompleto || '' %>"
+            ><%= u.Usuario %> (<%= u.Rol || u.Puesto || 'AGENTE' %>)</option>
           <% }) %>
         </select>
       </div>
 
       <div class="form-group sio-flex-2">
         <label for="poSelectPosicion"><i class="fas fa-map-signs"></i> Puesto Operativo Asignado <span class="sio-required-star">*</span></label>
-        <select id="poSelectPosicion" class="form-control">
+        <select id="poSelectPosicion" class="form-control" data-search-placeholder="Buscar puesto operativo por número o nombre...">
           <option value="">-- Seleccione Puesto (1..11) --</option>
           <% posicionesCatalog.forEach(p => { %>
-            <option value="<%= p.PosicionId %>"><%= p.PosicionId %> - <%= p.Posicion %></option>
+            <option value="<%= p.PosicionId %>" data-code="<%= p.PosicionId %>"><%= p.PosicionId %> - <%= p.Posicion %></option>
           <% }) %>
         </select>
       </div>

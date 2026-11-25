@@ -151,25 +151,36 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const firmaScreenerActual = (padScreener && !padScreener.isEmpty()) ? padScreener.toDataURL() : '';
-    registros.push({
-      No: registros.length + 1,
-      DetalleSPId: 0,
-      Apellido: String(inputApellido.value || '').trim(),
-      Nombre: String(inputNombre.value || '').trim(),
-      SeleccionSPId: String(selectSeleccion.value || '1'),
-      Asiento: String(inputAsiento.value || '').trim(),
-      BCN: String(inputBCN.value || '0').trim(),
-      NombreAgente: String(inputScreener.value || '').trim(),
-      FirmaScreener: firmaScreenerActual
-    });
+    const applyAddSp = () => {
+      const firmaScreenerActual = (padScreener && !padScreener.isEmpty()) ? padScreener.toDataURL() : '';
+      registros.push({
+        No: registros.length + 1,
+        DetalleSPId: 0,
+        Apellido: String(inputApellido.value || '').trim(),
+        Nombre: String(inputNombre.value || '').trim(),
+        SeleccionSPId: String(selectSeleccion.value || '1'),
+        Asiento: String(inputAsiento.value || '').trim(),
+        BCN: String(inputBCN.value || '0').trim(),
+        NombreAgente: String(inputScreener.value || '').trim(),
+        FirmaScreener: firmaScreenerActual
+      });
 
-    inputApellido.value = '';
-    inputNombre.value = '';
-    inputAsiento.value = '';
-    inputBCN.value = '';
-    inputApellido.focus();
-    renderTabla();
+      inputApellido.value = '';
+      inputNombre.value = '';
+      inputAsiento.value = '';
+      inputBCN.value = '';
+      renderTabla();
+      Validator?.focusWithoutScroll ? Validator.focusWithoutScroll(inputApellido) : inputApellido.focus({ preventScroll: true });
+    };
+    if (Validator?.preserveScroll) Validator.preserveScroll(applyAddSp);
+    else applyAddSp();
+  });
+
+  inputScreener?.addEventListener('keydown', (e) => {
+    if ((e.key === 'Enter' || e.keyCode === 13) && !e.isComposing && e.keyCode !== 229) {
+      e.preventDefault();
+      document.getElementById('btnAgregarRegistroSP')?.click();
+    }
   });
 
   document.getElementById('btnAgregarFilaVaciaSP')?.addEventListener('click', () => {
