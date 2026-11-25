@@ -1,0 +1,7 @@
+# Excluir skills/metadatos locales de agentes IA y configuración de CI del paquete web (git archive -> App Service)
+# Se mantienen versionados en GitHub para conservar contexto en cualquier computadora, sin desplegarse a producción.
+.agents export-ignore
+.agents/** export-ignore
+skills-lock.json export-ignore
+.github export-ignore
+.github/** export-ignore

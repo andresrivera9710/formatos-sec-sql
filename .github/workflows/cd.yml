@@ -50,6 +50,8 @@ jobs:
         run: |
           mkdir -p release
           tar --exclude='.git' \
+              --exclude='.agents' \
+              --exclude='skills-lock.json' \
               --exclude='node_modules' \
               --exclude='release' \
               --exclude='.firmas-cache' \

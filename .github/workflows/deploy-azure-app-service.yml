@@ -64,6 +64,8 @@ jobs:
           mkdir -p deploy_pkg
           tar --exclude='.git' \
               --exclude='.github' \
+              --exclude='.agents' \
+              --exclude='skills-lock.json' \
               --exclude='deploy_pkg' \
               --exclude='release' \
               --exclude='.firmas-cache' \

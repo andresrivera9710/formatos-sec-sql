@@ -44,6 +44,15 @@ function runSecurityChecks() {
     assert(gitignore.includes(requiredRule), `Regla faltante en .gitignore: ${requiredRule}`);
   }
 
+  // 1b. Verificar exclusión de artefactos de agentes IA en empaquetado web (.gitattributes)
+  const gitattributesPath = path.join(ROOT_DIR, '.gitattributes');
+  assert(fs.existsSync(gitattributesPath), 'Falta archivo .gitattributes para exclusión en empaquetado web.');
+  const gitattributes = fs.readFileSync(gitattributesPath, 'utf8');
+  assert(
+    /^\.agents\s+export-ignore/m.test(gitattributes) && /^skills-lock\.json\s+export-ignore/m.test(gitattributes),
+    'Faltan reglas export-ignore para .agents y skills-lock.json en .gitattributes.'
+  );
+
   // 2. Verificar que archivos sensibles nunca estén versionados en Git
   if (fs.existsSync(path.join(ROOT_DIR, '.git'))) {
     const winGit = 'C:\\Users\\Andrés\\AppData\\Local\\Programs\\Git\\cmd\\git.exe';
