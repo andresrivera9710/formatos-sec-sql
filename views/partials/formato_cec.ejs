@@ -244,7 +244,7 @@
       </div>
       <div class="form-group">
         <label for="cecNoUnidadCombustible">No. Unidad:</label>
-        <input type="text" id="cecNoUnidadCombustible" class="form-control" value="<%= noUnidadCombVal %>" placeholder="Ingrese el No. de Unidad">
+        <input type="text" id="cecNoUnidadCombustible" class="form-control" inputmode="numeric" pattern="[0-9]*" data-numeric-only="true" value="<%= noUnidadCombVal %>" placeholder="Ingrese el No. de Unidad">
       </div>
       <div class="form-group">
         <label for="cecCombustibleEntrada">Llega:</label>
@@ -286,7 +286,7 @@
       </div>
       <div class="form-group">
         <label for="cecNoUnidadCocinas">No. Unidad:</label>
-        <input type="text" id="cecNoUnidadCocinas" class="form-control" value="<%= noUnidadCocVal %>" placeholder="Ingrese No. de Unidad">
+        <input type="text" id="cecNoUnidadCocinas" class="form-control" inputmode="numeric" pattern="[0-9]*" data-numeric-only="true" value="<%= noUnidadCocVal %>" placeholder="Ingrese No. de Unidad">
       </div>
       <div class="form-group">
         <label for="cecCocinasEntrada">Llega:</label>
@@ -310,14 +310,20 @@
 
     <div class="form-group">
       <label for="cecOperadoresRampa"><i class="fas fa-users-cog"></i> Operadores en RAMPA (Nombres separados por coma)</label>
-      <input type="text" id="cecOperadoresRampa" class="form-control" value="<%= operadoresRampaVal %>" placeholder="Ej: CARLOS PEREZ, MARIO LOPEZ">
+      <textarea id="cecOperadoresRampa" rows="2" class="form-control" placeholder="Ej: CARLOS PEREZ, MARIO LOPEZ"><%= operadoresRampaVal %></textarea>
     </div>
   </div>
 
   <!-- 3. DESEMBARQUE (Orden Exacto Power Apps grpDesembarque Y:3439..5167) -->
   <div class="card">
-    <div class="card-header">
+    <div class="card-header sio-card-header-flex">
       <h3 class="cp-section-title"><i class="fas fa-dolly-flatbed"></i> 2. <%= isDeltaCEC ? 'Desembarque (DELTA)' : 'DESEMBARQUE y Equipajes Dañados Llegando' %></h3>
+      <% if (isDeltaCEC) { %>
+        <div class="sio-card-header-meta">
+          <span class="er-total-counter-badge">Total Eq.: <strong id="cecDeltaDesEqTotal"><%= (Number(equipajeVal) || 0) + (Number(carruajesVal) || 0) %></strong></span>
+          <span class="er-total-counter-badge">Total Carga: <strong id="cecDeltaDesCargaTotal"><%= Number(cargaVal) || 0 %></strong></span>
+        </div>
+      <% } %>
     </div>
 
     <div class="sio-grid-auto-compact">
@@ -394,9 +400,17 @@
         </small>
       </div>
 
-      <div class="er-total-counter-badge">
-        <span>Total Equipaje Embarcado:</span>
-        <strong id="cecTotalEmbarqueCount"><%= isDeltaCEC ? ((Number(eqMostradorVal) || 0) + (Number(eqPuertaDeltaVal) || 0)) : 0 %></strong>
+      <div class="sio-card-header-meta">
+        <div class="er-total-counter-badge">
+          <span>Total Equipaje Embarcado:</span>
+          <strong id="cecTotalEmbarqueCount"><%= isDeltaCEC ? ((Number(eqMostradorVal) || 0) + (Number(eqPuertaDeltaVal) || 0)) : 0 %></strong>
+        </div>
+        <% if (isDeltaCEC) { %>
+          <div class="er-total-counter-badge">
+            <span>Total Carga:</span>
+            <strong id="cecDeltaEmbCargaTotal"><%= Number(cargaEmbarqueDeltaVal) || 0 %></strong>
+          </div>
+        <% } %>
       </div>
     </div>
 

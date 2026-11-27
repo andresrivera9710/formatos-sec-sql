@@ -157,13 +157,42 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  const isOtrosCiecValue = (val) => {
+    const up = String(val || '').trim().toUpperCase();
+    return up === 'OTROS' || up === 'OTROS...';
+  };
+  const fmtCiecId = String(inputFormatoId?.value || '').trim().toLowerCase();
+  const isUpperOtrosCiec = fmtCiecId === 'dl-ciec' || fmtCiecId === 'ara-ciec';
+
+  if (inputRegEmpresaOtros && isUpperOtrosCiec) {
+    const forceUpperOtros = () => {
+      const upper = inputRegEmpresaOtros.value.toUpperCase();
+      if (inputRegEmpresaOtros.value !== upper) inputRegEmpresaOtros.value = upper;
+    };
+    inputRegEmpresaOtros.addEventListener('input', forceUpperOtros);
+    inputRegEmpresaOtros.addEventListener('change', forceUpperOtros);
+  }
+
+  const toggleCiecOtrosUI = (show, clearOnHide = true) => {
+    if (grupoEmpresaOtros) {
+      grupoEmpresaOtros.classList.toggle('sio-field-hidden', !show);
+      grupoEmpresaOtros.style.display = '';
+    }
+    if (inputRegEmpresaOtros) {
+      inputRegEmpresaOtros.required = Boolean(show);
+      if (!show && clearOnHide) inputRegEmpresaOtros.value = '';
+    }
+  };
+
   if (selectRegEmpresa) {
     selectRegEmpresa.addEventListener('change', () => {
-      const val = selectRegEmpresa.value;
-      if (grupoEmpresaOtros) {
-        grupoEmpresaOtros.style.display = val === 'OTROS...' ? 'block' : 'none';
+      const showOtros = isOtrosCiecValue(selectRegEmpresa.value);
+      toggleCiecOtrosUI(showOtros, true);
+      if (showOtros && inputRegEmpresaOtros) {
+        try { inputRegEmpresaOtros.focus({ preventScroll: true }); } catch (_) {}
       }
     });
+    toggleCiecOtrosUI(isOtrosCiecValue(selectRegEmpresa.value), false);
   }
 
   // Renderizado de Registros en Cabina (mismo diseño de tarjetas de Control de Perimétrica)
@@ -307,8 +336,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const noTIA = String(inputRegNoTIA?.value || '').trim();
     const horaIngreso = String(inputRegHoraIngreso?.value || '').trim();
     let empresa = String(selectRegEmpresa?.value || '').trim();
-    if (empresa === 'OTROS...') {
-      empresa = String(inputRegEmpresaOtros?.value || '').trim();
+    const isOtrosSel = isOtrosCiecValue(empresa);
+    if (isOtrosSel) {
+      const rawOtros = String(inputRegEmpresaOtros?.value || '').trim();
+      empresa = isDeltaCiec ? rawOtros.toUpperCase() : rawOtros;
     }
     const motivo = String(inputRegMotivo?.value || '').trim();
 
@@ -364,8 +395,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (inputRegNoTIA) inputRegNoTIA.value = '';
       if (inputRegHoraIngreso) inputRegHoraIngreso.value = '';
       if (selectRegEmpresa) selectRegEmpresa.value = '';
-      if (inputRegEmpresaOtros) inputRegEmpresaOtros.value = '';
-      if (grupoEmpresaOtros) grupoEmpresaOtros.style.display = 'none';
+      toggleCiecOtrosUI(false, true);
       if (inputRegMotivo) inputRegMotivo.value = '';
 
       renderRegistros();

@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const cpFormatoId = String(document.getElementById('cpFormatoId')?.value || '').trim().toLowerCase();
-  const isAmxCP = cpFormatoId === 'amx-cp';
+  const isAmxCP = cpFormatoId === 'amx-cp' || cpFormatoId === 'dl-cp' || cpFormatoId === 'ara-cp';
 
   const normalizeCpNombre = (val) => {
     const clean = String(val || '').trim();

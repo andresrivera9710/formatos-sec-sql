@@ -675,7 +675,7 @@
       elPasajero.value = '';
       if (elSecuencia) elSecuencia.value = '';
       elColilla.value = '';
-      if (elDestino) elDestino.value = '';
+      if (elDestino && !elDestino.readOnly) elDestino.value = '';
       elHora.value = '';
       elAvsec.value = '';
       if (elSeguridad) {

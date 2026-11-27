@@ -27,8 +27,36 @@ document.addEventListener('DOMContentLoaded', () => {
     if (cSup) padGuardSup = new window.SioSignaturePad(cSup);
     if (cDl) padDLAgent = new window.SioSignaturePad(cDl);
   }
-  document.getElementById('btnLimpiarFirmaGuardSupDAL')?.addEventListener('click', () => padGuardSup?.clear());
-  document.getElementById('btnLimpiarFirmaDLAgentDAL')?.addEventListener('click', () => padDLAgent?.clear());
+  document.getElementById('btnLimpiarFirmaGuardSupDAL')?.addEventListener('click', () => {
+    padGuardSup?.clear();
+    window.SioOfflineManager?.notifyStateChange?.();
+  });
+  document.getElementById('btnLimpiarFirmaDLAgentDAL')?.addEventListener('click', () => {
+    padDLAgent?.clear();
+    window.SioOfflineManager?.notifyStateChange?.();
+  });
+
+  form.addEventListener('keydown', (e) => {
+    const isEnter = (e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter' || e.keyCode === 13)
+      && !e.isComposing && e.keyCode !== 229;
+    if (!isEnter || e.target?.tagName !== 'INPUT') return;
+    const inputs = Array.from(form.querySelectorAll('input.form-control:not([readonly]):not([disabled]):not([type="hidden"])'));
+    const idx = inputs.indexOf(e.target);
+    if (idx === -1) return;
+    const lockedPos = { x: window.scrollX, y: window.scrollY };
+    e.preventDefault();
+    e.stopPropagation();
+    const next = inputs[idx + 1];
+    if (next) {
+      if (Validator?.preserveScroll) {
+        Validator.preserveScroll(() => Validator.focusWithoutScroll?.(next), lockedPos);
+      } else {
+        try { next.focus({ preventScroll: true }); } catch (_) { next.focus(); }
+      }
+    } else if (Validator?.lockScrollPosition) {
+      Validator.lockScrollPosition(lockedPos.x, lockedPos.y);
+    }
+  });
 
   const val = (id) => String(document.getElementById(id)?.value || '').trim();
   const intVal = (id) => parseInt(val(id) || '0', 10) || 0;

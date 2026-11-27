@@ -42,9 +42,37 @@ const EMPRESAS_CP_AMX = [
   'OTROS'
 ];
 
+const EMPRESAS_CP_DELTA = [
+  'LAATS',
+  'DELTA',
+  'SAG',
+  'ODA',
+  'GODARD',
+  'OIRSA',
+  'DGAC (Operaciones)',
+  'OTROS'
+];
+
+const EMPRESAS_CP_ARAJET = [
+  'LAATS',
+  'GODARD(Cocinas)',
+  'ODA (Combustible)',
+  'OIRSA',
+  'DGAC (Operaciones)',
+  'OTROS'
+];
+
 class FormatosService {
   static get EMPRESAS_CP_AMX() {
     return EMPRESAS_CP_AMX.slice();
+  }
+
+  static get EMPRESAS_CP_DELTA() {
+    return EMPRESAS_CP_DELTA.slice();
+  }
+
+  static get EMPRESAS_CP_ARAJET() {
+    return EMPRESAS_CP_ARAJET.slice();
   }
 
   static _hidratarDetallesMatrizConAnulados(activeRows = [], allRows = [], obsText = '', idField = 'DetalleId') {
@@ -282,20 +310,28 @@ class FormatosService {
     let lisaState = null;
 
     if (isCP) {
-      const isAmxCP = String(formatoId || '').trim().toLowerCase() === 'amx-cp';
+      const fmtCpId = String(formatoId || '').trim().toLowerCase();
+      const isAmxCP = fmtCpId === 'amx-cp';
+      const isDeltaCP = fmtCpId === 'dl-cp';
+      const isArajetCP = fmtCpId === 'ara-cp';
+      const isUpperCP = isAmxCP || isDeltaCP || isArajetCP;
       const complemento = complementos?.[0]?.[0] || null;
       const detalles = (datosExistentes?.[0] || [])
         .filter(d => d && d.Nombre && String(d.Nombre).trim() !== '')
         .sort((a, b) => (parseInt(a.DetalleCPId, 10) || 0) - (parseInt(b.DetalleCPId, 10) || 0))
         .map(d => ({
           ...d,
-          Nombre: isAmxCP ? String(d.Nombre || '').trim().toUpperCase() : String(d.Nombre || '').trim()
+          Nombre: isUpperCP ? String(d.Nombre || '').trim().toUpperCase() : String(d.Nombre || '').trim()
         }));
 
       cpState = {
         complemento,
         detalles,
-        empresas: isAmxCP ? EMPRESAS_CP_AMX : EMPRESAS_CP
+        empresas: isAmxCP
+          ? EMPRESAS_CP_AMX
+          : (isDeltaCP
+            ? EMPRESAS_CP_DELTA
+            : (isArajetCP ? EMPRESAS_CP_ARAJET : EMPRESAS_CP))
       };
     }
 
@@ -408,7 +444,9 @@ class FormatosService {
         detalles,
         equipajePuerta,
         observacionesLimpia,
-        empresas: EMPRESAS_CP
+        empresas: formatoMeta.id === 'dl-ciec'
+          ? EMPRESAS_CP_DELTA
+          : (formatoMeta.id === 'ara-ciec' ? EMPRESAS_CP_ARAJET : EMPRESAS_CP)
       };
     }
 
@@ -1165,14 +1203,15 @@ class FormatosService {
       ? detallesDb
       : (Array.isArray(fallbackPayload.registros) ? fallbackPayload.registros : []);
 
-    const isAmxCP = String(formatoMeta?.id || 'amx-cp').trim().toLowerCase() === 'amx-cp';
+    const fmtSummaryId = String(formatoMeta?.id || 'amx-cp').trim().toLowerCase();
+    const isUpperSummaryCP = fmtSummaryId === 'amx-cp' || fmtSummaryId === 'dl-cp' || fmtSummaryId === 'ara-cp';
     const filasNormalizadas = sourceRows.map((r, idx) => {
       const hIn = FormatosService.normalizarHora5(r.HoraIngreso, '');
       const hOut = FormatosService.normalizarHora5(r.HoraSalidaReal || r.HoraSalida || r.HoraSalidaEstimada, '');
       const rawNombre = String(r.Nombre || '').trim();
       return {
         numero: idx + 1,
-        nombre: isAmxCP ? rawNombre.toUpperCase() : rawNombre,
+        nombre: isUpperSummaryCP ? rawNombre.toUpperCase() : rawNombre,
         noTia: String(r.NoTIA || '').trim(),
         horaIngreso: hIn,
         empresa: String(r.Empresa || '').trim(),
@@ -1264,16 +1303,22 @@ class FormatosService {
       ? cp.alerosNombres.map(n => String(n || '').trim()).filter(Boolean).slice(0, 2)
       : [];
 
-    const isAmxCP = String(formatoMeta?.id || payload?.formatoId || '').trim().toLowerCase() === 'amx-cp';
-    const empresasFijasAmxCP = new Set(EMPRESAS_CP_AMX.filter((e) => e !== 'OTROS'));
+    const fmtLower = String(formatoMeta?.id || payload?.formatoId || '').trim().toLowerCase();
+    const isAmxCP = fmtLower === 'amx-cp';
+    const isDeltaCP = fmtLower === 'dl-cp';
+    const isArajetCP = fmtLower === 'ara-cp';
+    const isUpperCP = isAmxCP || isDeltaCP || isArajetCP;
+    const empresasFijasCP = new Set(
+      (isDeltaCP ? EMPRESAS_CP_DELTA : (isArajetCP ? EMPRESAS_CP_ARAJET : EMPRESAS_CP_AMX)).filter((e) => e !== 'OTROS')
+    );
     const registros = (Array.isArray(cp.registros) ? cp.registros : []).map((r) => {
       const rawEmp = String(r?.Empresa || '').trim();
-      const normEmp = isAmxCP && rawEmp && !empresasFijasAmxCP.has(rawEmp)
+      const normEmp = isUpperCP && rawEmp && !empresasFijasCP.has(rawEmp)
         ? rawEmp.toUpperCase()
         : rawEmp;
       return {
         ...r,
-        Nombre: isAmxCP ? String(r?.Nombre || '').trim().toUpperCase() : String(r?.Nombre || '').trim(),
+        Nombre: isUpperCP ? String(r?.Nombre || '').trim().toUpperCase() : String(r?.Nombre || '').trim(),
         Empresa: normEmp
       };
     });

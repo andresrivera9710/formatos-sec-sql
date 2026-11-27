@@ -270,6 +270,7 @@ class FormatosController {
             user: req.session.user,
             hydrated,
             formDatos: payload.datos || {},
+            preview: resultado.preview || null,
             preferPersisted: esPersistido,
             pendientesSalidaCount: resultado.preview?.pendientesSalidaCount || 0,
             encabezadoId: targetEncId,

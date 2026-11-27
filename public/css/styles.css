@@ -2812,6 +2812,166 @@ section {
 }
 
 /* ==========================================================================
+   MÓDULOS DEDICADOS DELTA AIR LINES (RX / CLL / SP / DAL / SEL)
+   Cero estilos inline (Helmet CSP), Modo Claro/Noche y RWD 0px overflow
+   ========================================================================== */
+.dl-capture-inline {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.dl-capture-inline .form-group {
+  margin-bottom: 0;
+  min-width: 0;
+}
+
+.dl-grid-wrapper {
+  overflow-anchor: none;
+}
+
+.dl-compact-table,
+.dl-stacked-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.dl-th-num {
+  width: 48px;
+  text-align: center;
+}
+
+.dl-th-id {
+  width: 120px;
+  text-align: center;
+}
+
+.dl-th-action {
+  width: 72px;
+  text-align: center;
+}
+
+.dl-th-guia {
+  width: 170px;
+}
+
+.dl-th-qty {
+  width: 105px;
+  text-align: center;
+}
+
+.dl-th-bin {
+  width: 135px;
+  text-align: center;
+}
+
+.dl-th-sel {
+  width: 145px;
+}
+
+.dl-th-seat {
+  width: 95px;
+  text-align: center;
+}
+
+.dl-th-bcn {
+  width: 95px;
+  text-align: center;
+}
+
+.dl-td-num {
+  text-align: center;
+  font-weight: 700;
+}
+
+.dl-td-action {
+  text-align: center;
+}
+
+.dl-empty-cell {
+  text-align: center;
+  padding: 20px 14px;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.dl-del-btn {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.dl-mobile-prefix,
+.dl-mobile-action-label {
+  display: none;
+}
+
+.dl-sp-sig-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.dl-sp-sig-col {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.dl-sig-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.dl-sig-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2);
+  margin: 0;
+}
+
+.dl-sig-box-compact {
+  height: 115px;
+}
+
+.dl-sig-box-compact canvas {
+  height: 115px;
+}
+
+.dl-badge-total {
+  background-color: var(--brand);
+  color: #FFFFFF;
+  border-color: var(--brand);
+}
+
+.dl-badge-total strong {
+  color: #FFFFFF;
+}
+
+[data-theme="dark"] .dl-badge-total,
+body.dark-mode .dl-badge-total {
+  background-color: var(--gold);
+  color: #0F172A;
+  border-color: var(--gold);
+}
+
+[data-theme="dark"] .dl-badge-total strong,
+body.dark-mode .dl-badge-total strong {
+  color: #0F172A;
+}
+
+[data-theme="dark"] .dl-sig-label,
+body.dark-mode .dl-sig-label {
+  color: var(--text-2);
+}
+
+/* ==========================================================================
    MEDIA QUERIES RWD GLOBALES (Móvil <= 768px y <= 480px)
    Escritorio (> 768px) permanece 100% intacto.
    ========================================================================== */
@@ -3778,6 +3938,227 @@ section {
   .modal-footer .btn {
     width: 100%;
     min-height: 44px;
+  }
+
+  /* Módulos Dedicados DELTA (RX / CLL / SP / DAL / SEL) en Móvil <= 768px */
+  .dl-capture-inline {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .dl-capture-inline .btn {
+    width: 100%;
+    height: auto;
+    min-height: 44px;
+  }
+
+  .dl-sp-sig-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dl-sp-sig-col {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .dl-grid-wrapper {
+    overflow: visible;
+    max-height: none;
+    border: none;
+    border-radius: 0;
+    background-color: transparent;
+    box-shadow: none;
+  }
+
+  .dl-compact-table,
+  .dl-stacked-table {
+    display: block;
+    width: 100%;
+    min-width: 0 !important;
+    border-collapse: collapse;
+  }
+
+  .dl-compact-table thead,
+  .dl-stacked-table thead {
+    display: none;
+  }
+
+  .dl-compact-table tbody,
+  .dl-stacked-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .dl-compact-table tbody tr.er-empty-row,
+  .dl-stacked-table tbody tr.er-empty-row {
+    display: block;
+    width: 100%;
+  }
+
+  .dl-compact-table tbody tr.er-empty-row td.dl-empty-cell,
+  .dl-stacked-table tbody tr.er-empty-row td.dl-empty-cell {
+    display: block;
+    width: 100%;
+    padding: 16px 12px;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    background-color: var(--surface);
+  }
+
+  .dl-compact-table tbody tr.er-grid-row,
+  .dl-stacked-table tbody tr.er-grid-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 10px;
+    width: 100%;
+    box-sizing: border-box;
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--brand);
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  [data-theme="dark"] .dl-compact-table tbody tr.er-grid-row,
+  [data-theme="dark"] .dl-stacked-table tbody tr.er-grid-row,
+  body.dark-mode .dl-compact-table tbody tr.er-grid-row,
+  body.dark-mode .dl-stacked-table tbody tr.er-grid-row {
+    background-color: var(--surface);
+    border-color: var(--border);
+    border-left-color: var(--gold);
+  }
+
+  .dl-compact-table tbody tr.er-grid-row.sio-row-invalid,
+  .dl-stacked-table tbody tr.er-grid-row.sio-row-invalid {
+    border-color: var(--danger) !important;
+    border-left: 4px solid var(--danger) !important;
+    background-color: #FEF2F2 !important;
+  }
+
+  [data-theme="dark"] .dl-compact-table tbody tr.er-grid-row.sio-row-invalid,
+  [data-theme="dark"] .dl-stacked-table tbody tr.er-grid-row.sio-row-invalid,
+  body.dark-mode .dl-compact-table tbody tr.er-grid-row.sio-row-invalid,
+  body.dark-mode .dl-stacked-table tbody tr.er-grid-row.sio-row-invalid {
+    background-color: rgba(220, 38, 38, 0.16) !important;
+  }
+
+  .dl-compact-table tbody tr.er-grid-row td,
+  .dl-stacked-table tbody tr.er-grid-row td {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0;
+    border: none;
+    background-color: transparent !important;
+    text-align: left;
+  }
+
+  .dl-compact-table tbody tr.er-grid-row td[data-label]:not(.dl-td-num):not(.dl-td-action)::before,
+  .dl-stacked-table tbody tr.er-grid-row td[data-label]:not(.dl-td-num):not(.dl-td-action)::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 10.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.45px;
+    color: var(--brand);
+    margin-bottom: 4px;
+    line-height: 1.25;
+  }
+
+  [data-theme="dark"] .dl-compact-table tbody tr.er-grid-row td[data-label]:not(.dl-td-num):not(.dl-td-action)::before,
+  [data-theme="dark"] .dl-stacked-table tbody tr.er-grid-row td[data-label]:not(.dl-td-num):not(.dl-td-action)::before,
+  body.dark-mode .dl-compact-table tbody tr.er-grid-row td[data-label]:not(.dl-td-num):not(.dl-td-action)::before,
+  body.dark-mode .dl-stacked-table tbody tr.er-grid-row td[data-label]:not(.dl-td-num):not(.dl-td-action)::before {
+    color: var(--gold);
+  }
+
+  .dl-compact-table tbody tr.er-grid-row td.dl-td-num,
+  .dl-stacked-table tbody tr.er-grid-row td.dl-td-num {
+    grid-column: 1 / 2;
+    grid-row: 1;
+    flex-direction: row;
+    align-items: center;
+    padding-bottom: 8px;
+    margin-right: -10px;
+    padding-right: 10px;
+    border-bottom: 1px solid var(--border-2);
+  }
+
+  .dl-compact-table tbody tr.er-grid-row td.dl-td-num .dl-num-badge,
+  .dl-stacked-table tbody tr.er-grid-row td.dl-td-num .dl-num-badge {
+    background-color: rgba(39, 91, 136, 0.12);
+    color: var(--brand-deep, #0F2744);
+    border: 1px solid rgba(39, 91, 136, 0.28);
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  [data-theme="dark"] .dl-compact-table tbody tr.er-grid-row td.dl-td-num .dl-num-badge,
+  [data-theme="dark"] .dl-stacked-table tbody tr.er-grid-row td.dl-td-num .dl-num-badge,
+  body.dark-mode .dl-compact-table tbody tr.er-grid-row td.dl-td-num .dl-num-badge,
+  body.dark-mode .dl-stacked-table tbody tr.er-grid-row td.dl-td-num .dl-num-badge {
+    background-color: rgba(212, 175, 55, 0.16);
+    color: var(--gold);
+    border-color: rgba(212, 175, 55, 0.35);
+  }
+
+  .dl-compact-table .dl-mobile-prefix,
+  .dl-compact-table .dl-mobile-action-label,
+  .dl-stacked-table .dl-mobile-prefix,
+  .dl-stacked-table .dl-mobile-action-label {
+    display: inline;
+  }
+
+  .dl-compact-table tbody tr.er-grid-row td.dl-td-action,
+  .dl-stacked-table tbody tr.er-grid-row td.dl-td-action {
+    grid-column: 2 / 3;
+    grid-row: 1;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-2);
+  }
+
+  .dl-compact-table tbody tr.er-grid-row td.dl-td-action .dl-del-btn,
+  .dl-stacked-table tbody tr.er-grid-row td.dl-td-action .dl-del-btn {
+    width: auto;
+    min-height: 32px;
+    padding: 5px 10px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .dl-compact-table tbody tr.er-grid-row td.dl-td-full,
+  .dl-stacked-table tbody tr.er-grid-row td.dl-td-full {
+    grid-column: 1 / -1;
+  }
+
+  .dl-compact-table .er-cell-input,
+  .dl-stacked-table .er-cell-input {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    font-size: 15px !important;
+    min-height: 40px;
+    padding: 8px 10px;
+    text-align: left;
   }
 
 }

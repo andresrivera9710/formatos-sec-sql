@@ -141,6 +141,7 @@
           min="1"
           step="1"
           inputmode="numeric"
+          data-numeric-only="true"
           placeholder="Ingrese la colilla"
         >
       </div>
@@ -160,16 +161,23 @@
         >
       </div>
 
-      <!-- 5. Destino: (txtSecuenciaCP_2) -->
+      <!-- 5. Destino: (txtSecuenciaCP_2 / lblDestino1_11 en DELTA) -->
+      <% const isDeltaER = Boolean(formato && formato.id === 'dl-er'); %>
+      <% const lockDestinoDelta = isDeltaER && Boolean(destinoActivo); %>
       <div class="form-group">
-        <label for="erInputDestino">Destino:</label>
+        <label for="erInputDestino">
+          Destino:
+          <% if (lockDestinoDelta) { %>
+            <i class="fas fa-lock input-lock-icon" title="Destino vinculado al itinerario DELTA (Solo lectura)"></i>
+          <% } %>
+        </label>
         <input
           type="text"
           id="erInputDestino"
-          class="form-control"
+          class="form-control<%= lockDestinoDelta ? ' input-locked er-cell-readonly' : '' %>"
           maxlength="100"
-          value=""
-          placeholder="Ingrese el destino"
+          value="<%= lockDestinoDelta ? destinoActivo : '' %>"
+          <%= lockDestinoDelta ? 'readonly tabindex="-1" aria-readonly="true"' : 'placeholder="Ingrese el destino"' %>
           autocomplete="off"
         >
       </div>

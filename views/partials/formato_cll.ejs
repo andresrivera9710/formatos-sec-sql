@@ -28,6 +28,7 @@
     agenteSeguridad: agenteSegVal,
     agenteDelta: agenteDeltaVal,
     agenteTIA: agenteTiaVal,
+    tiaLD: tiaLdVal,
     registros: detalles
   };
 %>
@@ -39,13 +40,13 @@
 
   <!-- 1. ENCABEZADO CARGO LOADING LOG -->
   <div class="card">
-    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+    <div class="card-header sio-card-header-flex">
       <h3 class="cp-section-title">
         <i class="fas fa-dolly-flatbed"></i> Cargo Loading Log — DELTA (<%= vuelo.novuelo || '--' %>)
       </h3>
-      <div style="display: flex; align-items: center; gap: 10px;">
+      <div class="sio-card-header-meta">
         <% if (!esNuevo && encabezadoId) { %>
-          <a href="/formatos/<%= encodeURIComponent(formato.id) %>?nuevo=1" class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;">
+          <a href="/formatos/<%= encodeURIComponent(formato.id) %>?nuevo=1" class="btn btn-secondary sio-btn-sm">
             <i class="fas fa-plus-circle"></i> Crear Nuevo Registro
           </a>
         <% } %>
@@ -55,10 +56,10 @@
       </div>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px;">
+    <div class="sio-grid-auto">
       <div class="form-group">
-        <label><i class="fas fa-plane"></i> Flight # <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
-        <input type="text" class="form-control input-locked" value="<%= vuelo.novuelo || '--' %>" readonly tabindex="-1">
+        <label for="cllFlight"><i class="fas fa-plane"></i> Flight # <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <input type="text" id="cllFlight" class="form-control input-locked" value="<%= vuelo.novuelo || '--' %>" readonly tabindex="-1">
       </div>
 
       <div class="form-group">
@@ -70,56 +71,36 @@
         <label for="cllStation"><i class="fas fa-map-marker-alt"></i> Station <i class="fas fa-lock input-lock-icon" title="Estación GUA (Solo lectura)"></i></label>
         <input type="text" id="cllStation" class="form-control input-locked" maxlength="10" value="GUA" readonly tabindex="-1">
       </div>
-
-      <div class="form-group">
-        <label for="cllAgenteSeguridad"><i class="fas fa-user-shield"></i> Security Agent <i class="fas fa-lock input-lock-icon" title="Agente autenticado en sesión (Solo lectura)"></i></label>
-        <input type="text" id="cllAgenteSeguridad" class="form-control input-locked" maxlength="150" value="<%= agenteSegVal %>" readonly tabindex="-1" required>
-      </div>
-
-      <div class="form-group">
-        <label for="cllAgenteDelta"><i class="fas fa-user-tie"></i> DL Load / Ramp Agent <span style="color: var(--danger);">*</span></label>
-        <input type="text" id="cllAgenteDelta" class="form-control" maxlength="150" value="<%= agenteDeltaVal %>" placeholder="Nombre representante DL" required>
-      </div>
-
-      <div class="form-group">
-        <label for="cllAgenteTIA"><i class="fas fa-id-badge"></i> TIA # (Security) <span style="color: var(--danger);">*</span></label>
-        <input type="text" id="cllAgenteTIA" class="form-control" maxlength="100" value="<%= agenteTiaVal %>" placeholder="Ej: 12345" required>
-      </div>
-
-      <div class="form-group">
-        <label for="cllTiaLD"><i class="fas fa-id-card"></i> TIA # (DL Agent)</label>
-        <input type="text" id="cllTiaLD" class="form-control" maxlength="100" value="<%= tiaLdVal %>" placeholder="TIA # agente DL">
-      </div>
     </div>
   </div>
 
-  <!-- 2. PANEL DE CAPTURA RÁPIDA -->
-  <div class="card" style="border-top: 3px solid var(--brand);">
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+  <!-- 2. PANEL DE CAPTURA RÁPIDA DE GUÍA AÉREA -->
+  <div class="card sio-card-accent">
+    <div class="card-header sio-card-header-flex">
       <h3 class="cp-section-title"><i class="fas fa-boxes"></i> Agregar Guía Aérea (Airway Bill)</h3>
-      <span style="font-size: 11px; color: var(--text-3);">Todos los campos con <strong style="color: var(--danger);">*</strong> son obligatorios</span>
+      <small class="sio-hint-text">Todos los campos con <span class="sio-required-star">*</span> son obligatorios</small>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; align-items: end;">
+    <div class="sio-grid-auto">
       <div class="form-group">
-        <label for="cllInputGuia">Airway Bill # (Guía) <span style="color: var(--danger);">*</span></label>
-        <input type="text" id="cllInputGuia" class="form-control" maxlength="100" placeholder="Ej: 006-12345678">
+        <label for="cllInputGuia">Airway Bill # (Guía) <span class="sio-required-star">*</span></label>
+        <input type="text" id="cllInputGuia" class="form-control" maxlength="100" placeholder="Ej: 006-12345678" autocomplete="off" enterkeyhint="next">
       </div>
-      <div class="form-group" style="grid-column: span 2; min-width: 220px;">
-        <label for="cllInputContenido">Contents (Contenido) <span style="color: var(--danger);">*</span></label>
-        <input type="text" id="cllInputContenido" class="form-control" maxlength="200" placeholder="Ej: TEXTILES / GENERAL CARGO">
-      </div>
-      <div class="form-group">
-        <label for="cllInputPiezas"># Pieces (Piezas) <span style="color: var(--danger);">*</span></label>
-        <input type="number" id="cllInputPiezas" class="form-control" min="1" step="1" placeholder="Ej: 12">
+      <div class="form-group sio-grid-span-2">
+        <label for="cllInputContenido">Contents (Contenido) <span class="sio-required-star">*</span></label>
+        <input type="text" id="cllInputContenido" class="form-control" maxlength="200" placeholder="Ej: TEXTILES / GENERAL CARGO" autocomplete="off" enterkeyhint="next">
       </div>
       <div class="form-group">
-        <label for="cllInputBIN">Loaded BIN # <span style="color: var(--danger);">*</span></label>
-        <input type="text" id="cllInputBIN" class="form-control" maxlength="50" placeholder="Ej: BIN 1 / FWD">
+        <label for="cllInputPiezas"># Pieces (Piezas) <span class="sio-required-star">*</span></label>
+        <input type="number" id="cllInputPiezas" class="form-control" min="1" step="1" inputmode="numeric" placeholder="Ej: 12" enterkeyhint="next">
+      </div>
+      <div class="form-group">
+        <label for="cllInputBIN">Loaded BIN # <span class="sio-required-star">*</span></label>
+        <input type="text" id="cllInputBIN" class="form-control" maxlength="50" placeholder="Ej: BIN 1 / FWD" autocomplete="off" enterkeyhint="done">
       </div>
     </div>
 
-    <div style="margin-top: 14px; display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;">
+    <div class="sio-form-actions-end cp-form-actions">
       <button type="button" id="btnAgregarFilaVaciaCLL" class="btn btn-secondary">
         <i class="fas fa-table"></i> + Insertar Fila en Blanco
       </button>
@@ -131,24 +112,24 @@
 
   <!-- 3. CUADRÍCULA FLUIDA -->
   <div class="card" id="cllCardCuadricula">
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+    <div class="card-header sio-card-header-flex">
       <h3 class="cp-section-title"><i class="fas fa-list-ol"></i> Guías de Carga Registradas</h3>
-      <div style="display: flex; gap: 12px; align-items: center;">
+      <div class="sio-card-header-meta">
         <span class="er-total-counter-badge">Guías: <strong id="cllTotalGuiasBadge"><%= detalles.length %></strong></span>
         <span class="er-total-counter-badge">Total Piezas: <strong id="cllTotalPiezasBadge">0</strong></span>
       </div>
     </div>
 
-    <div class="er-fluid-grid-wrapper" id="cllGridWrapper">
-      <table class="er-fluid-table" id="cllTablaCuadricula">
+    <div class="er-fluid-grid-wrapper dl-grid-wrapper" id="cllGridWrapper">
+      <table class="er-fluid-table dl-stacked-table" id="cllTablaCuadricula">
         <thead>
           <tr>
-            <th style="width: 50px; text-align: center;">NO.</th>
-            <th style="width: 22%;">AIRWAY BILL # <span class="er-req-star">*</span></th>
+            <th class="dl-th-num">NO.</th>
+            <th class="dl-th-guia">AIRWAY BILL # <span class="er-req-star">*</span></th>
             <th>CONTENTS <span class="er-req-star">*</span></th>
-            <th style="width: 120px; text-align: center;"># PIECES <span class="er-req-star">*</span></th>
-            <th style="width: 150px; text-align: center;">LOADED BIN # <span class="er-req-star">*</span></th>
-            <th style="width: 65px; text-align: center;">ACCIÓN</th>
+            <th class="dl-th-qty"># PIECES <span class="er-req-star">*</span></th>
+            <th class="dl-th-bin">LOADED BIN # <span class="er-req-star">*</span></th>
+            <th class="dl-th-action">ACCIÓN</th>
           </tr>
         </thead>
         <tbody id="cllTbodyRegistros"></tbody>
@@ -156,27 +137,51 @@
     </div>
   </div>
 
-  <!-- 4. FIRMAS DIGITALES PARA DOCUMENTO CONTROLADO -->
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+  <!-- 4. RESPONSABLES Y FIRMAS DIGITALES (Orden 1:1 Power Apps: cada responsable junto a su firma) -->
+  <div class="sio-grid-split">
     <div class="card">
-      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 class="cp-section-title"><i class="fas fa-signature"></i> Security Agent Signature</h3>
-        <button type="button" id="btnLimpiarFirmaSecCLL" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;">
+      <div class="card-header sio-card-header-flex">
+        <h3 class="cp-section-title"><i class="fas fa-user-shield"></i> Security Agent &amp; Signature</h3>
+        <button type="button" id="btnLimpiarFirmaSecCLL" class="btn btn-secondary sio-btn-xs">
           <i class="fas fa-eraser"></i> Limpiar
         </button>
       </div>
+
+      <div class="sio-grid-auto sio-mb-14">
+        <div class="form-group">
+          <label for="cllAgenteSeguridad">Security Agent <i class="fas fa-lock input-lock-icon" title="Agente autenticado en sesión (Solo lectura)"></i></label>
+          <input type="text" id="cllAgenteSeguridad" class="form-control input-locked" maxlength="150" value="<%= agenteSegVal %>" readonly tabindex="-1" required>
+        </div>
+        <div class="form-group">
+          <label for="cllAgenteTIA">TIA # (Security) <span class="sio-required-star">*</span></label>
+          <input type="text" id="cllAgenteTIA" class="form-control" inputmode="numeric" pattern="[0-9]*" data-numeric-only="true" maxlength="100" value="<%= agenteTiaVal %>" placeholder="Ej: 12345" required>
+        </div>
+      </div>
+
       <div class="signature-box" id="cllSigBoxSec">
         <canvas id="cllCanvasFirmaSecurity"></canvas>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 class="cp-section-title"><i class="fas fa-signature"></i> DL Load Agent Signature</h3>
-        <button type="button" id="btnLimpiarFirmaLdCLL" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;">
+      <div class="card-header sio-card-header-flex">
+        <h3 class="cp-section-title"><i class="fas fa-user-tie"></i> DL Load / Ramp Agent &amp; Signature</h3>
+        <button type="button" id="btnLimpiarFirmaLdCLL" class="btn btn-secondary sio-btn-xs">
           <i class="fas fa-eraser"></i> Limpiar
         </button>
       </div>
+
+      <div class="sio-grid-auto sio-mb-14">
+        <div class="form-group">
+          <label for="cllAgenteDelta">DL Load / Ramp Agent <span class="sio-required-star">*</span></label>
+          <input type="text" id="cllAgenteDelta" class="form-control" maxlength="150" value="<%= agenteDeltaVal %>" placeholder="Nombre representante DL" required>
+        </div>
+        <div class="form-group">
+          <label for="cllTiaLD">TIA # (DL Agent)</label>
+          <input type="text" id="cllTiaLD" class="form-control" inputmode="numeric" pattern="[0-9]*" data-numeric-only="true" maxlength="100" value="<%= tiaLdVal %>" placeholder="TIA # agente DL">
+        </div>
+      </div>
+
       <div class="signature-box" id="cllSigBoxLd">
         <canvas id="cllCanvasFirmaLD"></canvas>
       </div>
@@ -184,11 +189,11 @@
   </div>
 
   <!-- 5. ACCIONES -->
-  <div style="display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 14px; margin-bottom: 40px;">
-    <button type="button" id="btnVistaPreliminarCLL" class="btn btn-secondary" style="padding: 12px 24px;">
+  <div class="sio-bottom-actions">
+    <button type="button" id="btnVistaPreliminarCLL" class="btn btn-secondary sio-btn-action">
       <i class="fas fa-eye"></i> Vista Preliminar (Formato Oficial <%= vuelo.operador %>)
     </button>
-    <button type="button" id="btnGuardarDefinitivoCLL" class="btn btn-primary" style="padding: 12px 28px;">
+    <button type="button" id="btnGuardarDefinitivoCLL" class="btn btn-primary sio-btn-action-primary">
       <i class="fas fa-save"></i> <%= esNuevo ? 'Guardar Formato Definitivo' : 'Actualizar Formato Definitivo' %>
     </button>
   </div>

@@ -89,7 +89,7 @@
             </div>
             <div style="margin-top: 2mm;">
                 <div style="font-weight: bold; font-size: 10pt; margin-bottom: 2mm;">OBSERVACIONES:</div>
-                <div style="font-size: 9.5pt; border-bottom: 1px solid black; min-height: 5mm; margin-bottom: 3mm; padding-bottom: 2px;">@{body('Parse_JSON_17')?['Observaciones']}</div>
+                <div style="font-size: 9.5pt; border-bottom: 1px solid black; min-height: 5mm; margin-bottom: 3mm; padding-bottom: 2px; white-space: pre-wrap;">@{body('Parse_JSON_17')?['Observaciones']}</div>
                 <div style="border-bottom: 1px solid black; height: 5mm;"></div>
             </div>
         </div>

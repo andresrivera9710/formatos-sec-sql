@@ -21,10 +21,10 @@
   const horaCierreVal = extractHHMM(comp.HoraCierre) || '';
   const supLoginIdVal = comp.LoginId ? String(comp.LoginId) : '';
   const nombreOperadorVal = comp.NombreOperador ? String(comp.NombreOperador).trim() : (user && user.usuario ? String(user.usuario).trim() : '');
-  const correosVal = comp.Correos ?? '';
-  const comatVal = comp.Comat ?? '';
-  const eqTransitoVal = comp.EqTransito ?? '';
-  const observacionVal = comp.Observacion ? String(comp.Observacion).trim() : '';
+  const correosVal = comp.CorreosCantidad ?? comp.Correos ?? '';
+  const comatVal = comp.ComatCantidad ?? comp.Comat ?? '';
+  const eqTransitoVal = comp.EqTransitoCantidad ?? comp.EqTransito ?? '';
+  const observacionVal = (comp.Observaciones ?? comp.Observacion) ? String(comp.Observaciones ?? comp.Observacion).trim() : '';
 
   const initialEbPayload = {
     formatoId: formato.id,

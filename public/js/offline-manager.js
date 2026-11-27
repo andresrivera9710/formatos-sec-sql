@@ -1272,7 +1272,9 @@
         </tr>`);
       }
       const alerosArr = Array.isArray(cp.alerosNombres) ? cp.alerosNombres : [];
-      const trac = [cp.tractoristaNombre, cp.noUnidadLabel].filter(Boolean).join(' / ');
+      const trac = [cp.nombreTractoristaDelta || cp.tractoristaNombre, cp.tractoristaDelta || cp.noUnidadLabel].filter(Boolean).join(' / ');
+      const alero1Val = alerosArr[0] || cp.alero1 || '';
+      const alero2Val = alerosArr[1] || cp.alero2 || '';
       return {
         ...baseVars,
         Fecha: formatMMDDYYYY(fechaBase),
@@ -1283,9 +1285,10 @@
         Matricula: matricula,
         FilasTabla: filas.join(''),
         ArriboVuelo: extractHHMM(cp.arriboVuelo || cp.arriboDelVuelo),
-        AeronaveAsegurada: extractHHMM(cp.aeronaveAsegurada),
-        Alero1: alerosArr[0] || cp.alero1 || '',
-        Alero2: alerosArr[1] || cp.alero2 || '',
+        AeronaveAsegurada: extractHHMM(cp.aeronaveAsegurada || cp.horaAsegurado),
+        Alero1: alero1Val,
+        Alero2: alero2Val,
+        Aleros: cp.nombreAlerosDelta || [alero1Val, alero2Val].filter(Boolean).join(', ') || '',
         TractoristaUnidad: trac || cp.tractoristaUnidad || '',
         Observaciones: cp.observaciones || ''
       };

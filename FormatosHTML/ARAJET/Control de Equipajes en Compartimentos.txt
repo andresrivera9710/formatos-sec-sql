@@ -12,7 +12,7 @@
         body {
             margin: 0;
             padding: 0;
-            background-color: #f4f4f4;
+            background-color: #ffffff;
             font-family: Arial, sans-serif;
             display: flex;
             justify-content: center;
@@ -173,7 +173,7 @@
         <div class="inner-frame">
             
             <div class="header">
-                <img src="data:image/png;base64, @{variables('varLogoArajet')}" alt="Logo" class="logo">
+                <img src="data:image/png;base64, @{variables('varLogoArajet')}" alt="Logo Arajet" class="logo">
             </div>
 
             <div class="title-container">
@@ -238,7 +238,7 @@
             <!-- OBSERVACIONES DINÁMICAS -->
             <div style="margin-top: 2mm;">
                 <div style="font-weight: bold; font-size: 10pt; margin-bottom: 2mm;">OBSERVACIONES:</div>
-                <div style="font-size: 9.5pt; border-bottom: 1px solid black; min-height: 5mm; margin-bottom: 3mm; padding-bottom: 2px;">@{body('Parse_JSON_16')?['Observaciones']}</div>
+                <div style="font-size: 9.5pt; border-bottom: 1px solid black; min-height: 5mm; margin-bottom: 3mm; padding-bottom: 2px; white-space: pre-wrap;">@{body('Parse_JSON_16')?['Observaciones']}</div>
                 <div style="border-bottom: 1px solid black; height: 5mm;"></div>
             </div>
 

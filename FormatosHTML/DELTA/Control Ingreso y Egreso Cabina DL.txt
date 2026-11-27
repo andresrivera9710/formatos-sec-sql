@@ -135,7 +135,7 @@
             <td>Despegue:</td>
             <td>@{body('Parse_JSON_18')?['Despegue']}</td>
         </tr>
-        <tr class="obs-td"><td colspan="7">OBSERVACIONES: @{body('Parse_JSON_18')?['Observaciones']}</td></tr>
+        <tr class="obs-td"><td colspan="7" style="white-space: pre-wrap;">OBSERVACIONES: @{body('Parse_JSON_18')?['Observaciones']}</td></tr>
         <tr class="obs-td"><td colspan="7"></td></tr>
         <tr class="obs-td"><td colspan="7"></td></tr>
         <tr class="bottom-sec">

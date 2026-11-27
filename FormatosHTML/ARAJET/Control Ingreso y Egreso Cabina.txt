@@ -6,8 +6,8 @@
     <title>CONTROL DE INGRESO Y EGRESO A CABINA ARAJET</title>
     <style>
         * { box-sizing: border-box; font-family: Arial, sans-serif; margin: 0; padding: 0; }
-        body { display: flex; justify-content: center; background-color: #525659; padding: 20px; }
-        .page { width: 210mm; min-height: 297mm; background: white; padding: 10mm; display: flex; flex-direction: column; }
+        body { display: flex; justify-content: center; background-color: #ffffff; padding: 20px; }
+        .page { width: 210mm; min-height: 297mm; background: #ffffff; padding: 10mm; display: flex; flex-direction: column; }
         
         .main-table { width: 100%; border-collapse: collapse; border: 2px solid black; }
         .main-table td, .main-table th { border: 1px solid black; }
@@ -43,11 +43,11 @@
         .bottom-sec .bold-center { font-weight: bold; text-align: center; padding-left: 0; }
         .bottom-sec .bold-left { font-weight: bold; }
         
-        .obs-td td { height: 19px; padding-left: 4px; font-size: 11px; vertical-align: bottom; padding-bottom: 2px;}
+        .obs-td td { min-height: 19px; padding: 2px 4px; font-size: 11px; vertical-align: top; white-space: pre-wrap; }
         
         .thick-bottom { border-bottom: 2px solid black !important; }
         
-        @media print { body { background: none; padding: 0; } .page { padding: 10mm; width: 100%; height: 100vh;} }
+        @media print { body { background: none; padding: 0; } .page { padding: 10mm; width: 100%; min-height: auto; } }
     </style>
 </head>
 <body>

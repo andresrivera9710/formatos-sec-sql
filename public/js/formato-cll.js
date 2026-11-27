@@ -56,6 +56,29 @@ document.addEventListener('DOMContentLoaded', () => {
   const badgeGuias = document.getElementById('cllTotalGuiasBadge');
   const badgePiezas = document.getElementById('cllTotalPiezasBadge');
 
+  function notifyOfflineChange() {
+    window.SioOfflineManager?.notifyStateChange?.();
+  }
+
+  function isEnterKey(e) {
+    return (e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter' || e.keyCode === 13)
+      && !e.isComposing
+      && e.keyCode !== 229;
+  }
+
+  function focusNoScroll(el) {
+    if (!el) return;
+    if (Validator?.focusWithoutScroll) Validator.focusWithoutScroll(el);
+    else {
+      try { el.focus({ preventScroll: true }); } catch (_) { el.focus(); }
+    }
+  }
+
+  function runWithLockedScroll(fn, lockedPos = null) {
+    if (Validator?.preserveScroll) return Validator.preserveScroll(fn, lockedPos);
+    return fn();
+  }
+
   let padSec = null;
   let padLd = null;
   if (typeof window.SioSignaturePad === 'function') {
@@ -64,8 +87,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (cSec) padSec = new window.SioSignaturePad(cSec);
     if (cLd) padLd = new window.SioSignaturePad(cLd);
   }
-  document.getElementById('btnLimpiarFirmaSecCLL')?.addEventListener('click', () => padSec?.clear());
-  document.getElementById('btnLimpiarFirmaLdCLL')?.addEventListener('click', () => padLd?.clear());
+  document.getElementById('btnLimpiarFirmaSecCLL')?.addEventListener('click', () => {
+    padSec?.clear();
+    notifyOfflineChange();
+  });
+  document.getElementById('btnLimpiarFirmaLdCLL')?.addEventListener('click', () => {
+    padLd?.clear();
+    notifyOfflineChange();
+  });
 
   function actualizarContadores() {
     if (badgeGuias) badgeGuias.textContent = String(registros.length);
@@ -79,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (registros.length === 0) {
       tbody.innerHTML = `
         <tr class="er-empty-row">
-          <td colspan="6" style="text-align:center; padding:22px; color:var(--text-3);">
+          <td colspan="6" class="dl-empty-cell">
             No hay guías de carga registradas. Use el panel superior o inserte una fila en blanco.
           </td>
         </tr>`;
@@ -88,21 +117,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     tbody.innerHTML = registros.map((r, idx) => `
       <tr data-row-index="${idx}" class="er-grid-row">
-        <td style="text-align:center; font-weight:700;">${idx + 1}</td>
-        <td><input type="text" class="form-control er-cell-input" data-field="Guia" maxlength="100" value="${esc(r.Guia)}" placeholder="Airway Bill # *"></td>
-        <td><input type="text" class="form-control er-cell-input" data-field="Contenido" maxlength="200" value="${esc(r.Contenido)}" placeholder="Contents *"></td>
-        <td><input type="number" class="form-control er-cell-input er-cell-center" data-field="Piezas" min="1" step="1" value="${esc(r.Piezas)}" placeholder="Piezas *"></td>
-        <td><input type="text" class="form-control er-cell-input er-cell-center" data-field="BIN" maxlength="50" value="${esc(r.BIN)}" placeholder="BIN # *"></td>
-        <td style="text-align:center;">
-          <button type="button" class="btn btn-danger btn-cll-del" data-idx="${idx}" style="padding:4px 8px; font-size:11px;" title="Retirar">
-            <i class="fas fa-trash-alt"></i>
+        <td class="dl-td-num" data-label="No.">
+          <span class="dl-num-badge"><span class="dl-mobile-prefix">Guía #</span>${idx + 1}</span>
+        </td>
+        <td class="dl-td-full" data-label="Airway Bill # *">
+          <input type="text" class="form-control er-cell-input" data-field="Guia" maxlength="100" value="${esc(r.Guia)}" placeholder="Airway Bill # *">
+        </td>
+        <td class="dl-td-full" data-label="Contents *">
+          <input type="text" class="form-control er-cell-input" data-field="Contenido" maxlength="200" value="${esc(r.Contenido)}" placeholder="Contents *">
+        </td>
+        <td data-label="# Pieces *">
+          <input type="number" class="form-control er-cell-input er-cell-center" data-field="Piezas" min="1" step="1" inputmode="numeric" value="${esc(r.Piezas)}" placeholder="Piezas *">
+        </td>
+        <td data-label="Loaded BIN # *">
+          <input type="text" class="form-control er-cell-input er-cell-center" data-field="BIN" maxlength="50" value="${esc(r.BIN)}" placeholder="BIN # *">
+        </td>
+        <td class="dl-td-action" data-label="Acción">
+          <button type="button" class="btn btn-danger dl-del-btn btn-cll-del" data-idx="${idx}" title="Retirar">
+            <i class="fas fa-trash-alt"></i><span class="dl-mobile-action-label"> Retirar</span>
           </button>
         </td>
       </tr>
     `).join('');
   }
 
-  document.getElementById('btnAgregarRegistroCLL')?.addEventListener('click', () => {
+  function agregarRegistroCLL(lockedPos = null) {
     Validator?.clearValidationErrors(form);
     const rules = [
       { field: 'Guia', label: 'Airway Bill #', el: inputGuia, required: true, type: 'string', maxLength: 100 },
@@ -123,7 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const applyAddCll = () => {
+    runWithLockedScroll(() => {
       registros.push({
         No: registros.length + 1,
         DetalleCLLId: 0,
@@ -138,22 +177,41 @@ document.addEventListener('DOMContentLoaded', () => {
       inputPiezas.value = '';
       inputBIN.value = '';
       renderTabla();
-      Validator?.focusWithoutScroll ? Validator.focusWithoutScroll(inputGuia) : inputGuia.focus({ preventScroll: true });
-    };
-    if (Validator?.preserveScroll) Validator.preserveScroll(applyAddCll);
-    else applyAddCll();
+      notifyOfflineChange();
+      focusNoScroll(inputGuia);
+    }, lockedPos);
+  }
+
+  document.getElementById('btnAgregarRegistroCLL')?.addEventListener('click', () => agregarRegistroCLL());
+
+  [
+    [inputGuia, inputContenido],
+    [inputContenido, inputPiezas],
+    [inputPiezas, inputBIN]
+  ].forEach(([curr, next]) => {
+    curr?.addEventListener('keydown', (e) => {
+      if (!isEnterKey(e)) return;
+      const lockedPos = { x: window.scrollX, y: window.scrollY };
+      e.preventDefault();
+      e.stopPropagation();
+      runWithLockedScroll(() => focusNoScroll(next), lockedPos);
+    });
   });
 
   inputBIN?.addEventListener('keydown', (e) => {
-    if ((e.key === 'Enter' || e.keyCode === 13) && !e.isComposing && e.keyCode !== 229) {
-      e.preventDefault();
-      document.getElementById('btnAgregarRegistroCLL')?.click();
-    }
+    if (!isEnterKey(e)) return;
+    const lockedPos = { x: window.scrollX, y: window.scrollY };
+    e.preventDefault();
+    e.stopPropagation();
+    agregarRegistroCLL(lockedPos);
   });
 
   document.getElementById('btnAgregarFilaVaciaCLL')?.addEventListener('click', () => {
-    registros.push({ No: registros.length + 1, DetalleCLLId: 0, Guia: '', Contenido: '', Piezas: '', BIN: '' });
-    renderTabla();
+    runWithLockedScroll(() => {
+      registros.push({ No: registros.length + 1, DetalleCLLId: 0, Guia: '', Contenido: '', Piezas: '', BIN: '' });
+      renderTabla();
+      notifyOfflineChange();
+    });
   });
 
   tbody?.addEventListener('input', (e) => {
@@ -164,6 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (registros[idx] && field) {
       registros[idx][field] = e.target.value;
       if (field === 'Piezas') actualizarContadores();
+      notifyOfflineChange();
     }
   });
 
@@ -172,19 +231,27 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!btn) return;
     const idx = parseInt(btn.dataset.idx, 10);
     if (Number.isInteger(idx) && registros[idx]) {
-      registros.splice(idx, 1);
-      renderTabla();
+      runWithLockedScroll(() => {
+        registros.splice(idx, 1);
+        renderTabla();
+        notifyOfflineChange();
+      });
     }
   });
 
   function recopilarPayload() {
     const tiaSec = String(inputAgTIA?.value || '').trim();
     const tiaLd = String(inputTiaLD?.value || '').trim();
+    const agenteDeltaBase = String(inputAgDelta?.value || '').trim();
+    const agenteDeltaPersist = (agenteDeltaBase && tiaLd && !agenteDeltaBase.includes(','))
+      ? `${agenteDeltaBase}, ${tiaLd}`
+      : agenteDeltaBase;
+
     return {
       fecha: String(inputFecha?.value || '').trim().substring(0, 10),
       station: String(inputStation?.value || 'GUA').trim() || 'GUA',
       agenteSeguridad: String(inputAgSeg?.value || '').trim(),
-      agenteDelta: String(inputAgDelta?.value || '').trim(),
+      agenteDelta: agenteDeltaPersist,
       agenteTIA: tiaSec,
       tiaSecurity: tiaSec,
       tiaLD: tiaLd || tiaSec,

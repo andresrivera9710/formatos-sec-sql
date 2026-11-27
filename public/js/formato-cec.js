@@ -95,7 +95,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!isDeltaCEC) return;
     const eqM = parseInt(document.getElementById('cecEquipajeMostrador')?.value || '0', 10) || 0;
     const eqP = parseInt(document.getElementById('cecEquipajePuerta')?.value || '0', 10) || 0;
+    const cgE = parseInt(document.getElementById('cecCargaEmbarqueDelta')?.value || '0', 10) || 0;
     if (totalEmbarqueEl) totalEmbarqueEl.textContent = String(eqM + eqP);
+    const elEmbCarga = document.getElementById('cecDeltaEmbCargaTotal');
+    if (elEmbCarga) elEmbCarga.textContent = String(cgE);
+
+    const desEq = (parseInt(inputEquipaje?.value || '0', 10) || 0) + (parseInt(inputCarruajes?.value || '0', 10) || 0);
+    const desCg = parseInt(inputCarga?.value || '0', 10) || 0;
+    const elDesEq = document.getElementById('cecDeltaDesEqTotal');
+    const elDesCg = document.getElementById('cecDeltaDesCargaTotal');
+    if (elDesEq) elDesEq.textContent = String(desEq);
+    if (elDesCg) elDesCg.textContent = String(desCg);
   }
 
   if (!isDeltaCEC && tbodyMatriz && window.SioBaggageMatrix) {
@@ -384,7 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnGuardarDefinitivo.addEventListener('click', () => enviarFormato(true));
   }
 
-  // Scroll fijo sin saltos en DESEMBARQUE y Equipajes Dañados Llegando al presionar Enter / Sig.
+  // Scroll fijo sin saltos en DESEMBARQUE y Embarque DELTA al presionar Enter / Sig.
   const cecDesembarqueFields = [
     inputDesembarqueInicio,
     inputEquipaje,
@@ -393,7 +403,10 @@ document.addEventListener('DOMContentLoaded', () => {
     inputCarga,
     inputCantSinEtiq,
     inputCantConEtiq,
-    inputDesembarqueFinal
+    inputDesembarqueFinal,
+    isDeltaCEC ? document.getElementById('cecEquipajeMostrador') : null,
+    isDeltaCEC ? document.getElementById('cecEquipajePuerta') : null,
+    isDeltaCEC ? document.getElementById('cecCargaEmbarqueDelta') : null
   ].filter(Boolean);
 
   let lastCecPointerTimestamp = 0;
@@ -470,4 +483,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('cecEquipajeMostrador')?.addEventListener('input', updateDeltaTotal);
   document.getElementById('cecEquipajePuerta')?.addEventListener('input', updateDeltaTotal);
+  document.getElementById('cecCargaEmbarqueDelta')?.addEventListener('input', updateDeltaTotal);
+  inputEquipaje?.addEventListener('input', updateDeltaTotal);
+  inputCarruajes?.addEventListener('input', updateDeltaTotal);
+  inputCarga?.addEventListener('input', updateDeltaTotal);
 });

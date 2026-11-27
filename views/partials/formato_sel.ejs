@@ -17,11 +17,24 @@
     if (!Number.isNaN(d.getTime())) fechaVal = d.toISOString().substring(0, 10);
   }
 
-  const supCatalogo = (usuariosLogin && usuariosLogin.length > 0)
-    ? usuariosLogin.map(u => ({ LoginId: u.LoginId, Usuario: u.Usuario }))
-    : (supervisores || []).map(s => ({ LoginId: s.EmpleadoId, Usuario: s.Usuario }));
+  const supCatalogo = (supervisores && supervisores.length > 0)
+    ? supervisores.map(s => ({
+        LoginId: s.LoginId || s.EmpleadoId,
+        Usuario: s.Usuario,
+        Codigo: s.Codigo || '',
+        Puesto: s.PuestoEmpleado || s.Puesto || '',
+        NombreCompleto: s.NombreCompleto || ''
+      }))
+    : (usuariosLogin || []).map(u => ({
+        LoginId: u.LoginId,
+        Usuario: u.Usuario,
+        Codigo: '',
+        Puesto: '',
+        NombreCompleto: ''
+      }));
 
   const supLoginIdVal = det.LoginId ? String(det.LoginId) : (user && user.loginId ? String(user.loginId) : '');
+  const supExists = !supLoginIdVal || supCatalogo.some(s => String(s.LoginId) === supLoginIdVal);
   const agenteActual = (user && (user.usuario || user.nombreCompleto)) ? String(user.usuario || user.nombreCompleto).trim() : '';
   const metaSel = (det && det.Meta) ? det.Meta : {};
   const arrivedDateVal = metaSel.aircraftArrived || fechaVal;
@@ -43,13 +56,13 @@
 
   <!-- 1. ENCABEZADO -->
   <div class="card">
-    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+    <div class="card-header sio-card-header-flex">
       <h3 class="cp-section-title">
         <i class="fas fa-stream"></i> Sequence of Events Log — DELTA (<%= vuelo.novuelo || '--' %>)
       </h3>
-      <div style="display: flex; align-items: center; gap: 10px;">
+      <div class="sio-card-header-meta">
         <% if (!esNuevo && encabezadoId) { %>
-          <a href="/formatos/<%= encodeURIComponent(formato.id) %>?nuevo=1" class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;">
+          <a href="/formatos/<%= encodeURIComponent(formato.id) %>?nuevo=1" class="btn btn-secondary sio-btn-sm">
             <i class="fas fa-plus-circle"></i> Crear Nuevo Registro
           </a>
         <% } %>
@@ -59,10 +72,10 @@
       </div>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+    <div class="sio-grid-auto">
       <div class="form-group">
-        <label><i class="fas fa-plane"></i> Flight # <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
-        <input type="text" class="form-control input-locked" value="<%= vuelo.novuelo || '--' %>" readonly tabindex="-1">
+        <label for="selFlight"><i class="fas fa-plane"></i> Flight # <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+        <input type="text" id="selFlight" class="form-control input-locked" value="<%= vuelo.novuelo || '--' %>" readonly tabindex="-1">
       </div>
       <div class="form-group">
         <label for="selFecha"><i class="far fa-calendar-alt"></i> Date <i class="fas fa-lock input-lock-icon" title="Fecha vinculada al itinerario (Solo lectura)"></i></label>
@@ -84,16 +97,22 @@
         <input type="text" id="selGuard" class="form-control input-locked" maxlength="150" value="<%= guardVal %>" readonly tabindex="-1">
       </div>
       <div class="form-group">
-        <label for="selSupervisor"><i class="fas fa-user-tie"></i> Supervisor (LoginSEC) <span style="color: var(--danger);">*</span></label>
-        <select id="selSupervisor" class="form-control" required>
+        <label for="selSupervisor"><i class="fas fa-user-tie"></i> Supervisor (LoginSEC) <span class="sio-required-star">*</span></label>
+        <select id="selSupervisor" class="form-control" required data-search-placeholder="Buscar supervisor por nombre, código o puesto...">
           <option value="">-- Seleccione Supervisor --</option>
           <% supCatalogo.forEach(sup => { %>
             <option
               value="<%= sup.LoginId %>"
               data-usuario="<%= sup.Usuario %>"
+              data-code="<%= sup.Codigo %>"
+              data-puesto="<%= sup.Puesto %>"
+              data-meta="<%= sup.NombreCompleto %>"
               <%= String(sup.LoginId) === supLoginIdVal ? 'selected' : '' %>
             ><%= sup.Usuario %></option>
           <% }) %>
+          <% if (!supExists && supLoginIdVal) { %>
+            <option value="<%= supLoginIdVal %>" selected>Supervisor #<%= supLoginIdVal %></option>
+          <% } %>
         </select>
       </div>
     </div>
@@ -105,9 +124,9 @@
       <h3 class="cp-section-title"><i class="fas fa-tasks"></i> Sequence of Events (13 Eventos Obligatorios)</h3>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px;">
+    <div class="sio-grid-auto-lg">
       <div class="form-group">
-        <label for="selHoraCierreFila">1. Passenger Line Closed <span style="color: var(--danger);">*</span></label>
+        <label for="selHoraCierreFila">1. Passenger Line Closed <span class="sio-required-star">*</span></label>
         <div class="cp-time-row">
           <input type="time" id="selHoraCierreFila" class="form-control" value="<%= extractHHMM(det.HoraCierreFila) %>" required>
           <button type="button" class="cp-clock-btn" data-sel-clock="selHoraCierreFila"><i class="far fa-clock"></i> Ahora</button>
@@ -115,12 +134,12 @@
       </div>
 
       <div class="form-group">
-        <label for="selCantidadPasajerosFila">2. Number of Passengers in Line <span style="color: var(--danger);">*</span></label>
-        <input type="number" id="selCantidadPasajerosFila" class="form-control" min="0" step="1" value="<%= det.CantidadPasajerosFila ?? '' %>" placeholder="0" required>
+        <label for="selCantidadPasajerosFila">2. Number of Passengers in Line <span class="sio-required-star">*</span></label>
+        <input type="number" id="selCantidadPasajerosFila" class="form-control" min="0" step="1" inputmode="numeric" value="<%= det.CantidadPasajerosFila ?? '' %>" placeholder="0" required>
       </div>
 
       <div class="form-group">
-        <label for="selHoraChequeadoFila">3. Last Passenger in Line Checked In <span style="color: var(--danger);">*</span></label>
+        <label for="selHoraChequeadoFila">3. Last Passenger in Line Checked In <span class="sio-required-star">*</span></label>
         <div class="cp-time-row">
           <input type="time" id="selHoraChequeadoFila" class="form-control" value="<%= extractHHMM(det.HoraChequeadoFila) %>" required>
           <button type="button" class="cp-clock-btn" data-sel-clock="selHoraChequeadoFila"><i class="far fa-clock"></i> Ahora</button>
@@ -128,7 +147,7 @@
       </div>
 
       <div class="form-group">
-        <label for="selPrimerEqRevisada">4a. First Bags Sniffed / Screened <span style="color: var(--danger);">*</span></label>
+        <label for="selPrimerEqRevisada">4a. First Bags Sniffed / Screened <span class="sio-required-star">*</span></label>
         <div class="cp-time-row">
           <input type="time" id="selPrimerEqRevisada" class="form-control" value="<%= extractHHMM(det.PrimerEqRevisada) %>" required>
           <button type="button" class="cp-clock-btn" data-sel-clock="selPrimerEqRevisada"><i class="far fa-clock"></i> Ahora</button>
@@ -136,7 +155,7 @@
       </div>
 
       <div class="form-group">
-        <label for="selUltimoEqRevisado">4b. Last Bags Sniffed / Screened <span style="color: var(--danger);">*</span></label>
+        <label for="selUltimoEqRevisado">4b. Last Bags Sniffed / Screened <span class="sio-required-star">*</span></label>
         <div class="cp-time-row">
           <input type="time" id="selUltimoEqRevisado" class="form-control" value="<%= extractHHMM(det.UltimoEqRevisado) %>" required>
           <button type="button" class="cp-clock-btn" data-sel-clock="selUltimoEqRevisado"><i class="far fa-clock"></i> Ahora</button>
@@ -144,7 +163,7 @@
       </div>
 
       <div class="form-group">
-        <label for="selPrimerEqPuerta">5a. First Bags Arrive at Gate <span style="color: var(--danger);">*</span></label>
+        <label for="selPrimerEqPuerta">5a. First Bags Arrive at Gate <span class="sio-required-star">*</span></label>
         <div class="cp-time-row">
           <input type="time" id="selPrimerEqPuerta" class="form-control" value="<%= extractHHMM(det.PrimerEqPuerta) %>" required>
           <button type="button" class="cp-clock-btn" data-sel-clock="selPrimerEqPuerta"><i class="far fa-clock"></i> Ahora</button>
@@ -152,7 +171,7 @@
       </div>
 
       <div class="form-group">
-        <label for="selUltimoEqPuerta">5b. Last Bags Arrive at Gate <span style="color: var(--danger);">*</span></label>
+        <label for="selUltimoEqPuerta">5b. Last Bags Arrive at Gate <span class="sio-required-star">*</span></label>
         <div class="cp-time-row">
           <input type="time" id="selUltimoEqPuerta" class="form-control" value="<%= extractHHMM(det.UltimoEqPuerta) %>" required>
           <button type="button" class="cp-clock-btn" data-sel-clock="selUltimoEqPuerta"><i class="far fa-clock"></i> Ahora</button>
@@ -160,12 +179,15 @@
       </div>
 
       <div class="form-group">
-        <label for="selCantidadPasajerosEmbarque">6. Passengers Arrived at Boarding Gate <span style="color: var(--danger);">*</span></label>
-        <input type="text" id="selCantidadPasajerosEmbarque" class="form-control" maxlength="50" value="<%= det.CantidadPasajerosEmbarque ?? '' %>" placeholder="Ej: 156 o HH:mm" required>
+        <label for="selCantidadPasajerosEmbarque">6. Passengers Arrived at Boarding Gate <span class="sio-required-star">*</span></label>
+        <div class="cp-time-row">
+          <input type="text" id="selCantidadPasajerosEmbarque" class="form-control" maxlength="50" value="<%= det.CantidadPasajerosEmbarque ?? '' %>" placeholder="Ej: 156 o HH:mm" required>
+          <button type="button" class="cp-clock-btn" data-sel-clock="selCantidadPasajerosEmbarque" title="Capturar hora actual"><i class="far fa-clock"></i> Ahora</button>
+        </div>
       </div>
 
       <div class="form-group">
-        <label for="selHoraInicioEmbarque">7. Passengers Commence Boarding <span style="color: var(--danger);">*</span></label>
+        <label for="selHoraInicioEmbarque">7. Passengers Commence Boarding <span class="sio-required-star">*</span></label>
         <div class="cp-time-row">
           <input type="time" id="selHoraInicioEmbarque" class="form-control" value="<%= extractHHMM(det.HoraInicioEmbarque) %>" required>
           <button type="button" class="cp-clock-btn" data-sel-clock="selHoraInicioEmbarque"><i class="far fa-clock"></i> Ahora</button>
@@ -173,7 +195,7 @@
       </div>
 
       <div class="form-group">
-        <label for="selHoraUltimoAbandona">8. Last Passenger Leaves Gate <span style="color: var(--danger);">*</span></label>
+        <label for="selHoraUltimoAbandona">8. Last Passenger Leaves Gate <span class="sio-required-star">*</span></label>
         <div class="cp-time-row">
           <input type="time" id="selHoraUltimoAbandona" class="form-control" value="<%= extractHHMM(det.HoraUltimoAbandona) %>" required>
           <button type="button" class="cp-clock-btn" data-sel-clock="selHoraUltimoAbandona"><i class="far fa-clock"></i> Ahora</button>
@@ -181,7 +203,7 @@
       </div>
 
       <div class="form-group">
-        <label for="selHoraDescargaEqCarga">9. Unloading Baggage &amp; Cargo Complete <span style="color: var(--danger);">*</span></label>
+        <label for="selHoraDescargaEqCarga">9. Unloading Baggage &amp; Cargo Complete <span class="sio-required-star">*</span></label>
         <div class="cp-time-row">
           <input type="time" id="selHoraDescargaEqCarga" class="form-control" value="<%= extractHHMM(det.HoraDescargaEqCarga) %>" required>
           <button type="button" class="cp-clock-btn" data-sel-clock="selHoraDescargaEqCarga"><i class="far fa-clock"></i> Ahora</button>
@@ -189,7 +211,7 @@
       </div>
 
       <div class="form-group">
-        <label for="selHoraInicioEqCarga">10. Baggage &amp; Cargo Loading Begins <span style="color: var(--danger);">*</span></label>
+        <label for="selHoraInicioEqCarga">10. Baggage &amp; Cargo Loading Begins <span class="sio-required-star">*</span></label>
         <div class="cp-time-row">
           <input type="time" id="selHoraInicioEqCarga" class="form-control" value="<%= extractHHMM(det.HoraInicioEqCarga) %>" required>
           <button type="button" class="cp-clock-btn" data-sel-clock="selHoraInicioEqCarga"><i class="far fa-clock"></i> Ahora</button>
@@ -197,7 +219,7 @@
       </div>
 
       <div class="form-group">
-        <label for="selHoraPuertasCerradasCar">11. Aircraft Cargo Doors Closed <span style="color: var(--danger);">*</span></label>
+        <label for="selHoraPuertasCerradasCar">11. Aircraft Cargo Doors Closed <span class="sio-required-star">*</span></label>
         <div class="cp-time-row">
           <input type="time" id="selHoraPuertasCerradasCar" class="form-control" value="<%= extractHHMM(det.HoraPuertasCerradasCar) %>" required>
           <button type="button" class="cp-clock-btn" data-sel-clock="selHoraPuertasCerradasCar"><i class="far fa-clock"></i> Ahora</button>
@@ -205,7 +227,7 @@
       </div>
 
       <div class="form-group">
-        <label for="selHoraPuertasCerradasCab">12. Aircraft Cabin Doors Closed <span style="color: var(--danger);">*</span></label>
+        <label for="selHoraPuertasCerradasCab">12. Aircraft Cabin Doors Closed <span class="sio-required-star">*</span></label>
         <div class="cp-time-row">
           <input type="time" id="selHoraPuertasCerradasCab" class="form-control" value="<%= extractHHMM(det.HoraPuertasCerradasCab) %>" required>
           <button type="button" class="cp-clock-btn" data-sel-clock="selHoraPuertasCerradasCab"><i class="far fa-clock"></i> Ahora</button>
@@ -213,7 +235,7 @@
       </div>
 
       <div class="form-group">
-        <label for="selHoraInicioRodajeNave">13. Aircraft Begins Taxi <span style="color: var(--danger);">*</span></label>
+        <label for="selHoraInicioRodajeNave">13. Aircraft Begins Taxi <span class="sio-required-star">*</span></label>
         <div class="cp-time-row">
           <input type="time" id="selHoraInicioRodajeNave" class="form-control" value="<%= extractHHMM(det.HoraInicioRodajeNave) %>" required>
           <button type="button" class="cp-clock-btn" data-sel-clock="selHoraInicioRodajeNave"><i class="far fa-clock"></i> Ahora</button>
@@ -223,20 +245,20 @@
   </div>
 
   <!-- 3. COMMENTS & SUPERVISOR SIGNATURE -->
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+  <div class="sio-grid-split">
     <div class="card">
       <div class="card-header">
         <h3 class="cp-section-title"><i class="fas fa-comment-alt"></i> Comments / Observaciones</h3>
       </div>
-      <div class="form-group" style="margin-bottom: 0;">
+      <div class="form-group">
         <textarea id="selObservaciones" class="form-control" rows="5" maxlength="2000" placeholder="(Opcional) Ingrese comentarios adicionales de la secuencia de eventos..."><%= det.Observaciones || '' %></textarea>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <div class="card-header sio-card-header-flex">
         <h3 class="cp-section-title"><i class="fas fa-signature"></i> Supervisor Signature</h3>
-        <button type="button" id="btnLimpiarFirmaSEL" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;">
+        <button type="button" id="btnLimpiarFirmaSEL" class="btn btn-secondary sio-btn-xs">
           <i class="fas fa-eraser"></i> Limpiar Firma
         </button>
       </div>
@@ -247,11 +269,11 @@
   </div>
 
   <!-- 4. ACCIONES -->
-  <div style="display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 14px; margin-bottom: 40px;">
-    <button type="button" id="btnVistaPreliminarSEL" class="btn btn-secondary" style="padding: 12px 24px;">
+  <div class="sio-bottom-actions">
+    <button type="button" id="btnVistaPreliminarSEL" class="btn btn-secondary sio-btn-action">
       <i class="fas fa-eye"></i> Vista Preliminar (Formato Oficial <%= vuelo.operador %>)
     </button>
-    <button type="button" id="btnGuardarDefinitivoSEL" class="btn btn-primary" style="padding: 12px 28px;">
+    <button type="button" id="btnGuardarDefinitivoSEL" class="btn btn-primary sio-btn-action-primary">
       <i class="fas fa-save"></i> <%= esNuevo ? 'Guardar Formato Definitivo' : 'Actualizar Formato Definitivo' %>
     </button>
   </div>

@@ -343,10 +343,15 @@ class FormatoValidationService {
       }
     ];
 
-    // Normalizar campos por fila antes de pasar al validador de esquema
     const fmtIdLower = String(payload.formatoId || '').trim().toLowerCase();
     const isDeltaER = fmtIdLower === 'dl-er';
     const isAmxER = fmtIdLower === 'amx-er';
+    const isAraER = fmtIdLower === 'ara-er';
+    const erAirlineLabel = isAmxER ? 'AMX' : (isAraER ? 'ARAJET' : (isDeltaER ? 'DL' : 'Aerolínea'));
+
+    // Normalizar campos por fila antes de pasar al validador de esquema
+    const agSegRule = rowRules.find(r => r.field === 'AgenteSeguridad');
+    if (agSegRule) agSegRule.label = `Agente de seguridad ${erAirlineLabel} durante la inspección`;
     const nombreAgenteSesion = String(user?.nombreCompleto || user?.usuario || '').trim();
     const filasParaValidar = registrosRaw.map((r, idx) => {
       const horaNorm = FormatoValidationService.normalizarHora(r?.HoraRevision ?? r?.Hora ?? '');
@@ -683,8 +688,9 @@ class FormatoValidationService {
     const tiaPilotoCoc = String(cec.tiaPilotoCocinas || '').trim();
     const tiaAyudCoc = String(cec.tiaAyudanteCocinas || '').trim();
 
-    const isAmxCEC = String(payload.formatoId || '').trim().toLowerCase() === 'amx-cec';
-    if (isAmxCEC) {
+    const fmtCecLower = String(payload.formatoId || '').trim().toLowerCase();
+    const isNumericTiaCEC = fmtCecLower === 'amx-cec' || fmtCecLower === 'ara-cec';
+    if (isNumericTiaCEC) {
       headerRules.push(
         { field: 'tiaOirsa', label: 'TIA (OIRSA)', type: 'string', required: false, maxLength: 50, pattern: /^\d+$/, patternMessage: 'debe contener únicamente valores numéricos (0-9).' },
         { field: 'tiaPilotoCombustible', label: 'TIA (Piloto Combustible)', type: 'string', required: false, maxLength: 50, pattern: /^\d+$/, patternMessage: 'debe contener únicamente valores numéricos (0-9).' },
@@ -880,25 +886,26 @@ class FormatoValidationService {
       { field: 'HoraSalida', label: 'Hora de Salida', type: 'time', required: true }
     ];
 
-    const isAmxCP = String(payload.formatoId || '').trim().toLowerCase() === 'amx-cp';
-    const empresasFijasAmxCP = new Set([
-      'ODA',
-      'ODA (Combustible)',
-      'AEROEXPRESS',
-      'OIRSA',
-      'AEROMEXICO',
-      'LAATS'
-    ]);
+    const fmtCpLower = String(payload.formatoId || '').trim().toLowerCase();
+    const isAmxCP = fmtCpLower === 'amx-cp';
+    const isDeltaCP = fmtCpLower === 'dl-cp';
+    const isArajetCP = fmtCpLower === 'ara-cp';
+    const isUpperCP = isAmxCP || isDeltaCP || isArajetCP;
+    const empresasFijasCP = new Set(isDeltaCP
+      ? ['LAATS', 'DELTA', 'SAG', 'ODA', 'GODARD', 'OIRSA', 'DGAC (Operaciones)']
+      : (isArajetCP
+        ? ['LAATS', 'GODARD(Cocinas)', 'ODA (Combustible)', 'OIRSA', 'DGAC (Operaciones)']
+        : ['ODA', 'ODA (Combustible)', 'AEROEXPRESS', 'OIRSA', 'AEROMEXICO', 'LAATS']));
 
     const filasPersonas = registrosRaw.map(r => {
       const rawNombre = String(r?.Nombre || '').trim();
       const rawEmpresa = String(r?.Empresa || '').trim();
-      const normalizedEmpresa = isAmxCP && rawEmpresa && !empresasFijasAmxCP.has(rawEmpresa)
+      const normalizedEmpresa = isUpperCP && rawEmpresa && !empresasFijasCP.has(rawEmpresa)
         ? rawEmpresa.toUpperCase()
         : rawEmpresa;
       return {
         DetalleCPId: parseInt(r?.DetalleCPId, 10) || 0,
-        Nombre: isAmxCP ? rawNombre.toUpperCase() : rawNombre,
+        Nombre: isUpperCP ? rawNombre.toUpperCase() : rawNombre,
         NoTIA: String(r?.NoTIA || '').trim(),
         Empresa: normalizedEmpresa,
         HoraIngreso: FormatoValidationService.normalizarHora(r?.HoraIngreso),
@@ -907,7 +914,7 @@ class FormatoValidationService {
       };
     });
 
-    if (isAmxCP) {
+    if (isUpperCP) {
       for (let i = 0; i < filasPersonas.length; i++) {
         const f = filasPersonas[i];
         const empUpper = String(f.Empresa || '').trim().toUpperCase();
@@ -1053,15 +1060,50 @@ class FormatoValidationService {
       { field: 'HoraSalida', label: 'Hora de Salida', type: 'time', required: true }
     ];
 
-    const filasPersonas = registrosRaw.map(r => ({
-      DetalleCIECId: parseInt(r?.DetalleCIECId, 10) || 0,
-      Nombre: String(r?.Nombre || '').trim(),
-      NoTIA: String(r?.NoTIA || '').trim(),
-      Empresa: String(r?.Empresa || '').trim(),
-      HoraIngreso: FormatoValidationService.normalizarHora(r?.HoraIngreso),
-      Motivo: String(r?.Motivo || '').trim(),
-      HoraSalida: FormatoValidationService.normalizarHora(r?.HoraSalida)
-    }));
+    const fmtCiecLower = String(payload.formatoId || '').trim().toLowerCase();
+    const isDeltaCIEC = fmtCiecLower === 'dl-ciec';
+    const isArajetCIEC = fmtCiecLower === 'ara-ciec';
+    const isUpperOtrosCIEC = isDeltaCIEC || isArajetCIEC;
+    const empresasFijasCIEC = new Set(isDeltaCIEC
+      ? ['LAATS', 'DELTA', 'SAG', 'ODA', 'GODARD', 'OIRSA', 'DGAC (Operaciones)']
+      : ['LAATS', 'GODARD(Cocinas)', 'ODA (Combustible)', 'OIRSA', 'DGAC (Operaciones)']);
+
+    const filasPersonas = registrosRaw.map(r => {
+      const rawEmp = String(r?.Empresa || '').trim();
+      const normEmp = isUpperOtrosCIEC && rawEmp && !empresasFijasCIEC.has(rawEmp)
+        ? rawEmp.toUpperCase()
+        : rawEmp;
+      return {
+        DetalleCIECId: parseInt(r?.DetalleCIECId, 10) || 0,
+        Nombre: String(r?.Nombre || '').trim(),
+        NoTIA: String(r?.NoTIA || '').trim(),
+        Empresa: normEmp,
+        HoraIngreso: FormatoValidationService.normalizarHora(r?.HoraIngreso),
+        Motivo: String(r?.Motivo || '').trim(),
+        HoraSalida: FormatoValidationService.normalizarHora(r?.HoraSalida)
+      };
+    });
+
+    if (isUpperOtrosCIEC) {
+      for (let i = 0; i < filasPersonas.length; i++) {
+        const f = filasPersonas[i];
+        const empUpper = String(f.Empresa || '').trim().toUpperCase();
+        if (empUpper === 'OTROS' || empUpper === 'OTROS...') {
+          return {
+            valido: false,
+            statusCode: 400,
+            message: `Persona #${i + 1} (${f.Nombre || 'Sin nombre'}): Debe especificar el nombre real de la empresa externa en lugar de "${f.Empresa}".`,
+            errors: [{
+              scope: 'row',
+              row: i + 1,
+              field: 'Empresa',
+              label: 'Empresa',
+              message: 'Debe escribir el nombre real de la empresa externa cuando selecciona OTROS.'
+            }]
+          };
+        }
+      }
+    }
 
     const esq = FormatoValidationService.validarEsquemaFormato({
       headerData: {
@@ -1425,7 +1467,7 @@ class FormatoValidationService {
     if (!ctx.valido) return ctx;
 
     const cfr = payload.datos?.cfrPayload || payload.datos || {};
-    const fechaIso = String(cfr.fecha || '').trim().substring(0, 10);
+    const fechaIso = FormatoValidationService._resolverFechaItinerario(vueloSesion, cfr.fecha);
     const supervisorEmpleadoId = String(cfr.supervisorEmpleadoId ?? cfr.empleadoId ?? '').trim();
     const supervisorLoginId = parseInt(cfr.supervisorLoginId, 10) || parseInt(user?.loginId, 10) || 1;
     const supervisorNombre = String(cfr.supervisorNombre ?? cfr.supervisor ?? '').trim();

@@ -1,29 +1,27 @@
-<%
-  const comp = (cpState && cpState.complemento) ? cpState.complemento : null;
-  const initialRegistros = (cpState && Array.isArray(cpState.detalles)) ? cpState.detalles : [];
-  const isAmxCP = Boolean(formato && formato.id === 'amx-cp');
-  const defaultEmpresasCP = isAmxCP
-    ? ['ODA', 'ODA (Combustible)', 'AEROEXPRESS', 'OIRSA', 'AEROMEXICO', 'LAATS', 'OTROS']
-    : [
-        'LAATS', 'GODARD(Cocinas)', 'ODA (Combustible)', 'OIRSA',
-        'DGAC (Operaciones)', 'AEROEXPRESS', 'AEROMEXICO', 'OTROS...'
-      ];
-  const empresasCP = (cpState && Array.isArray(cpState.empresas)) ? cpState.empresas : defaultEmpresasCP;
-
-  const extractHHMM = (val) => {
-    if (!val) return '';
-    const s = String(val).trim();
-    if (s.includes('T') && s.length >= 16) return s.substring(11, 16);
-    const m = s.match(/(\d{2}:\d{2})/);
-    return m ? m[1] : '';
+<% const comp=(cpState && cpState.complemento) ? cpState.complemento : null; const initialRegistros=(cpState &&
+  Array.isArray(cpState.detalles)) ? cpState.detalles : []; const isAmxCP=Boolean(formato && formato.id==='amx-cp' );
+  const isDeltaCP=Boolean(formato && formato.id==='dl-cp' ); const isArajetCP=Boolean(formato && formato.id==='ara-cp'
+  ); const isUpperCP=isAmxCP || isDeltaCP || isArajetCP; const defaultEmpresasCP=isAmxCP ? ['ODA', 'ODA (Combustible)'
+  , 'AEROEXPRESS' , 'OIRSA' , 'AEROMEXICO' , 'LAATS' , 'OTROS' ] : (isDeltaCP ? ['LAATS', 'DELTA' , 'SAG' , 'ODA'
+  , 'GODARD' , 'OIRSA' , 'DGAC (Operaciones)' , 'OTROS' ] : (isArajetCP ? ['LAATS', 'GODARD(Cocinas)'
+  , 'ODA (Combustible)' , 'OIRSA' , 'DGAC (Operaciones)' , 'OTROS' ] : [ 'LAATS' , 'GODARD(Cocinas)'
+  , 'ODA (Combustible)' , 'OIRSA' , 'DGAC (Operaciones)' , 'AEROEXPRESS' , 'AEROMEXICO' , 'OTROS...' ])); const
+  empresasCP=(cpState && Array.isArray(cpState.empresas)) ? cpState.empresas : defaultEmpresasCP; const
+  extractHHMM=(val)=> {
+  if (!val) return '';
+  const s = String(val).trim();
+  if (s.includes('T') && s.length >= 16) return s.substring(11, 16);
+  const m = s.match(/(\d{2}:\d{2})/);
+  return m ? m[1] : '';
   };
 
   let fechaValue = new Date().toISOString().substring(0, 10);
   if (vuelo && vuelo.FechaItinerado) {
-    fechaValue = String(vuelo.FechaItinerado instanceof Date ? vuelo.FechaItinerado.toISOString() : vuelo.FechaItinerado).substring(0, 10);
+  fechaValue = String(vuelo.FechaItinerado instanceof Date ? vuelo.FechaItinerado.toISOString() :
+  vuelo.FechaItinerado).substring(0, 10);
   } else if (comp && comp.Fecha) {
-    const d = new Date(comp.Fecha);
-    if (!Number.isNaN(d.getTime())) fechaValue = d.toISOString().substring(0, 10);
+  const d = new Date(comp.Fecha);
+  if (!Number.isNaN(d.getTime())) fechaValue = d.toISOString().substring(0, 10);
   }
 
   const arriboValue = extractHHMM(comp && comp.ArriboDelVuelo) || extractHHMM(vuelo && vuelo.ata) || '';
@@ -35,361 +33,334 @@
   const supExistsInList = !supSelectedId || (supervisores || []).some(s => String(s.EmpleadoId) === supSelectedId);
 
   const aleroIdsRaw = comp && comp.AlerosEmpleadoIds
-    ? String(comp.AlerosEmpleadoIds).split(',').map(x => x.trim()).filter(Boolean)
-    : [];
+  ? String(comp.AlerosEmpleadoIds).split(',').map(x => x.trim()).filter(Boolean)
+  : [];
   const initialAleros = aleroIdsRaw.map(idStr => {
-    const emp = (empleados || []).find(e => String(e.EmpleadoId) === idStr);
-    return {
-      EmpleadoId: parseInt(idStr, 10),
-      Nombre: emp ? emp.Nombre : `Empleado #${idStr}`
-    };
+  const emp = (empleados || []).find(e => String(e.EmpleadoId) === idStr);
+  return {
+  EmpleadoId: parseInt(idStr, 10),
+  Nombre: emp ? emp.Nombre : `Empleado #${idStr}`
+  };
   }).filter(a => Number.isFinite(a.EmpleadoId) && a.EmpleadoId > 0);
-%>
+  %>
 
-<form id="formControlPerimetrica" novalidate>
-  <input type="hidden" id="cpFormatoId" name="formatoId" value="<%= formato.id %>">
-  <input type="hidden" id="cpItinerarioId" name="itinerarioId" value="<%= vuelo.itinerarioId %>">
-  <input type="hidden" id="cpEncabezadoId" name="encabezadoId" value="<%= encabezadoId || '' %>">
-  <input type="hidden" id="cpAgentesEmpleadoIds" value="<%= comp && comp.AgentesEmpleadoIds ? comp.AgentesEmpleadoIds : (user.empleadoId || '') %>">
+  <form id="formControlPerimetrica" novalidate>
+    <input type="hidden" id="cpFormatoId" name="formatoId" value="<%= formato.id %>">
+    <input type="hidden" id="cpItinerarioId" name="itinerarioId" value="<%= vuelo.itinerarioId %>">
+    <input type="hidden" id="cpEncabezadoId" name="encabezadoId" value="<%= encabezadoId || '' %>">
+    <input type="hidden" id="cpAgentesEmpleadoIds"
+      value="<%= comp && comp.AgentesEmpleadoIds ? comp.AgentesEmpleadoIds : (user.empleadoId || '') %>">
 
-  <div
-    id="cpBootstrapData"
-    data-registros="<%= JSON.stringify(initialRegistros) %>"
-    data-aleros="<%= JSON.stringify(initialAleros) %>"
-    hidden
-  ></div>
+    <div id="cpBootstrapData" data-registros="<%= JSON.stringify(initialRegistros) %>"
+      data-aleros="<%= JSON.stringify(initialAleros) %>" hidden></div>
 
-  <!-- Bloque 1: Tiempos de Aeronave -->
-  <div class="card">
-    <div class="card-header">
-      <h3 class="cp-section-title"><i class="fas fa-plane-arrival"></i> Tiempos de Aeronave</h3>
-    </div>
-
-    <div class="sio-grid-auto-lg">
-      <div class="form-group">
-        <label for="cpArriboVuelo"><i class="far fa-clock"></i> Arribo del Vuelo <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
-        <input
-          type="text"
-          id="cpArriboVuelo"
-          name="arriboDelVuelo"
-          class="form-control input-locked"
-          value="<%= arriboValue || '--:--' %>"
-          readonly
-          tabindex="-1"
-        >
+    <!-- Bloque 1: Tiempos de Aeronave -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="cp-section-title"><i class="fas fa-plane-arrival"></i> Tiempos de Aeronave</h3>
       </div>
 
-      <div class="form-group">
-        <label for="cpHoraAsegurado"><i class="fas fa-shield-alt"></i> Aeronave Asegurada</label>
-        <div class="cp-time-row">
-          <input
-            type="time"
-            id="cpHoraAsegurado"
-            name="horaAsegurado"
-            class="form-control"
-            value="<%= aseguradoValue %>"
-          >
-          <button type="button" id="btnCpHoraAseguradaActual" class="cp-clock-btn" title="Establecer hora actual">
-            <i class="far fa-clock"></i> Ahora
-          </button>
+      <div class="sio-grid-auto-lg">
+        <div class="form-group">
+          <label for="cpArriboVuelo"><i class="far fa-clock"></i> Arribo del Vuelo <i
+              class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
+          <input type="text" id="cpArriboVuelo" name="arriboDelVuelo" class="form-control input-locked"
+            value="<%= arriboValue || '--:--' %>" readonly tabindex="-1">
+        </div>
+
+        <div class="form-group">
+          <label for="cpHoraAsegurado"><i class="fas fa-shield-alt"></i> Aeronave Asegurada</label>
+          <div class="cp-time-row">
+            <input type="time" id="cpHoraAsegurado" name="horaAsegurado" class="form-control"
+              value="<%= aseguradoValue %>">
+            <button type="button" id="btnCpHoraAseguradaActual" class="cp-clock-btn" title="Establecer hora actual">
+              <i class="far fa-clock"></i> Ahora
+            </button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Bloque 2: Ingrese los Datos (Cabecera de Inspección) -->
-  <div class="card">
-    <div class="card-header">
-      <h3 class="cp-section-title"><i class="fas fa-clipboard-list"></i> Ingrese los Datos</h3>
-    </div>
-
-    <div class="sio-grid-auto">
-      <div class="form-group">
-        <label for="cpFecha"><i class="far fa-calendar-alt"></i> Fecha <i class="fas fa-lock input-lock-icon" title="Fecha vinculada al itinerario (Solo lectura)"></i></label>
-        <input type="date" id="cpFecha" name="fecha" class="form-control input-locked" value="<%= fechaValue %>" readonly tabindex="-1" required>
+    <!-- Bloque 2: Ingrese los Datos (Cabecera de Inspección) -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="cp-section-title"><i class="fas fa-clipboard-list"></i> Ingrese los Datos</h3>
       </div>
 
-      <div class="form-group">
-        <label for="cpHoraRevision"><i class="far fa-clock"></i> Hora de Revisión</label>
-        <div class="cp-time-row">
-          <input type="time" id="cpHoraRevision" name="horaInicio" class="form-control" value="<%= horaRevisionValue %>" required>
-          <button type="button" id="btnCpHoraRevisionActual" class="cp-clock-btn" title="Establecer hora actual">
-            <i class="far fa-clock"></i> Ahora
-          </button>
+      <div class="sio-grid-auto">
+        <div class="form-group">
+          <label for="cpFecha"><i class="far fa-calendar-alt"></i> Fecha <i class="fas fa-lock input-lock-icon"
+              title="Fecha vinculada al itinerario (Solo lectura)"></i></label>
+          <input type="date" id="cpFecha" name="fecha" class="form-control input-locked" value="<%= fechaValue %>"
+            readonly tabindex="-1" required>
+        </div>
+
+        <div class="form-group">
+          <label for="cpHoraRevision"><i class="far fa-clock"></i> Hora Inicio</label>
+          <div class="cp-time-row">
+            <input type="time" id="cpHoraRevision" name="horaInicio" class="form-control"
+              value="<%= horaRevisionValue %>" required>
+            <button type="button" id="btnCpHoraRevisionActual" class="cp-clock-btn" title="Establecer hora actual">
+              <i class="far fa-clock"></i> Ahora
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="cpPuerta"><i class="fas fa-door-open"></i> Puerta <i class="fas fa-lock input-lock-icon"
+              title="Vinculado al itinerario (Solo lectura)"></i></label>
+          <input type="text" id="cpPuerta" class="form-control input-locked" value="<%= vuelo.puertaposicion || '--' %>"
+            readonly tabindex="-1">
+        </div>
+
+        <div class="form-group">
+          <label for="cpNoVuelo"><i class="fas fa-plane"></i> No. Vuelo <i class="fas fa-lock input-lock-icon"
+              title="Vinculado al itinerario (Solo lectura)"></i></label>
+          <input type="text" id="cpNoVuelo" class="form-control input-locked" value="<%= vuelo.novuelo || '--' %>"
+            readonly tabindex="-1">
+        </div>
+
+        <div class="form-group">
+          <label for="cpMatricula"><i class="fas fa-barcode"></i> Matrícula <i class="fas fa-lock input-lock-icon"
+              title="Vinculado al itinerario (Solo lectura)"></i></label>
+          <input type="text" id="cpMatricula" class="form-control input-locked"
+            value="<%= vuelo.Matricula || 'Pendiente' %>" readonly tabindex="-1">
+        </div>
+
+        <div class="form-group">
+          <label for="cpSupervisor"><i class="fas fa-user-tie"></i> Supervisor de Turno (LoginSEC)</label>
+          <select id="cpSupervisor" name="supervisorEmpleadoId" class="form-control" required
+            data-search-placeholder="Buscar supervisor por nombre, código o puesto...">
+            <option value="">-- Seleccione el Supervisor --</option>
+            <% (supervisores || []).forEach(sup=> { %>
+              <option value="<%= sup.EmpleadoId %>" data-code="<%= sup.Codigo || '' %>"
+                data-puesto="<%= sup.PuestoEmpleado || sup.Puesto || '' %>" data-meta="<%= sup.NombreCompleto || '' %>"
+                <%=String(sup.EmpleadoId)===supSelectedId ? 'selected' : '' %>
+                ><%= sup.Usuario %>
+              </option>
+              <% }) %>
+                <% if (!supExistsInList && supSelectedId) { %>
+                  <option value="<%= supSelectedId %>" selected>Supervisor ID #<%= supSelectedId %>
+                  </option>
+                  <% } %>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="cpAgente"><i class="fas fa-user-shield"></i> Agente <i class="fas fa-lock input-lock-icon"
+              title="Agente autenticado en sesión (Solo lectura)"></i></label>
+          <input type="text" id="cpAgente" class="form-control input-locked"
+            value="<%= user.usuario || user.nombreCompleto %>" readonly tabindex="-1">
+        </div>
+      </div>
+    </div>
+
+    <!-- Bloque 3: REGISTRO (Ingreso de Personas a Perimétrica) -->
+    <div class="card" id="cpRegistroCard">
+      <div class="card-header sio-card-header-flex">
+        <h3 class="cp-section-title" id="cpRegistroTitulo"><i class="fas fa-user-plus"></i> REGISTRO (Ingreso de
+          Personal)</h3>
+        <span id="cpEditModeBadge" class="cp-edit-mode-badge sio-field-hidden" aria-live="polite">
+          <i class="fas fa-pencil-alt"></i>
+          <span>Editando registro #<span id="cpEditModeNum"></span></span>
+        </span>
+      </div>
+
+      <div class="sio-grid-auto">
+        <div class="form-group">
+          <label for="cpRegNombre">Nombre *</label>
+          <input type="text" id="cpRegNombre" class="form-control<%= isUpperCP ? ' sio-input-uppercase' : '' %>"
+            placeholder="Ingrese Nombre" autocomplete="off" autocapitalize="<%= isUpperCP ? 'characters' : 'words' %>"
+            enterkeyhint="next">
+        </div>
+
+        <div class="form-group">
+          <label for="cpRegNoTIA">No. TIA *</label>
+          <input type="text" id="cpRegNoTIA" class="form-control" inputmode="numeric" pattern="[0-9]*"
+            data-numeric-only="true" maxlength="20" placeholder="Ingrese No. TIA (solo números)" autocomplete="off"
+            enterkeyhint="next">
+        </div>
+
+        <div class="form-group">
+          <label for="cpRegHoraIngreso">Hora de Ingreso *</label>
+          <div class="cp-time-row">
+            <input type="time" id="cpRegHoraIngreso" class="form-control" enterkeyhint="next">
+            <button type="button" id="btnCpHoraIngresoActual" class="cp-clock-btn" title="Establecer hora actual">
+              <i class="far fa-clock"></i> Ahora
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group sio-field-hidden" id="grupoCpHoraSalidaEdit">
+          <label for="cpRegHoraSalida">Hora de Salida (Opcional)</label>
+          <div class="cp-time-row">
+            <input type="time" id="cpRegHoraSalida" class="form-control" enterkeyhint="next">
+            <button type="button" id="btnCpHoraSalidaActual" class="cp-clock-btn" title="Establecer hora actual">
+              <i class="far fa-clock"></i> Ahora
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="cpRegEmpresa">Empresa *</label>
+          <select id="cpRegEmpresa" class="form-control">
+            <option value="">-- Seleccione la Empresa --</option>
+            <% empresasCP.forEach(emp=> { %>
+              <option value="<%= emp %>">
+                <%= emp %>
+              </option>
+              <% }) %>
+          </select>
+        </div>
+
+        <div class="form-group sio-field-hidden" id="grupoCpEmpresaOtros">
+          <label for="cpRegEmpresaOtros">
+            <%= isUpperCP ? 'Especifique otra empresa *' : 'Especificar Nueva Empresa *' %>
+          </label>
+          <input type="text" id="cpRegEmpresaOtros" class="form-control<%= isUpperCP ? ' sio-input-uppercase' : '' %>"
+            placeholder="<%= isUpperCP ? 'Escriba el nombre de la empresa' : 'Ingrese la nueva empresa' %>"
+            maxlength="150" autocomplete="off" autocapitalize="<%= isUpperCP ? 'characters' : 'words' %>"
+            enterkeyhint="next">
         </div>
       </div>
 
-      <div class="form-group">
-        <label for="cpPuerta"><i class="fas fa-door-open"></i> Puerta <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
-        <input type="text" id="cpPuerta" class="form-control input-locked" value="<%= vuelo.puertaposicion || '--' %>" readonly tabindex="-1">
+      <div class="form-group sio-mt-14">
+        <label for="cpRegMotivo">Motivo *</label>
+        <textarea id="cpRegMotivo" rows="2" class="form-control" placeholder="Ingrese Motivo de ingreso..."
+          enterkeyhint="done"></textarea>
       </div>
 
-      <div class="form-group">
-        <label for="cpNoVuelo"><i class="fas fa-plane"></i> No. Vuelo <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
-        <input type="text" id="cpNoVuelo" class="form-control input-locked" value="<%= vuelo.novuelo || '--' %>" readonly tabindex="-1">
+      <div class="sio-form-actions-end cp-form-actions">
+        <button type="button" id="btnCpCancelarEdicion" class="btn btn-secondary sio-field-hidden">
+          <i class="fas fa-times"></i> Cancelar Edición
+        </button>
+        <button type="button" id="btnCpAgregarRegistro" class="btn btn-primary sio-btn-wide">
+          <i class="fas fa-plus-circle"></i> GUARDAR REGISTRO
+        </button>
+      </div>
+    </div>
+
+    <!-- Bloque 4: Buscador y Lista de Registros -->
+    <div class="card">
+      <div class="card-header sio-card-header-flex">
+        <h3 class="cp-section-title"><i class="fas fa-users"></i> Registros en Perimétrica</h3>
+        <div id="cpRegistrosEstadoBadge"></div>
       </div>
 
-      <div class="form-group">
-        <label for="cpMatricula"><i class="fas fa-barcode"></i> Matrícula <i class="fas fa-lock input-lock-icon" title="Vinculado al itinerario (Solo lectura)"></i></label>
-        <input type="text" id="cpMatricula" class="form-control input-locked" value="<%= vuelo.Matricula || 'Pendiente' %>" readonly tabindex="-1">
+      <div class="sio-search-bar">
+        <div class="sio-search-input-wrap">
+          <i class="fas fa-search sio-search-icon"></i>
+          <input type="text" id="cpBuscador" class="form-control sio-search-input"
+            placeholder="Buscador: Ingrese nombre, empresa, TIA, motivo u hora a buscar..." autocomplete="off">
+        </div>
+        <button type="button" id="btnCpLimpiarBuscador" class="btn btn-secondary" title="Limpiar filtro">
+          <i class="fas fa-sync-alt"></i> Limpiar
+        </button>
       </div>
 
-      <div class="form-group">
-        <label for="cpSupervisor"><i class="fas fa-user-tie"></i> Supervisor de Turno (LoginSEC)</label>
-        <select id="cpSupervisor" name="supervisorEmpleadoId" class="form-control" required data-search-placeholder="Buscar supervisor por nombre, código o puesto...">
-          <option value="">-- Seleccione el Supervisor --</option>
-          <% (supervisores || []).forEach(sup => { %>
-            <option
-              value="<%= sup.EmpleadoId %>"
-              data-code="<%= sup.Codigo || '' %>"
-              data-puesto="<%= sup.PuestoEmpleado || sup.Puesto || '' %>"
-              data-meta="<%= sup.NombreCompleto || '' %>"
-              <%= String(sup.EmpleadoId) === supSelectedId ? 'selected' : '' %>
-            ><%= sup.Usuario %></option>
-          <% }) %>
-          <% if (!supExistsInList && supSelectedId) { %>
-            <option value="<%= supSelectedId %>" selected>Supervisor ID #<%= supSelectedId %></option>
+      <div id="cpRegistrosLista" class="cp-registros-grid"></div>
+    </div>
+
+    <!-- Bloque 5: Tractorista, No. Unidad, Aleros y Observaciones -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="cp-section-title"><i class="fas fa-truck-pickup"></i> Maquinaria PushBack, Aleros y Observaciones
+        </h3>
+      </div>
+
+      <% if (formato && formato.id==='dl-cp' ) { %>
+        <div class="sio-grid-auto-lg">
+          <div class="form-group">
+            <label for="cpNombreTractoristaDelta"><i class="fas fa-hard-hat"></i> Nombre del Tractorista</label>
+            <input type="text" id="cpNombreTractoristaDelta" name="nombreTractoristaDelta" class="form-control"
+              value="<%= comp && (comp.NombreTractoristaDelta || comp.NombreTractorista) ? (comp.NombreTractoristaDelta || comp.NombreTractorista) : '' %>"
+              placeholder="Nombre completo del tractorista PushBack" autocomplete="off">
+          </div>
+
+          <div class="form-group">
+            <label for="cpTractoristaDelta"><i class="fas fa-tractor"></i> No. Unidad / Maquinaria PushBack</label>
+            <input type="text" id="cpTractoristaDelta" name="tractoristaDelta" class="form-control"
+              value="<%= comp && (comp.TractoristaDelta || comp.Tractorista) ? (comp.TractoristaDelta || comp.Tractorista) : '' %>"
+              placeholder="Ej: TR-04" autocomplete="off">
+          </div>
+
+          <div class="form-group">
+            <label for="cpNombreAlerosDelta"><i class="fas fa-user-friends"></i> Aleros (Nombres)</label>
+            <textarea id="cpNombreAlerosDelta" name="nombreAlerosDelta" rows="2" class="form-control"
+              placeholder="Ej: Carlos López, Juan Pérez"><%= comp && (comp.NombreAlerosDelta || comp.NombreAleros || comp.Aleros) ? (comp.NombreAlerosDelta || comp.NombreAleros || comp.Aleros) : '' %></textarea>
+          </div>
+        </div>
+        <% } else { %>
+          <div class="sio-grid-auto-lg">
+            <div class="form-group">
+              <label for="cpTractorista"><i class="fas fa-hard-hat"></i> Tractorista</label>
+              <select id="cpTractorista" name="tractoristaEmpleadoId" class="form-control"
+                data-search-placeholder="Buscar tractorista por nombre, código o puesto...">
+                <option value="">-- Seleccione a la persona que realiza PushBack --</option>
+                <% (empleados || []).forEach(emp=> { %>
+                  <option value="<%= emp.EmpleadoId %>" data-code="<%= emp.Codigo || '' %>"
+                    data-puesto="<%= emp.Puesto || '' %>" data-depto="<%= emp.DepartamentoInterno || '' %>"
+                    <%=String(emp.EmpleadoId)===trSelectedId ? 'selected' : '' %>
+                    ><%= emp.Nombre %>
+                  </option>
+                  <% }) %>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="cpNoUnidad"><i class="fas fa-tractor"></i> No. Unidad</label>
+              <select id="cpNoUnidad" name="maquinariaEquipoId" class="form-control"
+                data-search-placeholder="Buscar No. de Unidad o tipo de maquinaria...">
+                <option value="">-- Seleccione la unidad --</option>
+                <% (maquinaria || []).forEach(m=> { %>
+                  <option value="<%= m.MaquinariaEquipoId %>" data-code="<%= m.NoUnidad || '' %>"
+                    data-puesto="<%= m.TipoMaquinaria || '' %>" <%=String(m.MaquinariaEquipoId)===unitSelectedId
+                    ? 'selected' : '' %>
+                    ><%= m.NoUnidad %>
+                      <%= m.TipoMaquinaria ? ` — ${m.TipoMaquinaria}` : '' %>
+                  </option>
+                  <% }) %>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="cpAleroSelect"><i class="fas fa-user-friends"></i> Aleros (Máximo 2)</label>
+              <select id="cpAleroSelect" class="form-control"
+                data-search-placeholder="Buscar agente por nombre, código o puesto...">
+                <option value="">-- Seleccionar agentes para aleros --</option>
+                <% (empleados || []).forEach(emp=> { %>
+                  <option value="<%= emp.EmpleadoId %>" data-code="<%= emp.Codigo || '' %>"
+                    data-puesto="<%= emp.Puesto || '' %>" data-depto="<%= emp.DepartamentoInterno || '' %>">
+                    <%= emp.Nombre %>
+                  </option>
+                  <% }) %>
+              </select>
+            </div>
+          </div>
+
+          <div class="sio-mt-18">
+            <label class="sio-aleros-label">
+              <i class="fas fa-users"></i> Aleros Seleccionados:
+            </label>
+            <div id="cpAlerosLista"></div>
+          </div>
           <% } %>
-        </select>
-      </div>
 
-      <div class="form-group">
-        <label for="cpAgente"><i class="fas fa-user-shield"></i> Agente <i class="fas fa-lock input-lock-icon" title="Agente autenticado en sesión (Solo lectura)"></i></label>
-        <input type="text" id="cpAgente" class="form-control input-locked" value="<%= user.usuario || user.nombreCompleto %>" readonly tabindex="-1">
-      </div>
-    </div>
-  </div>
-
-  <!-- Bloque 3: REGISTRO (Ingreso de Personas a Perimétrica) -->
-  <div class="card" id="cpRegistroCard">
-    <div class="card-header sio-card-header-flex">
-      <h3 class="cp-section-title" id="cpRegistroTitulo"><i class="fas fa-user-plus"></i> REGISTRO (Ingreso de Personal)</h3>
-      <span id="cpEditModeBadge" class="cp-edit-mode-badge sio-field-hidden" aria-live="polite">
-        <i class="fas fa-pencil-alt"></i>
-        <span>Editando registro #<span id="cpEditModeNum"></span></span>
-      </span>
+            <div class="form-group sio-mt-18">
+              <label for="cpObservaciones"><i class="fas fa-comment-alt"></i> Observaciones</label>
+              <textarea id="cpObservaciones" name="observaciones" rows="3" class="form-control"
+                placeholder="Ingrese Observaciones (Opcional)..."><%= comp && comp.Observaciones ? comp.Observaciones : '' %></textarea>
+            </div>
     </div>
 
-    <div class="sio-grid-auto">
-      <div class="form-group">
-        <label for="cpRegNombre">Nombre *</label>
-        <input type="text" id="cpRegNombre" class="form-control<%= isAmxCP ? ' sio-input-uppercase' : '' %>" placeholder="Ingrese Nombre" autocomplete="off" autocapitalize="<%= isAmxCP ? 'characters' : 'words' %>" enterkeyhint="next">
-      </div>
-
-      <div class="form-group">
-        <label for="cpRegNoTIA">No. TIA *</label>
-        <input type="text" id="cpRegNoTIA" class="form-control" inputmode="numeric" pattern="[0-9]*" data-numeric-only="true" maxlength="20" placeholder="Ingrese No. TIA (solo números)" autocomplete="off" enterkeyhint="next">
-      </div>
-
-      <div class="form-group">
-        <label for="cpRegHoraIngreso">Hora de Ingreso *</label>
-        <div class="cp-time-row">
-          <input type="time" id="cpRegHoraIngreso" class="form-control" enterkeyhint="next">
-          <button type="button" id="btnCpHoraIngresoActual" class="cp-clock-btn" title="Establecer hora actual">
-            <i class="far fa-clock"></i> Ahora
-          </button>
-        </div>
-      </div>
-
-      <div class="form-group sio-field-hidden" id="grupoCpHoraSalidaEdit">
-        <label for="cpRegHoraSalida">Hora de Salida (Opcional)</label>
-        <div class="cp-time-row">
-          <input type="time" id="cpRegHoraSalida" class="form-control" enterkeyhint="next">
-          <button type="button" id="btnCpHoraSalidaActual" class="cp-clock-btn" title="Establecer hora actual">
-            <i class="far fa-clock"></i> Ahora
-          </button>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="cpRegEmpresa">Empresa *</label>
-        <select id="cpRegEmpresa" class="form-control">
-          <option value="">-- Seleccione la Empresa --</option>
-          <% empresasCP.forEach(emp => { %>
-            <option value="<%= emp %>"><%= emp %></option>
-          <% }) %>
-        </select>
-      </div>
-
-      <div class="form-group sio-field-hidden" id="grupoCpEmpresaOtros">
-        <label for="cpRegEmpresaOtros"><%= isAmxCP ? 'Especifique otra empresa *' : 'Especificar Nueva Empresa *' %></label>
-        <input
-          type="text"
-          id="cpRegEmpresaOtros"
-          class="form-control<%= isAmxCP ? ' sio-input-uppercase' : '' %>"
-          placeholder="<%= isAmxCP ? 'Escriba el nombre de la empresa' : 'Ingrese la nueva empresa' %>"
-          maxlength="150"
-          autocomplete="off"
-          autocapitalize="<%= isAmxCP ? 'characters' : 'words' %>"
-          enterkeyhint="next"
-        >
-      </div>
-    </div>
-
-    <div class="form-group sio-mt-14">
-      <label for="cpRegMotivo">Motivo *</label>
-      <textarea id="cpRegMotivo" rows="2" class="form-control" placeholder="Ingrese Motivo de ingreso..." enterkeyhint="done"></textarea>
-    </div>
-
-    <div class="sio-form-actions-end cp-form-actions">
-      <button type="button" id="btnCpCancelarEdicion" class="btn btn-secondary sio-field-hidden">
-        <i class="fas fa-times"></i> Cancelar Edición
+    <!-- Botones Finales -->
+    <div class="sio-bottom-actions">
+      <button type="button" id="btnCpVistaPreliminar" class="btn btn-secondary sio-btn-action">
+        <i class="fas fa-eye"></i> Vista Preliminar (Auditoría)
       </button>
-      <button type="button" id="btnCpAgregarRegistro" class="btn btn-primary sio-btn-wide">
-        <i class="fas fa-plus-circle"></i> GUARDAR REGISTRO
+      <button type="button" id="btnCpGuardarDefinitivo" class="btn btn-primary sio-btn-action-primary">
+        <i class="fas fa-save"></i>
+        <%= esNuevo ? 'Crear Formato' : 'Actualizar Formato' %>
       </button>
     </div>
-  </div>
-
-  <!-- Bloque 4: Buscador y Lista de Registros -->
-  <div class="card">
-    <div class="card-header sio-card-header-flex">
-      <h3 class="cp-section-title"><i class="fas fa-users"></i> Registros en Perimétrica</h3>
-      <div id="cpRegistrosEstadoBadge"></div>
-    </div>
-
-    <div class="sio-search-bar">
-      <div class="sio-search-input-wrap">
-        <i class="fas fa-search sio-search-icon"></i>
-        <input
-          type="text"
-          id="cpBuscador"
-          class="form-control sio-search-input"
-          placeholder="Buscador: Ingrese nombre, empresa, TIA, motivo u hora a buscar..."
-          autocomplete="off"
-        >
-      </div>
-      <button type="button" id="btnCpLimpiarBuscador" class="btn btn-secondary" title="Limpiar filtro">
-        <i class="fas fa-sync-alt"></i> Limpiar
-      </button>
-    </div>
-
-    <div id="cpRegistrosLista" class="cp-registros-grid"></div>
-  </div>
-
-  <!-- Bloque 5: Tractorista, No. Unidad, Aleros y Observaciones -->
-  <div class="card">
-    <div class="card-header">
-      <h3 class="cp-section-title"><i class="fas fa-truck-pickup"></i> Maquinaria PushBack, Aleros y Observaciones</h3>
-    </div>
-
-    <% if (formato && formato.id === 'dl-cp') { %>
-      <div class="sio-grid-auto-lg">
-        <div class="form-group">
-          <label for="cpNombreTractoristaDelta"><i class="fas fa-hard-hat"></i> Nombre del Tractorista</label>
-          <input
-            type="text"
-            id="cpNombreTractoristaDelta"
-            name="nombreTractoristaDelta"
-            class="form-control"
-            value="<%= comp && (comp.NombreTractoristaDelta || comp.NombreTractorista) ? (comp.NombreTractoristaDelta || comp.NombreTractorista) : '' %>"
-            placeholder="Nombre completo del tractorista PushBack"
-            autocomplete="off"
-          >
-        </div>
-
-        <div class="form-group">
-          <label for="cpTractoristaDelta"><i class="fas fa-tractor"></i> No. Unidad / Maquinaria PushBack</label>
-          <input
-            type="text"
-            id="cpTractoristaDelta"
-            name="tractoristaDelta"
-            class="form-control"
-            value="<%= comp && (comp.TractoristaDelta || comp.Tractorista) ? (comp.TractoristaDelta || comp.Tractorista) : '' %>"
-            placeholder="Ej: TR-04"
-            autocomplete="off"
-          >
-        </div>
-
-        <div class="form-group">
-          <label for="cpNombreAlerosDelta"><i class="fas fa-user-friends"></i> Aleros (Nombres)</label>
-          <input
-            type="text"
-            id="cpNombreAlerosDelta"
-            name="nombreAlerosDelta"
-            class="form-control"
-            value="<%= comp && (comp.NombreAlerosDelta || comp.NombreAleros || comp.Aleros) ? (comp.NombreAlerosDelta || comp.NombreAleros || comp.Aleros) : '' %>"
-            placeholder="Ej: Carlos López, Juan Pérez"
-            autocomplete="off"
-          >
-        </div>
-      </div>
-    <% } else { %>
-      <div class="sio-grid-auto-lg">
-        <div class="form-group">
-          <label for="cpTractorista"><i class="fas fa-hard-hat"></i> Tractorista</label>
-          <select id="cpTractorista" name="tractoristaEmpleadoId" class="form-control" data-search-placeholder="Buscar tractorista por nombre, código o puesto...">
-            <option value="">-- Seleccione a la persona que realiza PushBack --</option>
-            <% (empleados || []).forEach(emp => { %>
-              <option
-                value="<%= emp.EmpleadoId %>"
-                data-code="<%= emp.Codigo || '' %>"
-                data-puesto="<%= emp.Puesto || '' %>"
-                data-depto="<%= emp.DepartamentoInterno || '' %>"
-                <%= String(emp.EmpleadoId) === trSelectedId ? 'selected' : '' %>
-              ><%= emp.Nombre %></option>
-            <% }) %>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="cpNoUnidad"><i class="fas fa-tractor"></i> No. Unidad</label>
-          <select id="cpNoUnidad" name="maquinariaEquipoId" class="form-control" data-search-placeholder="Buscar No. de Unidad o tipo de maquinaria...">
-            <option value="">-- Seleccione la unidad --</option>
-            <% (maquinaria || []).forEach(m => { %>
-              <option
-                value="<%= m.MaquinariaEquipoId %>"
-                data-code="<%= m.NoUnidad || '' %>"
-                data-puesto="<%= m.TipoMaquinaria || '' %>"
-                <%= String(m.MaquinariaEquipoId) === unitSelectedId ? 'selected' : '' %>
-              ><%= m.NoUnidad %><%= m.TipoMaquinaria ? ` — ${m.TipoMaquinaria}` : '' %></option>
-            <% }) %>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="cpAleroSelect"><i class="fas fa-user-friends"></i> Aleros (Máximo 2)</label>
-          <select id="cpAleroSelect" class="form-control" data-search-placeholder="Buscar agente por nombre, código o puesto...">
-            <option value="">-- Seleccionar agentes para aleros --</option>
-            <% (empleados || []).forEach(emp => { %>
-              <option
-                value="<%= emp.EmpleadoId %>"
-                data-code="<%= emp.Codigo || '' %>"
-                data-puesto="<%= emp.Puesto || '' %>"
-                data-depto="<%= emp.DepartamentoInterno || '' %>"
-              ><%= emp.Nombre %></option>
-            <% }) %>
-          </select>
-        </div>
-      </div>
-
-      <div class="sio-mt-18">
-        <label class="sio-aleros-label">
-          <i class="fas fa-users"></i> Aleros Seleccionados:
-        </label>
-        <div id="cpAlerosLista"></div>
-      </div>
-    <% } %>
-
-    <div class="form-group sio-mt-18">
-      <label for="cpObservaciones"><i class="fas fa-comment-alt"></i> Observaciones</label>
-      <textarea
-        id="cpObservaciones"
-        name="observaciones"
-        rows="3"
-        class="form-control"
-        placeholder="Ingrese Observaciones (Opcional)..."
-      ><%= comp && comp.Observaciones ? comp.Observaciones : '' %></textarea>
-    </div>
-  </div>
-
-  <!-- Botones Finales -->
-  <div class="sio-bottom-actions">
-    <button type="button" id="btnCpVistaPreliminar" class="btn btn-secondary sio-btn-action">
-      <i class="fas fa-eye"></i> Vista Preliminar (Auditoría)
-    </button>
-    <button type="button" id="btnCpGuardarDefinitivo" class="btn btn-primary sio-btn-action-primary">
-      <i class="fas fa-save"></i> <%= esNuevo ? 'Crear Formato' : 'Actualizar Formato' %>
-    </button>
-  </div>
-</form>
+  </form>

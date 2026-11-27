@@ -222,7 +222,7 @@
             <tr>
                 <td colspan="4" class="missing-names-cell">
                     <span class="bold">NAMES OF PASSENGERS MISSING FLIGHT:</span><br/>
-                    <span class="val">@{body('Parse_JSON_1')?['NamesMissingPassengers']}</span>
+                    <span class="val" style="white-space: pre-wrap;">@{body('Parse_JSON_1')?['NamesMissingPassengers']}</span>
                 </td>
             </tr>
 

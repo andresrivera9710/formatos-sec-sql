@@ -1626,6 +1626,281 @@ async function runUnitChecks() {
   assert.strictEqual(cpAmxLiteralOtros.valido, false, 'amx-cp debe rechazar el texto genérico literal "OTROS" sin nombre de empresa');
   assert(cpAmxLiteralOtros.errors.some(e => e.field === 'Empresa'), 'amx-cp debe reportar error en campo Empresa cuando llega literal OTROS');
 
+  // Validar reglas DELTA CP (dl-cp): Catálogo de 8 opciones con OTROS + Nombre y Empresa externa en MAYÚSCULAS
+  assert.deepStrictEqual(
+    FormatosService.EMPRESAS_CP_DELTA,
+    ['LAATS', 'DELTA', 'SAG', 'ODA', 'GODARD', 'OIRSA', 'DGAC (Operaciones)', 'OTROS'],
+    'EMPRESAS_CP_DELTA debe contener las 7 empresas fijas de DELTA más OTROS al final'
+  );
+  const cpDeltaOk = FormatoValidationService.validarControlCP(
+    {
+      formatoId: 'dl-cp',
+      itinerarioId: 39901,
+      datos: {
+        cpPayload: {
+          fecha: '2026-01-01',
+          horaInicio: '08:00',
+          supervisorEmpleadoId: 289,
+          registros: [
+            { Nombre: 'ana maría castillo', NoTIA: '412', Empresa: 'DGAC (Operaciones)', HoraIngreso: '08:05', Motivo: 'Inspección', HoraSalida: '08:25' },
+            { Nombre: 'luis gómez', NoTIA: '413', Empresa: 'catering externo gua', HoraIngreso: '08:10', Motivo: 'Abastecimiento', HoraSalida: '08:30' }
+          ]
+        }
+      }
+    },
+    userMock,
+    { itinerarioId: 39901, FechaItinerado: '2026-01-01' }
+  );
+  assert.strictEqual(cpDeltaOk.valido, true, 'dl-cp debe aceptar empresas fijas DELTA y empresas externas vía OTROS');
+  assert.strictEqual(cpDeltaOk.normalized.registros[0].Nombre, 'ANA MARÍA CASTILLO', 'dl-cp debe transformar Nombre a MAYÚSCULAS en backend');
+  assert.strictEqual(cpDeltaOk.normalized.registros[0].Empresa, 'DGAC (Operaciones)', 'dl-cp debe conservar intacta la opción fija DGAC (Operaciones)');
+  assert.strictEqual(cpDeltaOk.normalized.registros[1].Empresa, 'CATERING EXTERNO GUA', 'dl-cp debe normalizar a MAYÚSCULAS la empresa externa ingresada vía OTROS');
+
+  const cpDeltaLiteralOtros = FormatoValidationService.validarControlCP(
+    {
+      formatoId: 'dl-cp',
+      itinerarioId: 39901,
+      datos: {
+        cpPayload: {
+          fecha: '2026-01-01',
+          horaInicio: '08:00',
+          supervisorEmpleadoId: 289,
+          registros: [
+            { Nombre: 'Luis', NoTIA: '414', Empresa: 'OTROS', HoraIngreso: '08:10', Motivo: 'Soporte', HoraSalida: '08:30' }
+          ]
+        }
+      }
+    },
+    userMock,
+    { itinerarioId: 39901, FechaItinerado: '2026-01-01' }
+  );
+  assert.strictEqual(cpDeltaLiteralOtros.valido, false, 'dl-cp debe rechazar el texto genérico literal "OTROS"');
+  assert(cpDeltaLiteralOtros.errors.some(e => e.field === 'Empresa'), 'dl-cp debe reportar error en Empresa cuando llega literal OTROS');
+
+  // Validar que dl-dal y dl-sel sin firmas opcionales no filtren el texto literal "BLANK_IMG"
+  const dalNoSigHtml = HtmlPreviewService.renderHtmlPreview({
+    formatoId: 'dl-dal',
+    vars: HtmlPreviewService.buildAeromexicoOtherData({
+      formatoId: 'dl-dal',
+      formDatos: { dalPayload: { fecha: '2026-01-01', evaluadores: 'SCR1', nombreGuardia: 'G1', nombreGuardia2: 'G2', nombreGuardia3: 'G3', nombreAgentes: 'AG1', nombreGuardiaEscolta: 'ESC1', nombreAgenteDelta: 'DL1' } },
+      vuelo: { novuelo: '1830/1831', Matricula: 'N695DL', FechaItinerado: '2026-01-01', Destino: 'ATL' },
+      user: userMock
+    }),
+    documentTitle: '1830_1831_N695DL_Daily Activity Log_PRELIMINAR'
+  });
+  assert(!dalNoSigHtml.includes('src="BLANK_IMG"'), 'dl-dal sin firma no debe renderizar src="BLANK_IMG"');
+
+  const selNoSigHtml = HtmlPreviewService.renderHtmlPreview({
+    formatoId: 'dl-sel',
+    vars: HtmlPreviewService.buildAeromexicoOtherData({
+      formatoId: 'dl-sel',
+      formDatos: { selPayload: { fecha: '2026-01-01', observaciones: 'Linea 1\nLinea 2' } },
+      vuelo: { novuelo: '1830/1831', Matricula: 'N695DL', FechaItinerado: '2026-01-01' },
+      user: userMock
+    }),
+    documentTitle: '1830_1831_N695DL_Sequence of Events Log_PRELIMINAR'
+  });
+  assert(!selNoSigHtml.includes('src="BLANK_IMG"'), 'dl-sel sin firma no debe renderizar src="BLANK_IMG"');
+
+  // Validar reglas ARAJET (6/6): EMPRESAS_CP_ARAJET, ara-cp, ara-ciec, ara-cec TIA numérico, ara-cfr persistido y plantillas HTML
+  assert.deepStrictEqual(
+    FormatosService.EMPRESAS_CP_ARAJET,
+    ['LAATS', 'GODARD(Cocinas)', 'ODA (Combustible)', 'OIRSA', 'DGAC (Operaciones)', 'OTROS'],
+    'EMPRESAS_CP_ARAJET debe contener las 5 empresas fijas de ARAJET más OTROS al final'
+  );
+  const cpAraOk = FormatoValidationService.validarControlCP(
+    {
+      formatoId: 'ara-cp',
+      itinerarioId: 39901,
+      datos: {
+        cpPayload: {
+          fecha: '2026-01-01',
+          horaInicio: '09:00',
+          supervisorEmpleadoId: 289,
+          registros: [
+            { Nombre: 'pedro ramírez', NoTIA: '501', Empresa: 'GODARD(Cocinas)', HoraIngreso: '09:05', Motivo: 'Catering', HoraSalida: '09:20' },
+            { Nombre: 'sofía ruiz', NoTIA: '502', Empresa: 'rampa externa arajet', HoraIngreso: '09:10', Motivo: 'Soporte', HoraSalida: '09:25' }
+          ]
+        }
+      }
+    },
+    userMock,
+    { itinerarioId: 39901, FechaItinerado: '2026-01-01' }
+  );
+  assert.strictEqual(cpAraOk.valido, true, 'ara-cp debe aceptar empresas fijas ARAJET y empresa externa vía OTROS');
+  assert.strictEqual(cpAraOk.normalized.registros[0].Nombre, 'PEDRO RAMÍREZ', 'ara-cp debe transformar Nombre a MAYÚSCULAS');
+  assert.strictEqual(cpAraOk.normalized.registros[0].Empresa, 'GODARD(Cocinas)', 'ara-cp debe conservar GODARD(Cocinas)');
+  assert.strictEqual(cpAraOk.normalized.registros[1].Empresa, 'RAMPA EXTERNA ARAJET', 'ara-cp debe normalizar a MAYÚSCULAS la empresa externa');
+
+  const cpAraLiteralOtros = FormatoValidationService.validarControlCP(
+    {
+      formatoId: 'ara-cp',
+      itinerarioId: 39901,
+      datos: {
+        cpPayload: {
+          fecha: '2026-01-01',
+          horaInicio: '09:00',
+          supervisorEmpleadoId: 289,
+          registros: [{ Nombre: 'Pedro', NoTIA: '503', Empresa: 'OTROS', HoraIngreso: '09:10', Motivo: 'Test', HoraSalida: '09:20' }]
+        }
+      }
+    },
+    userMock,
+    { itinerarioId: 39901, FechaItinerado: '2026-01-01' }
+  );
+  assert.strictEqual(cpAraLiteralOtros.valido, false, 'ara-cp debe rechazar literal "OTROS"');
+
+  const ciecAraLiteralOtros = FormatoValidationService.validarControlCIEC(
+    {
+      formatoId: 'ara-ciec',
+      itinerarioId: 39901,
+      datos: {
+        ciecPayload: {
+          fecha: '2026-01-01',
+          horaInicio: '09:00',
+          supervisorEmpleadoId: 289,
+          registros: [{ Nombre: 'Pedro', NoTIA: '504', Empresa: 'OTROS', HoraIngreso: '09:10', Motivo: 'Cabina', HoraSalida: '09:20' }]
+        }
+      }
+    },
+    userMock,
+    { itinerarioId: 39901, FechaItinerado: '2026-01-01' }
+  );
+  assert.strictEqual(ciecAraLiteralOtros.valido, false, 'ara-ciec debe rechazar literal "OTROS"');
+
+  const cecAraAlphaTia = FormatoValidationService.validarControlCEC(
+    {
+      formatoId: 'ara-cec',
+      itinerarioId: 39901,
+      datos: {
+        cecPayload: {
+          fecha: '2026-01-01',
+          horaInicio: '09:00',
+          supervisor: 'KARLA ORTIZ',
+          agente: 'ANDRES RIVERA',
+          compartimientoNo: 1,
+          equipaje: 10,
+          tiaOirsa: 'XYZ99'
+        }
+      }
+    },
+    userMock,
+    { itinerarioId: 39901, FechaItinerado: '2026-01-01' }
+  );
+  assert.strictEqual(cecAraAlphaTia.valido, false, 'ara-cec debe rechazar TIA alfanumérico');
+
+  // Validar hidratación persistida de ara-cfr (SharePoint / vista directa sin IDs crudos)
+  const cfrPersistedVars = HtmlPreviewService.buildAeromexicoOtherData({
+    formatoId: 'ara-cfr',
+    formDatos: {},
+    preferPersisted: true,
+    hydrated: {
+      cfrState: {
+        complemento: {
+          EmpleadoId: 289,
+          CreadoPor: 'ANDRES RIVERA',
+          PrimeraPlataforma: '10:05',
+          UltimaPlataforma: '11:15',
+          InicioOperacion: '09:50',
+          HoraCierre: '11:30',
+          AviCantidad: 2,
+          ComatCantidad: 1
+        },
+        detalles: [
+          { CarretaId: 10, FlejeUno: '45001', FlejeDos: '45002', MaquinariaEquipoId: 20, TotalEqDetalle: 28, EmpleadoId: 301 }
+        ]
+      },
+      supervisores: [{ EmpleadoId: 289, Usuario: 'KARLA ORTIZ' }],
+      empleados: [{ EmpleadoId: 301, Nombre: 'MARIO OPERADOR' }],
+      maquinaria: [
+        { MaquinariaEquipoId: 10, NoUnidad: 'CAR-07' },
+        { MaquinariaEquipoId: 20, NoUnidad: 'TR-12' }
+      ]
+    },
+    vuelo: { novuelo: 'DM-101', Destino: 'SDQ', Matricula: 'HI1078', FechaItinerado: '2026-01-01' },
+    user: {}
+  });
+  assert.strictEqual(cfrPersistedVars.Supervisor, 'KARLA ORTIZ', 'ara-cfr persistido debe resolver Supervisor por EmpleadoId');
+  assert.strictEqual(cfrPersistedVars.AgenteAVSEC, 'ANDRES RIVERA', 'ara-cfr persistido debe hidratar AgenteAVSEC desde CreadoPor');
+  assert(cfrPersistedVars.TablaCarretasHTML.includes('CAR-07') && cfrPersistedVars.TablaCarretasHTML.includes('TR-12') && cfrPersistedVars.TablaCarretasHTML.includes('MARIO OPERADOR'), 'ara-cfr persistido debe resolver nombres/unidades en lugar de IDs numéricos crudos');
+  const cfrPersistedHtml = HtmlPreviewService.renderHtmlPreview({
+    formatoId: 'ara-cfr',
+    vars: cfrPersistedVars,
+    documentTitle: 'DM-101_HI1078_Control de Flejes en Rayos X_1'
+  });
+  assert(cfrPersistedHtml.includes('background-color: #ffffff;'), 'ara-cfr debe renderizarse sobre fondo #ffffff');
+  assert(cfrPersistedHtml.includes('ENVIADA A PLATAFORMA'), 'ara-cfr debe corregir encabezado ENVIADA A PLATAFORMA');
+  assert(!cfrPersistedHtml.includes('PLATAFOMA'), 'ara-cfr no debe contener typo PLATAFOMA');
+
+  // Validar plantillas HTML de ARAJET
+  const araErTpl = HtmlPreviewService.readRawTemplate('ara-er');
+  assert(araErTpl.includes('AGENTE DE SEGURIDAD ARAJET DURANTE LA INSPECCIÓN'), 'ara-er debe mostrar ARAJET en encabezado de columna 9');
+  assert(!araErTpl.includes('AGENTE DE SEGURIDAD DL DURANTE LA INSPECCIÓN'), 'ara-er no debe mostrar DL en encabezado');
+  const araEbTpl = HtmlPreviewService.readRawTemplate('ara-eb');
+  assert(araEbTpl.includes('alt="Logo Arajet"') && !araEbTpl.includes('Logo Aeromexico'), 'ara-eb debe usar alt="Logo Arajet"');
+  for (const araFmt of ['ara-cp', 'ara-ciec', 'ara-er', 'ara-eb', 'ara-cec', 'ara-cfr']) {
+    const rawTpl = HtmlPreviewService.readRawTemplate(araFmt);
+    assert(rawTpl.includes('background-color: #ffffff;'), `${araFmt} debe usar background-color: #ffffff;`);
+    assert(!/onerror\s*=/i.test(rawTpl), `${araFmt} no debe tener atributos inline onerror`);
+  }
+
+  // Regresión: Vista Preliminar en vivo (preferPersisted: false) de Control de Perimétrica en AMX, ARAJET y DELTA
+  // debe incluir Tractorista/Unidad, Aleros, Supervisor, Arribo, Aeronave Asegurada, Observaciones y Registros
+  const SharePointSyncQueueService = require(path.join(ROOT_DIR, 'services', 'SharePointSyncQueueService'));
+  for (const cpCase of [
+    {
+      formatoId: 'amx-cp',
+      vuelo: { novuelo: '672/673', Matricula: 'XA-AMX', puertaposicion: '12', FechaItinerado: '2026-01-01', operador: 'AEROMEXICO' },
+      cpPayload: {
+        fecha: '2026-01-01', horaInicio: '08:10', supervisorNombre: 'KARLA ORTIZ', arriboDelVuelo: '07:55', horaAsegurado: '08:05',
+        tractoristaNombre: 'AARON LUNA MIJANGOS', noUnidadLabel: 'AT-06',
+        alerosNombres: ['ABSNER KIRBER HERNANDEZ BARRIENTOS', 'ADA GRISELA HERNANDEZ GARCIA'],
+        observaciones: 'Obs AMX Linea 1',
+        registros: [{ Nombre: 'JUAN PEREZ', NoTIA: '410', HoraIngreso: '08:12', Empresa: 'LAATS', Motivo: 'Rampa', HoraSalida: '08:25' }]
+      },
+      mustContain: ['KARLA ORTIZ', '07:55', '08:05', 'AARON LUNA MIJANGOS / AT-06', 'ABSNER KIRBER HERNANDEZ BARRIENTOS', 'ADA GRISELA HERNANDEZ GARCIA', 'Obs AMX Linea 1', 'JUAN PEREZ']
+    },
+    {
+      formatoId: 'ara-cp',
+      vuelo: { novuelo: '4006/4601', Matricula: 'HI1026', puertaposicion: '07', FechaItinerado: '2026-01-01', operador: 'ARAJET' },
+      cpPayload: {
+        fecha: '2026-01-01', horaInicio: '07:50', supervisorNombre: 'ANDRES RIVERA', arriboDelVuelo: '07:40', horaAsegurado: '07:45',
+        tractoristaNombre: 'AARON LUNA MIJANGOS', noUnidadLabel: 'AT-06',
+        alerosNombres: ['ABSNER KIRBER HERNANDEZ BARRIENTOS', 'ADA GRISELA HERNANDEZ GARCIA'],
+        observaciones: 'Obs ARAJET',
+        registros: [{ Nombre: 'MARIA LOPEZ', NoTIA: '512', HoraIngreso: '07:52', Empresa: 'GODARD(Cocinas)', Motivo: 'Cocina', HoraSalida: '' }]
+      },
+      mustContain: ['ANDRES RIVERA', '07:40', '07:45', 'AARON LUNA MIJANGOS / AT-06', 'ABSNER KIRBER HERNANDEZ BARRIENTOS', 'ADA GRISELA HERNANDEZ GARCIA', 'Obs ARAJET', 'MARIA LOPEZ', 'Pendiente']
+    },
+    {
+      formatoId: 'dl-cp',
+      vuelo: { novuelo: '1830/1831', Matricula: 'N695DL', puertaposicion: '11', FechaItinerado: '2026-01-01', operador: 'DELTA' },
+      cpPayload: {
+        fecha: '2026-01-01', horaInicio: '12:40', supervisorNombre: 'KARLA ORTIZ', arriboDelVuelo: '12:33', horaAsegurado: '12:38',
+        nombreTractoristaDelta: 'ERWIN MARROQUIN', tractoristaDelta: 'AT-212',
+        nombreAlerosDelta: 'ANTONIO CAC, VINICIO RAX',
+        observaciones: 'Obs DELTA',
+        registros: [{ Nombre: 'CARLOS RUIZ', NoTIA: '777', HoraIngreso: '12:45', Empresa: 'DELTA', Motivo: 'Cabina', HoraSalida: '13:00' }]
+      },
+      mustContain: ['KARLA ORTIZ', '12:33', '12:38', 'ERWIN MARROQUIN / AT-212', 'ANTONIO CAC, VINICIO RAX', 'Obs DELTA', 'CARLOS RUIZ']
+    }
+  ]) {
+    const builtLive = SharePointSyncQueueService.construirHtmlControlado({
+      formatoId: cpCase.formatoId,
+      vuelo: cpCase.vuelo,
+      user: userMock,
+      hydrated: { datos: [], complementos: [] },
+      formDatos: { cpPayload: cpCase.cpPayload },
+      preferPersisted: false
+    });
+    for (const expectedText of cpCase.mustContain) {
+      assert(
+        builtLive.htmlContent.includes(expectedText),
+        `Vista preliminar en vivo de ${cpCase.formatoId} omitió "${expectedText}"`
+      );
+    }
+  }
+
   // Validar preservación de secuencia original + X roja superpuesta en vistas preliminares (EB, CEC y CIEC)
   const ebWithdrawnVars = HtmlPreviewService.buildAeromexicoOtherData({
     formatoId: 'amx-eb',
@@ -2075,6 +2350,27 @@ async function runSignatureRepositoryChecks() {
     for (const lbl of ['data-label="No."', 'data-label="Nombre del Pasajero *"', 'data-label="Secuencia *"', 'data-label="Colilla *"', 'data-label="No. Vuelo"', 'data-label="Destino"', 'data-label="Hora de Revisión *"', 'data-label="Agente AVSEC *"']) {
       assert(formatoErJs.includes(lbl), `formato-er.js debe incluir ${lbl} para tarjetas móviles legibles`);
     }
+
+    // 5.4 Auditoría CSP cero estilos inline + tarjetas móviles en los 5 módulos dedicados DELTA
+    for (const deltaEjs of ['formato_rx.ejs', 'formato_cll.ejs', 'formato_sp.ejs', 'formato_dal.ejs', 'formato_sel.ejs']) {
+      const src = fs.readFileSync(path.join(ROOT_DIR, 'views', 'partials', deltaEjs), 'utf8');
+      assert(!/\sstyle\s*=/i.test(src), `views/partials/${deltaEjs} no debe contener estilos inline (Helmet CSP)`);
+    }
+    for (const deltaJs of ['formato-rx.js', 'formato-cll.js', 'formato-sp.js']) {
+      const src = fs.readFileSync(path.join(ROOT_DIR, 'public', 'js', deltaJs), 'utf8');
+      assert(!/\sstyle\s*=/i.test(src), `public/js/${deltaJs} no debe inyectar estilos inline (Helmet CSP)`);
+      assert(src.includes('data-label='), `public/js/${deltaJs} debe incluir atributos data-label para tarjetas móviles`);
+    }
+    const cllJsSrc = fs.readFileSync(path.join(ROOT_DIR, 'public', 'js', 'formato-cll.js'), 'utf8');
+    assert(cllJsSrc.includes('agenteDeltaPersist'), 'formato-cll.js debe concatenar agenteDelta + tiaLD al persistir en dbo.EncabezadoCLL');
+
+    // 5.5 Auditoría CSP cero estilos inline + tarjetas móviles + validación correcta en ara-cfr
+    const formatoCfrEjs = fs.readFileSync(path.join(ROOT_DIR, 'views', 'partials', 'formato_cfr.ejs'), 'utf8');
+    assert(!/\sstyle\s*=/i.test(formatoCfrEjs), 'views/partials/formato_cfr.ejs no debe contener estilos inline (Helmet CSP)');
+    assert(formatoCfrEjs.includes('input-locked') && formatoCfrEjs.includes('dl-stacked-table'), 'formato_cfr.ejs debe bloquear metadatos del itinerario y usar tarjetas móviles dl-stacked-table');
+    const formatoCfrJs = fs.readFileSync(path.join(ROOT_DIR, 'public', 'js', 'formato-cfr.js'), 'utf8');
+    assert(!/\.style\b/.test(formatoCfrJs) && !/\sstyle\s*=/i.test(formatoCfrJs), 'public/js/formato-cfr.js no debe mutar ni inyectar estilos inline');
+    assert(formatoCfrJs.includes('validateFluidGridFormat') && !formatoCfrJs.includes('validateFormat('), 'formato-cfr.js debe invocar validateFluidGridFormat de SioFormatValidator');
 
     const appJsSrc = fs.readFileSync(path.join(ROOT_DIR, 'public', 'js', 'app.js'), 'utf8');
     assert(!/endsWith\(['"]-er['"]\)/.test(appJsSrc), 'public/js/app.js no debe omitir /api/formatos/verificar para formatos -er');

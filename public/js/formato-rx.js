@@ -78,12 +78,37 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   }
 
+  function notifyOfflineChange() {
+    window.SioOfflineManager?.notifyStateChange?.();
+  }
+
+  function isEnterKey(e) {
+    return (e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter' || e.keyCode === 13)
+      && !e.isComposing
+      && e.keyCode !== 229;
+  }
+
+  function focusNoScroll(el) {
+    if (!el) return;
+    if (Validator?.focusWithoutScroll) Validator.focusWithoutScroll(el);
+    else {
+      try { el.focus({ preventScroll: true }); } catch (_) { el.focus(); }
+    }
+  }
+
+  function runWithLockedScroll(fn, lockedPos = null) {
+    if (Validator?.preserveScroll) return Validator.preserveScroll(fn, lockedPos);
+    return fn();
+  }
+
   form.querySelectorAll('[data-rx-clock]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const target = document.getElementById(btn.getAttribute('data-rx-clock'));
       if (target) {
         target.value = getNowHHMM();
         target.dispatchEvent(new Event('input', { bubbles: true }));
+        target.dispatchEvent(new Event('change', { bubbles: true }));
+        notifyOfflineChange();
       }
     });
   });
@@ -94,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (personalSAG.length === 0) {
       tbodySag.innerHTML = `
         <tr class="er-empty-row">
-          <td colspan="4" style="text-align:center; padding:18px; color:var(--text-3);">
+          <td colspan="4" class="dl-empty-cell">
             Sin integrantes registrados en Personal SAG.
           </td>
         </tr>`;
@@ -103,16 +128,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     tbodySag.innerHTML = personalSAG.map((s, idx) => `
       <tr data-row-index="${idx}" data-sag-idx="${idx}" class="er-grid-row">
-        <td style="text-align:center; font-weight:700;">${idx + 1}</td>
-        <td>
+        <td class="dl-td-num" data-label="No.">
+          <span class="dl-num-badge"><span class="dl-mobile-prefix">SAG #</span>${idx + 1}</span>
+        </td>
+        <td class="dl-td-full" data-label="Nombre SAG *">
           <input type="text" class="form-control er-cell-input" data-field="Nombre" maxlength="150" value="${escapeHtmlAttr(s.Nombre)}" placeholder="Nombre completo *">
         </td>
-        <td>
-          <input type="text" class="form-control er-cell-input er-cell-center" data-field="Id" maxlength="50" value="${escapeHtmlAttr(s.Id)}" placeholder="ID *">
+        <td class="dl-td-full" data-label="ID / TIA *">
+          <input type="text" class="form-control er-cell-input er-cell-center" data-field="Id" inputmode="numeric" pattern="[0-9]*" data-numeric-only="true" maxlength="50" value="${escapeHtmlAttr(s.Id)}" placeholder="Solo números *">
         </td>
-        <td style="text-align:center;">
-          <button type="button" class="btn btn-danger btn-rx-del-sag" data-idx="${idx}" style="padding:4px 8px; font-size:11px;" title="Retirar">
-            <i class="fas fa-trash-alt"></i>
+        <td class="dl-td-action" data-label="Acción">
+          <button type="button" class="btn btn-danger dl-del-btn btn-rx-del-sag" data-idx="${idx}" title="Retirar">
+            <i class="fas fa-trash-alt"></i><span class="dl-mobile-action-label"> Retirar</span>
           </button>
         </td>
       </tr>
@@ -134,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (personalLaats.length === 0) {
       tbodyLaats.innerHTML = `
         <tr class="er-empty-row">
-          <td colspan="4" style="text-align:center; padding:18px; color:var(--text-3);">
+          <td colspan="4" class="dl-empty-cell">
             Sin integrantes registrados en Personal LAATS.
           </td>
         </tr>`;
@@ -143,16 +170,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     tbodyLaats.innerHTML = personalLaats.map((l, idx) => `
       <tr data-row-index="${idx}" data-laats-idx="${idx}" class="er-grid-row">
-        <td style="text-align:center; font-weight:700;">${idx + 1}</td>
-        <td>
-          <select class="form-control er-cell-input" data-field="EmpleadoId">${buildLaatsOptions(l.EmpleadoId)}</select>
+        <td class="dl-td-num" data-label="No.">
+          <span class="dl-num-badge"><span class="dl-mobile-prefix">LAATS #</span>${idx + 1}</span>
         </td>
-        <td>
-          <input type="text" class="form-control er-cell-input er-cell-center" data-field="Id" maxlength="50" value="${escapeHtmlAttr(l.Id)}" placeholder="ID *">
+        <td class="dl-td-full" data-label="Agente LAATS *">
+          <select class="form-control er-cell-input" data-field="EmpleadoId" data-no-searchable="true">${buildLaatsOptions(l.EmpleadoId)}</select>
         </td>
-        <td style="text-align:center;">
-          <button type="button" class="btn btn-danger btn-rx-del-laats" data-idx="${idx}" style="padding:4px 8px; font-size:11px;" title="Retirar">
-            <i class="fas fa-trash-alt"></i>
+        <td class="dl-td-full" data-label="ID / TIA *">
+          <input type="text" class="form-control er-cell-input er-cell-center" data-field="Id" inputmode="numeric" pattern="[0-9]*" data-numeric-only="true" maxlength="50" value="${escapeHtmlAttr(l.Id)}" placeholder="Solo números *">
+        </td>
+        <td class="dl-td-action" data-label="Acción">
+          <button type="button" class="btn btn-danger dl-del-btn btn-rx-del-laats" data-idx="${idx}" title="Retirar">
+            <i class="fas fa-trash-alt"></i><span class="dl-mobile-action-label"> Retirar</span>
           </button>
         </td>
       </tr>
@@ -163,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return esc(str);
   }
 
-  document.getElementById('btnAgregarSagRX')?.addEventListener('click', () => {
+  function agregarSag(lockedPos = null) {
     const nombre = String(inputSagNombre?.value || '').trim();
     const id = String(inputSagId?.value || '').trim();
     Validator?.clearValidationErrors(form);
@@ -180,30 +209,17 @@ document.addEventListener('DOMContentLoaded', () => {
       Validator?.notifyValidationErrors(errs, 'Datos Incompletos — Personal SAG');
       return;
     }
-    const applyAddSag = () => {
+    runWithLockedScroll(() => {
       personalSAG.push({ No: personalSAG.length + 1, PersonalSAGId: 0, Nombre: nombre, Id: id });
       inputSagNombre.value = '';
       inputSagId.value = '';
       renderTablaSag();
-      Validator?.focusWithoutScroll ? Validator.focusWithoutScroll(inputSagNombre) : inputSagNombre.focus({ preventScroll: true });
-    };
-    if (Validator?.preserveScroll) Validator.preserveScroll(applyAddSag);
-    else applyAddSag();
-  });
+      notifyOfflineChange();
+      focusNoScroll(inputSagNombre);
+    }, lockedPos);
+  }
 
-  inputSagId?.addEventListener('keydown', (e) => {
-    if ((e.key === 'Enter' || e.keyCode === 13) && !e.isComposing && e.keyCode !== 229) {
-      e.preventDefault();
-      document.getElementById('btnAgregarSagRX')?.click();
-    }
-  });
-
-  document.getElementById('btnAgregarFilaSagRX')?.addEventListener('click', () => {
-    personalSAG.push({ No: personalSAG.length + 1, PersonalSAGId: 0, Nombre: '', Id: '' });
-    renderTablaSag();
-  });
-
-  document.getElementById('btnAgregarLaatsRX')?.addEventListener('click', () => {
+  function agregarLaats(lockedPos = null) {
     const empId = parseInt(selectLaatsEmp?.value || '0', 10) || 0;
     const id = String(inputLaatsId?.value || '').trim();
     Validator?.clearValidationErrors(form);
@@ -220,21 +236,65 @@ document.addEventListener('DOMContentLoaded', () => {
       Validator?.notifyValidationErrors(errs, 'Datos Incompletos — Personal LAATS');
       return;
     }
-    personalLaats.push({
-      No: personalLaats.length + 1,
-      PersonalLaatsId: 0,
-      EmpleadoId: empId,
-      Nombre: empMap.get(empId) || '',
-      Id: id
+    runWithLockedScroll(() => {
+      personalLaats.push({
+        No: personalLaats.length + 1,
+        PersonalLaatsId: 0,
+        EmpleadoId: empId,
+        Nombre: empMap.get(empId) || '',
+        Id: id
+      });
+      selectLaatsEmp.value = '';
+      selectLaatsEmp.dispatchEvent(new Event('change', { bubbles: true }));
+      inputLaatsId.value = '';
+      renderTablaLaats();
+      notifyOfflineChange();
+      focusNoScroll(inputLaatsId);
+    }, lockedPos);
+  }
+
+  document.getElementById('btnAgregarSagRX')?.addEventListener('click', () => agregarSag());
+
+  inputSagNombre?.addEventListener('keydown', (e) => {
+    if (!isEnterKey(e)) return;
+    const lockedPos = { x: window.scrollX, y: window.scrollY };
+    e.preventDefault();
+    e.stopPropagation();
+    runWithLockedScroll(() => focusNoScroll(inputSagId), lockedPos);
+  });
+
+  inputSagId?.addEventListener('keydown', (e) => {
+    if (!isEnterKey(e)) return;
+    const lockedPos = { x: window.scrollX, y: window.scrollY };
+    e.preventDefault();
+    e.stopPropagation();
+    agregarSag(lockedPos);
+  });
+
+  document.getElementById('btnAgregarFilaSagRX')?.addEventListener('click', () => {
+    runWithLockedScroll(() => {
+      personalSAG.push({ No: personalSAG.length + 1, PersonalSAGId: 0, Nombre: '', Id: '' });
+      renderTablaSag();
+      notifyOfflineChange();
     });
-    selectLaatsEmp.value = '';
-    inputLaatsId.value = '';
-    renderTablaLaats();
+  });
+
+  document.getElementById('btnAgregarLaatsRX')?.addEventListener('click', () => agregarLaats());
+
+  inputLaatsId?.addEventListener('keydown', (e) => {
+    if (!isEnterKey(e)) return;
+    const lockedPos = { x: window.scrollX, y: window.scrollY };
+    e.preventDefault();
+    e.stopPropagation();
+    agregarLaats(lockedPos);
   });
 
   document.getElementById('btnAgregarFilaLaatsRX')?.addEventListener('click', () => {
-    personalLaats.push({ No: personalLaats.length + 1, PersonalLaatsId: 0, EmpleadoId: '', Nombre: '', Id: '' });
-    renderTablaLaats();
+    runWithLockedScroll(() => {
+      personalLaats.push({ No: personalLaats.length + 1, PersonalLaatsId: 0, EmpleadoId: '', Nombre: '', Id: '' });
+      renderTablaLaats();
+      notifyOfflineChange();
+    });
   });
 
   tbodySag?.addEventListener('input', (e) => {
@@ -244,6 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const field = e.target.getAttribute('data-field');
     if (personalSAG[idx] && field) {
       personalSAG[idx][field] = e.target.value;
+      notifyOfflineChange();
     }
   });
 
@@ -252,8 +313,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!btn) return;
     const idx = parseInt(btn.dataset.idx, 10);
     if (Number.isInteger(idx) && personalSAG[idx]) {
-      personalSAG.splice(idx, 1);
-      renderTablaSag();
+      runWithLockedScroll(() => {
+        personalSAG.splice(idx, 1);
+        renderTablaSag();
+        notifyOfflineChange();
+      });
     }
   });
 
@@ -264,6 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const field = e.target.getAttribute('data-field');
     if (personalLaats[idx] && field) {
       personalLaats[idx][field] = e.target.value;
+      notifyOfflineChange();
     }
   });
 
@@ -275,6 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const empId = parseInt(e.target.value || '0', 10) || '';
       personalLaats[idx].EmpleadoId = empId;
       personalLaats[idx].Nombre = empId ? (empMap.get(empId) || '') : '';
+      notifyOfflineChange();
     }
   });
 
@@ -283,8 +349,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!btn) return;
     const idx = parseInt(btn.dataset.idx, 10);
     if (Number.isInteger(idx) && personalLaats[idx]) {
-      personalLaats.splice(idx, 1);
-      renderTablaLaats();
+      runWithLockedScroll(() => {
+        personalLaats.splice(idx, 1);
+        renderTablaLaats();
+        notifyOfflineChange();
+      });
     }
   });
 

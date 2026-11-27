@@ -178,7 +178,7 @@
         <div class="observaciones-container">
             <div style="display: flex; align-items: flex-end;">
                 <span>OBSERVACIONES:</span>
-                <div style="border-bottom: 1px solid black; flex-grow: 1; margin-left: 10px; font-weight: normal; font-size: 13px; padding-bottom: 2px;">@{body('Parse_JSON_20')?['Observaciones']}</div>
+                <div style="border-bottom: 1px solid black; flex-grow: 1; margin-left: 10px; font-weight: normal; font-size: 13px; padding-bottom: 2px; white-space: pre-wrap;">@{body('Parse_JSON_20')?['Observaciones']}</div>
             </div>
             <div class="obs-line-full"></div>
             <div class="obs-line-full"></div>

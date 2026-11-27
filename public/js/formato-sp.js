@@ -65,11 +65,37 @@ document.addEventListener('DOMContentLoaded', () => {
   const badgeI = document.getElementById('spTotalInterviewBadge');
   const badgeTotal = document.getElementById('spTotalGeneralBadge');
 
+  function notifyOfflineChange() {
+    window.SioOfflineManager?.notifyStateChange?.();
+  }
+
+  function isEnterKey(e) {
+    return (e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter' || e.keyCode === 13)
+      && !e.isComposing
+      && e.keyCode !== 229;
+  }
+
+  function focusNoScroll(el) {
+    if (!el) return;
+    if (Validator?.focusWithoutScroll) Validator.focusWithoutScroll(el);
+    else {
+      try { el.focus({ preventScroll: true }); } catch (_) { el.focus(); }
+    }
+  }
+
+  function runWithLockedScroll(fn, lockedPos = null) {
+    if (Validator?.preserveScroll) return Validator.preserveScroll(fn, lockedPos);
+    return fn();
+  }
+
   let padScreener = null;
   const canvasScreener = document.getElementById('spCanvasFirmaScreener');
   if (canvasScreener && typeof window.SioSignaturePad === 'function') {
     padScreener = new window.SioSignaturePad(canvasScreener);
-    document.getElementById('btnLimpiarFirmaScreenerSP')?.addEventListener('click', () => padScreener.clear());
+    document.getElementById('btnLimpiarFirmaScreenerSP')?.addEventListener('click', () => {
+      padScreener.clear();
+      notifyOfflineChange();
+    });
   }
 
   function actualizarTotales() {
@@ -101,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (registros.length === 0) {
       tbody.innerHTML = `
         <tr class="er-empty-row">
-          <td colspan="8" style="text-align:center; padding:22px; color:var(--text-3);">
+          <td colspan="8" class="dl-empty-cell">
             No hay pasajeros registrados. Use el panel superior o inserte una fila en blanco.
           </td>
         </tr>`;
@@ -110,25 +136,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
     tbody.innerHTML = registros.map((r, idx) => `
       <tr data-row-index="${idx}" class="er-grid-row">
-        <td style="text-align:center; font-weight:700;">${idx + 1}</td>
-        <td><input type="text" class="form-control er-cell-input" data-field="Apellido" maxlength="150" value="${esc(r.Apellido)}" placeholder="Apellido *"></td>
-        <td><input type="text" class="form-control er-cell-input" data-field="Nombre" maxlength="150" value="${esc(r.Nombre)}" placeholder="Nombre *"></td>
-        <td>
-          <select class="form-control er-cell-input" data-field="SeleccionSPId">${buildSelOptions(r.SeleccionSPId)}</select>
+        <td class="dl-td-num" data-label="No.">
+          <span class="dl-num-badge"><span class="dl-mobile-prefix">Pasajero #</span>${idx + 1}</span>
         </td>
-        <td><input type="text" class="form-control er-cell-input er-cell-center" data-field="Asiento" maxlength="20" value="${esc(r.Asiento)}" placeholder="Seat *"></td>
-        <td><input type="number" class="form-control er-cell-input er-cell-center" data-field="BCN" min="0" step="1" value="${esc(r.BCN)}" placeholder="BCN *"></td>
-        <td><input type="text" class="form-control er-cell-input" data-field="NombreAgente" maxlength="150" value="${esc(r.NombreAgente)}" placeholder="Screener *"></td>
-        <td style="text-align:center;">
-          <button type="button" class="btn btn-danger btn-sp-del" data-idx="${idx}" style="padding:4px 8px; font-size:11px;" title="Retirar">
-            <i class="fas fa-trash-alt"></i>
+        <td data-label="Last Name (Apellido) *">
+          <input type="text" class="form-control er-cell-input" data-field="Apellido" maxlength="150" value="${esc(r.Apellido)}" placeholder="Apellido *">
+        </td>
+        <td data-label="First Name (Nombre) *">
+          <input type="text" class="form-control er-cell-input" data-field="Nombre" maxlength="150" value="${esc(r.Nombre)}" placeholder="Nombre *">
+        </td>
+        <td data-label="Selection *">
+          <select class="form-control er-cell-input" data-field="SeleccionSPId" data-no-searchable="true">${buildSelOptions(r.SeleccionSPId)}</select>
+        </td>
+        <td data-label="Seat No. *">
+          <input type="text" class="form-control er-cell-input er-cell-center" data-field="Asiento" maxlength="20" value="${esc(r.Asiento)}" placeholder="Seat *">
+        </td>
+        <td data-label="BCN *">
+          <input type="number" class="form-control er-cell-input er-cell-center" data-field="BCN" min="0" step="1" inputmode="numeric" value="${esc(r.BCN)}" placeholder="BCN *">
+        </td>
+        <td class="dl-td-full" data-label="Screener Name *">
+          <input type="text" class="form-control er-cell-input" data-field="NombreAgente" maxlength="150" value="${esc(r.NombreAgente)}" placeholder="Screener *">
+        </td>
+        <td class="dl-td-action" data-label="Acción">
+          <button type="button" class="btn btn-danger dl-del-btn btn-sp-del" data-idx="${idx}" title="Retirar">
+            <i class="fas fa-trash-alt"></i><span class="dl-mobile-action-label"> Retirar</span>
           </button>
         </td>
       </tr>
     `).join('');
   }
 
-  document.getElementById('btnAgregarRegistroSP')?.addEventListener('click', () => {
+  function agregarRegistroSP(lockedPos = null) {
     Validator?.clearValidationErrors(form);
     const rules = [
       { field: 'Apellido', label: 'Last Name (Apellido)', el: inputApellido, required: true, type: 'string', maxLength: 150 },
@@ -151,7 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const applyAddSp = () => {
+    runWithLockedScroll(() => {
       const firmaScreenerActual = (padScreener && !padScreener.isEmpty()) ? padScreener.toDataURL() : '';
       registros.push({
         No: registros.length + 1,
@@ -170,31 +208,52 @@ document.addEventListener('DOMContentLoaded', () => {
       inputAsiento.value = '';
       inputBCN.value = '';
       renderTabla();
-      Validator?.focusWithoutScroll ? Validator.focusWithoutScroll(inputApellido) : inputApellido.focus({ preventScroll: true });
-    };
-    if (Validator?.preserveScroll) Validator.preserveScroll(applyAddSp);
-    else applyAddSp();
+      notifyOfflineChange();
+      focusNoScroll(inputApellido);
+    }, lockedPos);
+  }
+
+  document.getElementById('btnAgregarRegistroSP')?.addEventListener('click', () => agregarRegistroSP());
+
+  const spQuickChain = [
+    [inputApellido, inputNombre],
+    [inputNombre, inputAsiento],
+    [inputAsiento, inputBCN],
+    [inputBCN, inputScreener]
+  ];
+  spQuickChain.forEach(([curr, next]) => {
+    curr?.addEventListener('keydown', (e) => {
+      if (!isEnterKey(e)) return;
+      const lockedPos = { x: window.scrollX, y: window.scrollY };
+      e.preventDefault();
+      e.stopPropagation();
+      runWithLockedScroll(() => focusNoScroll(next), lockedPos);
+    });
   });
 
   inputScreener?.addEventListener('keydown', (e) => {
-    if ((e.key === 'Enter' || e.keyCode === 13) && !e.isComposing && e.keyCode !== 229) {
-      e.preventDefault();
-      document.getElementById('btnAgregarRegistroSP')?.click();
-    }
+    if (!isEnterKey(e)) return;
+    const lockedPos = { x: window.scrollX, y: window.scrollY };
+    e.preventDefault();
+    e.stopPropagation();
+    agregarRegistroSP(lockedPos);
   });
 
   document.getElementById('btnAgregarFilaVaciaSP')?.addEventListener('click', () => {
-    registros.push({
-      No: registros.length + 1,
-      DetalleSPId: 0,
-      Apellido: '',
-      Nombre: '',
-      SeleccionSPId: '1',
-      Asiento: '',
-      BCN: '0',
-      NombreAgente: String(initialState.agenteActual || '').trim()
+    runWithLockedScroll(() => {
+      registros.push({
+        No: registros.length + 1,
+        DetalleSPId: 0,
+        Apellido: '',
+        Nombre: '',
+        SeleccionSPId: '1',
+        Asiento: '',
+        BCN: '0',
+        NombreAgente: String(initialState.agenteActual || '').trim()
+      });
+      renderTabla();
+      notifyOfflineChange();
     });
-    renderTabla();
   });
 
   tbody?.addEventListener('input', (e) => {
@@ -204,6 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const field = e.target.getAttribute('data-field');
     if (registros[idx] && field) {
       registros[idx][field] = e.target.value;
+      notifyOfflineChange();
     }
   });
 
@@ -215,6 +275,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (registros[idx] && field === 'SeleccionSPId') {
       registros[idx].SeleccionSPId = e.target.value;
       actualizarTotales();
+      notifyOfflineChange();
     }
   });
 
@@ -223,8 +284,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!btn) return;
     const idx = parseInt(btn.dataset.idx, 10);
     if (Number.isInteger(idx) && registros[idx]) {
-      registros.splice(idx, 1);
-      renderTabla();
+      runWithLockedScroll(() => {
+        registros.splice(idx, 1);
+        renderTabla();
+        notifyOfflineChange();
+      });
     }
   });
 

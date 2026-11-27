@@ -6,18 +6,24 @@
   const observacionCiecVal = (ciecState && ciecState.observacionesLimpia !== undefined)
     ? ciecState.observacionesLimpia
     : String(comp.Observaciones || comp.Observacion || '').trim();
-  const empresasCIEC = (formato && formato.id === 'dl-ciec')
-    ? ['LAATS', 'DELTA', 'SAG', 'ODA', 'GODARD', 'GODARD(Cocinas)', 'ODA (Combustible)', 'OIRSA', 'DGAC (Operaciones)', 'OTROS...']
-    : [
-        'LAATS', 'GODARD(Cocinas)', 'ODA (Combustible)', 'OIRSA',
-        'DGAC (Operaciones)', 'AEROEXPRESS',
-        (formato && formato.id === 'ara-ciec')
-          ? 'ARAJET'
-          : ((formato && formato.id === 'latam-ciec')
+  const isDeltaCIEC = Boolean(formato && formato.id === 'dl-ciec');
+  const isArajetCIEC = Boolean(formato && formato.id === 'ara-ciec');
+  const isUpperCIEC = isDeltaCIEC || isArajetCIEC;
+  const defaultEmpresasCIEC = isDeltaCIEC
+    ? ['LAATS', 'DELTA', 'SAG', 'ODA', 'GODARD', 'OIRSA', 'DGAC (Operaciones)', 'OTROS']
+    : (isArajetCIEC
+      ? ['LAATS', 'GODARD(Cocinas)', 'ODA (Combustible)', 'OIRSA', 'DGAC (Operaciones)', 'OTROS']
+      : [
+          'LAATS', 'GODARD(Cocinas)', 'ODA (Combustible)', 'OIRSA',
+          'DGAC (Operaciones)', 'AEROEXPRESS',
+          (formato && formato.id === 'latam-ciec')
             ? 'LAN CARGO'
-            : ((formato && formato.id === 'ajt-ciec') ? 'AMERIJET' : 'AEROMEXICO')),
-        'OTROS...'
-      ];
+            : ((formato && formato.id === 'ajt-ciec') ? 'AMERIJET' : 'AEROMEXICO'),
+          'OTROS...'
+        ]);
+  const empresasCIEC = (ciecState && Array.isArray(ciecState.empresas) && isUpperCIEC)
+    ? ciecState.empresas
+    : defaultEmpresasCIEC;
 
   const extractHHMM = (val) => {
     if (!val) return '';
@@ -249,8 +255,8 @@
       </div>
 
       <div class="form-group sio-field-hidden" id="grupoCiecEmpresaOtros">
-        <label for="ciecRegEmpresaOtros">Especificar Nueva Empresa <span class="sio-required-star">*</span></label>
-        <input type="text" id="ciecRegEmpresaOtros" class="form-control" placeholder="Ingrese la nueva empresa" autocomplete="off" enterkeyhint="next">
+        <label for="ciecRegEmpresaOtros"><%= isUpperCIEC ? 'Especifique otra empresa' : 'Especificar Nueva Empresa' %> <span class="sio-required-star">*</span></label>
+        <input type="text" id="ciecRegEmpresaOtros" class="form-control<%= isUpperCIEC ? ' sio-input-uppercase' : '' %>" placeholder="<%= isUpperCIEC ? 'Escriba el nombre de la empresa' : 'Ingrese la nueva empresa' %>" maxlength="150" autocomplete="off" autocapitalize="<%= isUpperCIEC ? 'characters' : 'words' %>" enterkeyhint="next">
       </div>
     </div>
 
@@ -442,22 +448,23 @@
             type="text"
             id="ciecMaquinariaDelta"
             class="form-control"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            data-numeric-only="true"
             value="<%= comp.MaquinariaDelta ?? comp.Maquinaria ?? (ciecState && ciecState.maquinariaDelta) ?? '' %>"
-            placeholder="Ej: TR-04"
+            placeholder="Ej: 204"
             autocomplete="off"
           >
         </div>
 
         <div class="form-group">
           <label for="ciecAlerosDelta"><i class="fas fa-user-friends"></i> Aleros</label>
-          <input
-            type="text"
+          <textarea
             id="ciecAlerosDelta"
+            rows="2"
             class="form-control"
-            value="<%= comp.AlerosDelta ?? comp.Aleros ?? (ciecState && ciecState.alerosDelta) ?? '' %>"
             placeholder="Nombres de los aleros"
-            autocomplete="off"
-          >
+          ><%= comp.AlerosDelta ?? comp.Aleros ?? (ciecState && ciecState.alerosDelta) ?? '' %></textarea>
         </div>
       </div>
     <% } else { %>

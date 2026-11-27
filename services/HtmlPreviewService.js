@@ -330,20 +330,43 @@ class HtmlPreviewService {
     const horaIniStr = cpDoc?.horaInicio || '--:--';
     const puertaStr = String(vuelo?.puertaposicion ?? vuelo?.puerta ?? '').trim();
 
+    const rawSup = String(cpDoc?.supervisor || cpDoc?.supervisorNombre || '').trim();
+    const supervisorClean = /^--\s*Seleccione/i.test(rawSup) ? '' : rawSup;
+    const rawArribo = String(cpDoc?.arriboVuelo || cpDoc?.arriboDelVuelo || '').trim();
+    const arriboVueloClean = (rawArribo && rawArribo !== '--:--')
+      ? (HtmlPreviewService.extractHHMM(rawArribo) || rawArribo)
+      : HtmlPreviewService.extractHHMM(vuelo?.ata);
+    const aeronaveAseguradaClean = String(
+      cpDoc?.aeronaveAsegurada || HtmlPreviewService.extractHHMM(cpDoc?.horaAsegurado) || ''
+    ).trim();
+    const tracNom = String(cpDoc?.tractoristaNombre || cpDoc?.nombreTractoristaDelta || '').trim();
+    const uniLbl = String(cpDoc?.noUnidadLabel || cpDoc?.tractoristaDelta || '').trim();
+    const tractoristaUnidadClean = String(
+      cpDoc?.tractoristaUnidad || [tracNom, uniLbl].filter(Boolean).join(' / ') || ''
+    ).trim();
+    const alerosArr = Array.isArray(cpDoc?.alerosNombres)
+      ? cpDoc.alerosNombres.map(a => String(a || '').trim()).filter(Boolean)
+      : [];
+    const alero1Clean = String(cpDoc?.alero1 || alerosArr[0] || '').trim();
+    const alero2Clean = String(cpDoc?.alero2 || alerosArr[1] || '').trim();
+    const alerosUnificados = String(
+      cpDoc?.nombreAlerosDelta || [alero1Clean, alero2Clean].filter(Boolean).join(', ') || ''
+    ).trim();
+
     return {
       Fecha: cpDoc?.fechaFormatoUS || HtmlPreviewService.formatMMDDYYYY(cpDoc?.fechaIso || cpDoc?.fecha || vuelo?.FechaItinerado),
-      Supervisor: cpDoc?.supervisor || '',
+      Supervisor: supervisorClean,
       HoraInicioPuerta: cpDoc?.horaInicioPuerta || (puertaStr ? `${horaIniStr} / ${puertaStr}` : `${horaIniStr} / `),
       Agente: cpDoc?.agente || user?.usuario || user?.nombreCompleto || '',
       Vuelo: cpDoc?.vuelo || vuelo?.novuelo || vuelo?.numeroVuelo || '',
       Matricula: cpDoc?.matricula || vuelo?.Matricula || vuelo?.matricula || '',
       FilasTabla: filasTablaHtml,
-      ArriboVuelo: cpDoc?.arriboVuelo || '',
-      AeronaveAsegurada: cpDoc?.aeronaveAsegurada || '',
-      Alero1: cpDoc?.alero1 || '',
-      TractoristaUnidad: cpDoc?.tractoristaUnidad || '',
-      Alero2: cpDoc?.alero2 || '',
-      Aleros: cpDoc?.nombreAlerosDelta || [cpDoc?.alero1, cpDoc?.alero2].filter(Boolean).join(', ') || '',
+      ArriboVuelo: arriboVueloClean,
+      AeronaveAsegurada: aeronaveAseguradaClean,
+      Alero1: alero1Clean,
+      TractoristaUnidad: tractoristaUnidadClean,
+      Alero2: alero2Clean,
+      Aleros: alerosUnificados,
       Observaciones: cpDoc?.observaciones || ''
     };
   }
@@ -688,13 +711,21 @@ class HtmlPreviewService {
       const liveRows = Array.isArray(ebData.registros)
         ? ebData.registros
         : (Array.isArray(ebData.detalles) && ebData.detalles.length > 0 ? ebData.detalles : null);
-      const sourceRows = liveRows ? liveRows : ebRowsDb.map((r, idx) => ({
-        Orden: idx + 1,
-        Secuencia: r.Secuencia,
-        Valor: r.Valor || (r.EstaEliminado ? 'X' : String(r.Secuencia || '')),
-        Motivo: r.Motivo || '',
-        EstaEliminado: Boolean(r.EstaEliminado)
-      }));
+      const sourceRows = (preferPersisted && ebRowsDb.length > 0)
+        ? ebRowsDb.map((r, idx) => ({
+            Orden: idx + 1,
+            Secuencia: r.Secuencia,
+            Valor: r.Valor || (r.EstaEliminado ? 'X' : String(r.Secuencia || '')),
+            Motivo: r.Motivo || '',
+            EstaEliminado: Boolean(r.EstaEliminado)
+          }))
+        : (liveRows ? liveRows : ebRowsDb.map((r, idx) => ({
+            Orden: idx + 1,
+            Secuencia: r.Secuencia,
+            Valor: r.Valor || (r.EstaEliminado ? 'X' : String(r.Secuencia || '')),
+            Motivo: r.Motivo || '',
+            EstaEliminado: Boolean(r.EstaEliminado)
+          })));
 
       const totalFilas = Math.max(15, Math.ceil(sourceRows.length / 10));
       let thCols = `<th style='width: 35px;'></th>`;
@@ -735,12 +766,12 @@ class HtmlPreviewService {
       const supList = Array.isArray(hydrated?.supervisores) ? hydrated.supervisores : [];
       const supLoginId = parseInt(ebData.supervisorLoginId ?? ebCompDb.LoginId, 10) || 0;
       const supFromList = supLoginId > 0
-        ? (supList.find(s => Number(s.LoginId) === supLoginId)?.Usuario || '')
+        ? (supList.find(s => Number(s.LoginId) === supLoginId)?.Usuario || HtmlPreviewService.resolvePersonaNombre('', supLoginId, hydrated))
         : '';
 
       return {
         Fecha: String(fechaItiVuelo || ebData.fecha || ebCompDb.Fecha || fechaRaw).substring(0, 10),
-        Supervisor: String(ebData.supervisorNombre || supFromList || supervisor || '').trim(),
+        Supervisor: String(preferPersisted ? (supFromList || ebData.supervisorNombre || supervisor || '') : (ebData.supervisorNombre || supFromList || supervisor || '')).trim(),
         Vuelo: vueloNo,
         Operador: String(ebData.nombreOperador || ebCompDb.NombreOperador || user.usuario || agente || '').trim(),
         HoraInicio: HtmlPreviewService.extractHHMM(ebData.horaInicio || ebCompDb.Hora),
@@ -1200,14 +1231,32 @@ class HtmlPreviewService {
 
     if (formatoId.endsWith('-cfr')) {
       const cfrData = formDatos.cfrPayload || formDatos || {};
+      const cfrCompDb = hydrated?.cfrState?.complemento || comp || {};
+      const cfrRowsDb = Array.isArray(hydrated?.cfrState?.detalles) && hydrated.cfrState.detalles.length > 0
+        ? hydrated.cfrState.detalles
+        : rows;
       const liveCarretas = Array.isArray(cfrData.carretas)
         ? cfrData.carretas
         : (Array.isArray(cfrData.registros)
           ? cfrData.registros
           : (Array.isArray(cfrData.detalles) ? cfrData.detalles : null));
-      const sourceCarretas = liveCarretas ? liveCarretas : rows;
+      const sourceCarretas = (preferPersisted && cfrRowsDb.length > 0)
+        ? cfrRowsDb
+        : (liveCarretas ? liveCarretas : cfrRowsDb);
 
-      const fechaStr = String(cfrData.fecha || fechaRaw).substring(0, 10);
+      const maqList = Array.isArray(hydrated?.maquinaria) ? hydrated.maquinaria : [];
+      const resolveMaq = (rawLabel, rawId) => {
+        const cleanLabel = String(rawLabel || '').trim();
+        if (cleanLabel && !/^\d+$/.test(cleanLabel)) return cleanLabel;
+        const idNum = parseInt(rawId || cleanLabel, 10) || 0;
+        if (idNum > 0) {
+          const hit = maqList.find(m => Number(m.MaquinariaEquipoId) === idNum);
+          if (hit?.NoUnidad) return String(hit.NoUnidad).trim();
+        }
+        return cleanLabel || (idNum > 0 ? String(idNum) : '');
+      };
+
+      const fechaStr = String(fechaItiVuelo || cfrData.fecha || cfrCompDb.Fecha || fechaRaw).substring(0, 10);
       let dia = '';
       let mes = '';
       let anio = '';
@@ -1231,32 +1280,56 @@ class HtmlPreviewService {
         const flejes = tieneFila
           ? [c.FlejeUno, c.FlejeDos].map(f => String(f || '').trim()).filter(Boolean).join(' / ')
           : '';
+        const noCarretaTxt = tieneFila ? resolveMaq(c.NoCarreta, c.CarretaId) : '';
+        const noUnidadTxt = tieneFila ? resolveMaq(c.NoUnidad, c.MaquinariaEquipoId) : '';
+        const operadorTxt = tieneFila
+          ? (HtmlPreviewService.resolvePersonaNombre(c.Operador, c.EmpleadoId, hydrated) || String(c.Operador || c.EmpleadoId || '').trim())
+          : '';
         tablaCarretasHtml += `<tr>
-          <td>${tieneFila ? esc(c.NoCarreta || c.CarretaId || '') : ''}</td>
-          <td>${esc(flejes)}</td>
-          <td>${tieneFila ? esc(c.NoUnidad || c.MaquinariaEquipoId || '') : ''}</td>
-          <td>${tieneFila ? esc(eqVal) : ''}</td>
-          <td>${tieneFila ? esc(c.Operador || c.EmpleadoId || '') : ''}</td>
+          <td>${tieneFila ? esc(noCarretaTxt) : '&nbsp;'}</td>
+          <td>${tieneFila ? esc(flejes) : '&nbsp;'}</td>
+          <td>${tieneFila ? esc(noUnidadTxt) : '&nbsp;'}</td>
+          <td>${tieneFila ? esc(eqVal) : '&nbsp;'}</td>
+          <td>${tieneFila ? esc(operadorTxt) : '&nbsp;'}</td>
         </tr>`;
       }
+
+      const supCfrResolved = HtmlPreviewService.resolvePersonaNombre(
+        preferPersisted ? (cfrCompDb.Supervisor || '') : (cfrData.supervisorNombre || supervisor || ''),
+        cfrData.supervisorEmpleadoId || cfrCompDb.EmpleadoId,
+        hydrated
+      ) || String(cfrData.supervisorNombre || supervisor || '').trim();
+
+      const pickCfrTime = (liveVal, dbVal) => HtmlPreviewService.extractHHMM(
+        preferPersisted ? (dbVal || liveVal) : (liveVal || dbVal)
+      );
+
+      const aviVal = preferPersisted
+        ? (cfrCompDb.AviCantidad ?? cfrData.aviCantidad ?? cfrData.avih ?? 0)
+        : (cfrData.aviCantidad !== undefined ? cfrData.aviCantidad : (cfrData.avih !== undefined ? cfrData.avih : (cfrCompDb.AviCantidad ?? 0)));
+      const comatVal = preferPersisted
+        ? (cfrCompDb.ComatCantidad ?? cfrData.comatCantidad ?? cfrData.comat ?? 0)
+        : (cfrData.comatCantidad !== undefined ? cfrData.comatCantidad : (cfrData.comat !== undefined ? cfrData.comat : (cfrCompDb.ComatCantidad ?? 0)));
 
       return {
         Dia: dia,
         Mes: mes,
         Anio: anio,
-        Supervisor: cfrData.supervisorNombre || supervisor || '',
+        Supervisor: supCfrResolved,
         Vuelo: vueloNo,
         Destino: vuelo.Destino || vuelo.destino || '',
         Matricula: matricula,
-        PrimeraHora: HtmlPreviewService.extractHHMM(cfrData.primeraPlataforma || cfrData.primeraHora || comp.PrimeraPlataforma),
-        UltimaHora: HtmlPreviewService.extractHHMM(cfrData.ultimaPlataforma || cfrData.ultimaHora || comp.UltimaPlataforma),
-        InicioOperacion: HtmlPreviewService.extractHHMM(cfrData.inicioOperacion || comp.InicioOperacion),
-        AVIH: cfrData.aviCantidad !== undefined ? cfrData.aviCantidad : (cfrData.avih !== undefined ? cfrData.avih : (comp.AviCantidad ?? 0)),
-        COMAT: cfrData.comatCantidad !== undefined ? cfrData.comatCantidad : (cfrData.comat !== undefined ? cfrData.comat : (comp.ComatCantidad ?? 0)),
-        TotalEquipaje: sumEq || (comp.TotalEqEncabezado ?? 0),
-        HoraCierre: HtmlPreviewService.extractHHMM(cfrData.horaCierre || comp.HoraCierre),
+        PrimeraHora: pickCfrTime(cfrData.primeraPlataforma || cfrData.primeraHora, cfrCompDb.PrimeraPlataforma),
+        UltimaHora: pickCfrTime(cfrData.ultimaPlataforma || cfrData.ultimaHora, cfrCompDb.UltimaPlataforma),
+        InicioOperacion: pickCfrTime(cfrData.inicioOperacion, cfrCompDb.InicioOperacion),
+        AVIH: aviVal,
+        COMAT: comatVal,
+        TotalEquipaje: sumEq || (cfrCompDb.TotalEqEncabezado ?? 0),
+        HoraCierre: pickCfrTime(cfrData.horaCierre, cfrCompDb.HoraCierre),
         TablaCarretasHTML: tablaCarretasHtml,
-        AgenteAVSEC: cfrData.agente || user.usuario || agente
+        AgenteAVSEC: String(preferPersisted
+          ? (cfrCompDb.CreadoPor || cfrData.agente || user.usuario || agente || '')
+          : (cfrData.agente || cfrCompDb.CreadoPor || user.usuario || agente || '')).trim()
       };
     }
 
@@ -2257,8 +2330,10 @@ class HtmlPreviewService {
     html = html.replace(
       /@\{if\(or\(empty\(body\('[^']+'\)\?\['([^']+)'\]\),\s*equals\(body\('[^']+'\)\?\['[^']+'\]\s*,\s*null\)\)[^\n]*?\)\)\)\}/g,
       (_, key) => {
-        const sig = HtmlPreviewService.sanitizeSignatureDataUrl(vars[key]);
-        return sig ? `<img class="img-firma" src="${sig}" />` : '';
+        const raw = String(vars[key] ?? '').trim();
+        if (!raw) return '';
+        const sig = HtmlPreviewService.sanitizeSignatureDataUrl(raw);
+        return sig && sig !== BLANK_IMG ? `<img class="img-firma" src="${sig}" />` : '';
       }
     );
     html = html.replace(

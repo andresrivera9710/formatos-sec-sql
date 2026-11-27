@@ -91,6 +91,7 @@ class SharePointSyncQueueService {
     user = {},
     hydrated = { datos: [], complementos: [] },
     formDatos = {},
+    preview = null,
     preferPersisted = true,
     pendientesSalidaCount = 0,
     encabezadoId = null,
@@ -131,7 +132,9 @@ class SharePointSyncQueueService {
             user,
             fallbackPayload: formDatos?.cpPayload || formDatos || {}
           })
-        : (formDatos?.cpPayload || {});
+        : ((preview && typeof preview === 'object')
+          ? preview
+          : (formDatos?.cpPayload || formDatos || {}));
 
       const puerta = vuelo.puertaposicion || '--';
       const horaInicio = basePreview?.horaInicio || '--:--';
