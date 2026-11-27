@@ -384,6 +384,90 @@ document.addEventListener('DOMContentLoaded', () => {
     btnGuardarDefinitivo.addEventListener('click', () => enviarFormato(true));
   }
 
+  // Scroll fijo sin saltos en DESEMBARQUE y Equipajes Dañados Llegando al presionar Enter / Sig.
+  const cecDesembarqueFields = [
+    inputDesembarqueInicio,
+    inputEquipaje,
+    inputCarruajes,
+    inputCorreos,
+    inputCarga,
+    inputCantSinEtiq,
+    inputCantConEtiq,
+    inputDesembarqueFinal
+  ].filter(Boolean);
+
+  let lastCecPointerTimestamp = 0;
+  let lastCecPointerTarget = null;
+  document.addEventListener('pointerdown', (e) => {
+    lastCecPointerTarget = e.target;
+    lastCecPointerTimestamp = Date.now();
+  }, true);
+
+  const focusNoScrollCec = (el) => {
+    if (!el || typeof el.focus !== 'function') return;
+    if (Validator && typeof Validator.focusWithoutScroll === 'function') {
+      Validator.focusWithoutScroll(el);
+      return;
+    }
+    try { el.focus({ preventScroll: true }); } catch (_) { el.focus(); }
+  };
+
+  const preserveScrollCec = (fn, lockedScroll = null) => {
+    const pos = lockedScroll || { x: window.scrollX, y: window.scrollY };
+    if (Validator && typeof Validator.preserveScroll === 'function') {
+      return Validator.preserveScroll(fn, pos);
+    }
+    const out = typeof fn === 'function' ? fn() : undefined;
+    try {
+      window.scrollTo({ left: pos.x, top: pos.y, behavior: 'instant' });
+    } catch (_) {
+      window.scrollTo(pos.x, pos.y);
+    }
+    window.requestAnimationFrame(() => window.scrollTo(pos.x, pos.y));
+    return out;
+  };
+
+  cecDesembarqueFields.forEach((fieldEl, idx) => {
+    let fieldScroll = { x: window.scrollX, y: window.scrollY };
+    const recordFieldScroll = () => {
+      fieldScroll = { x: window.scrollX, y: window.scrollY };
+    };
+    fieldEl.addEventListener('focus', recordFieldScroll);
+    fieldEl.addEventListener('input', recordFieldScroll);
+    window.addEventListener('scroll', () => {
+      if (document.activeElement === fieldEl) recordFieldScroll();
+    }, { passive: true });
+
+    fieldEl.addEventListener('keydown', (e) => {
+      const isEnter = e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter' || e.keyCode === 13;
+      const isNext = e.key === 'Next' || e.key === 'Go';
+      if (!isEnter && !isNext) return;
+      if (e.isComposing || e.keyCode === 229) return;
+
+      const lockedScroll = { x: window.scrollX, y: window.scrollY };
+      fieldScroll = lockedScroll;
+      e.preventDefault();
+      e.stopPropagation();
+
+      const nextEl = cecDesembarqueFields[idx + 1] || fieldEl;
+      preserveScrollCec(() => focusNoScrollCec(nextEl), lockedScroll);
+    });
+
+    fieldEl.addEventListener('blur', (e) => {
+      const hadPointer = Boolean(lastCecPointerTarget) && (Date.now() - lastCecPointerTimestamp <= 450);
+      if (!hadPointer) {
+        // Si el teclado móvil "Sig." desplazó el foco sin toque táctil del usuario, fija la posición exacta del scroll
+        const targetAfterBlur = e.relatedTarget;
+        const nextEl = cecDesembarqueFields[idx + 1] || null;
+        preserveScrollCec(() => {
+          if (!targetAfterBlur && nextEl) {
+            focusNoScrollCec(nextEl);
+          }
+        }, fieldScroll);
+      }
+    });
+  });
+
   document.getElementById('cecEquipajeMostrador')?.addEventListener('input', updateDeltaTotal);
   document.getElementById('cecEquipajePuerta')?.addEventListener('input', updateDeltaTotal);
 });

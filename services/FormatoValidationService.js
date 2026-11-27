@@ -881,7 +881,7 @@ class FormatoValidationService {
     ];
 
     const isAmxCP = String(payload.formatoId || '').trim().toLowerCase() === 'amx-cp';
-    const empresasAutorizadasAmxCP = new Set([
+    const empresasFijasAmxCP = new Set([
       'ODA',
       'ODA (Combustible)',
       'AEROEXPRESS',
@@ -892,11 +892,15 @@ class FormatoValidationService {
 
     const filasPersonas = registrosRaw.map(r => {
       const rawNombre = String(r?.Nombre || '').trim();
+      const rawEmpresa = String(r?.Empresa || '').trim();
+      const normalizedEmpresa = isAmxCP && rawEmpresa && !empresasFijasAmxCP.has(rawEmpresa)
+        ? rawEmpresa.toUpperCase()
+        : rawEmpresa;
       return {
         DetalleCPId: parseInt(r?.DetalleCPId, 10) || 0,
         Nombre: isAmxCP ? rawNombre.toUpperCase() : rawNombre,
         NoTIA: String(r?.NoTIA || '').trim(),
-        Empresa: String(r?.Empresa || '').trim(),
+        Empresa: normalizedEmpresa,
         HoraIngreso: FormatoValidationService.normalizarHora(r?.HoraIngreso),
         Motivo: String(r?.Motivo || '').trim(),
         HoraSalida: FormatoValidationService.normalizarHora(r?.HoraSalida)
@@ -906,17 +910,18 @@ class FormatoValidationService {
     if (isAmxCP) {
       for (let i = 0; i < filasPersonas.length; i++) {
         const f = filasPersonas[i];
-        if (f.DetalleCPId <= 0 && f.Empresa && !empresasAutorizadasAmxCP.has(f.Empresa)) {
+        const empUpper = String(f.Empresa || '').trim().toUpperCase();
+        if (empUpper === 'OTROS' || empUpper === 'OTROS...') {
           return {
             valido: false,
             statusCode: 400,
-            message: `Persona #${i + 1} (${f.Nombre || 'Sin nombre'}): La empresa "${f.Empresa}" no está dentro del catálogo autorizado de AEROMEXICO.`,
+            message: `Persona #${i + 1} (${f.Nombre || 'Sin nombre'}): Debe especificar el nombre real de la empresa externa en lugar de "${f.Empresa}".`,
             errors: [{
               scope: 'row',
               row: i + 1,
               field: 'Empresa',
               label: 'Empresa',
-              message: `Empresa "${f.Empresa}" no permitida en Control de Perimétrica AEROMEXICO.`
+              message: 'Debe escribir el nombre real de la empresa externa cuando selecciona OTROS.'
             }]
           };
         }

@@ -132,6 +132,7 @@
     let selectedIdx = -1;
     let lastPointerTarget = null;
     let lastPointerTimestamp = 0;
+    let lastInputScroll = { x: window.scrollX, y: window.scrollY };
 
     if (tableEl) {
       tableEl.classList.add('sio-baggage-matrix-table');
@@ -144,29 +145,49 @@
       inputSecuenciaEl.setAttribute('autocomplete', 'off');
     }
 
-    function preserveScroll(fn) {
-      const sx = window.scrollX;
-      const sy = window.scrollY;
+    function restoreScrollInstant(sx, sy) {
+      try {
+        window.scrollTo({ left: sx, top: sy, behavior: 'instant' });
+      } catch (_) {
+        window.scrollTo(sx, sy);
+      }
+    }
+
+    function lockScrollAt(sx, sy) {
+      if (Validator && typeof Validator.lockScrollPosition === 'function') {
+        Validator.lockScrollPosition(sx, sy);
+        return;
+      }
+      restoreScrollInstant(sx, sy);
+      window.requestAnimationFrame(() => restoreScrollInstant(sx, sy));
+      window.setTimeout(() => restoreScrollInstant(sx, sy), 0);
+      window.setTimeout(() => restoreScrollInstant(sx, sy), 50);
+    }
+
+    function preserveScroll(fn, lockedScroll = null) {
+      const sx = lockedScroll && typeof lockedScroll.x === 'number' ? lockedScroll.x : window.scrollX;
+      const sy = lockedScroll && typeof lockedScroll.y === 'number' ? lockedScroll.y : window.scrollY;
       const out = fn();
-      window.scrollTo(sx, sy);
-      window.requestAnimationFrame(() => window.scrollTo(sx, sy));
+      lockScrollAt(sx, sy);
       return out;
     }
 
-    function refocusInput() {
+    function refocusInput(lockedScroll = null) {
       if (!inputSecuenciaEl) return;
-      const sx = window.scrollX;
-      const sy = window.scrollY;
+      const sx = lockedScroll && typeof lockedScroll.x === 'number' ? lockedScroll.x : window.scrollX;
+      const sy = lockedScroll && typeof lockedScroll.y === 'number' ? lockedScroll.y : window.scrollY;
       const doFocus = () => {
         try {
           inputSecuenciaEl.focus({ preventScroll: true });
         } catch (_) {
           inputSecuenciaEl.focus();
         }
-        window.scrollTo(sx, sy);
+        restoreScrollInstant(sx, sy);
       };
       doFocus();
+      window.requestAnimationFrame(doFocus);
       window.setTimeout(doFocus, 0);
+      window.setTimeout(doFocus, 45);
     }
 
     function reindex() {
@@ -278,6 +299,7 @@
     function addSequence(addOpts = {}) {
       const shouldRefocus = addOpts.refocus !== false;
       const silentEmpty = Boolean(addOpts.silentEmpty);
+      const lockedScroll = addOpts.lockedScroll || { x: window.scrollX, y: window.scrollY };
       const valStr = String(inputSecuenciaEl?.value || '').trim();
 
       if (!valStr && silentEmpty) {
@@ -296,7 +318,7 @@
             returnFocus: false
           });
         }
-        if (shouldRefocus) refocusInput();
+        if (shouldRefocus) refocusInput(lockedScroll);
         return false;
       }
 
@@ -330,9 +352,9 @@
         render();
         notifyChange(true);
         if (shouldRefocus) {
-          refocusInput();
+          refocusInput(lockedScroll);
         }
-      });
+      }, lockedScroll);
       return true;
     }
 
@@ -605,10 +627,25 @@
     }
 
     if (btnAgregarEl) {
-      btnAgregarEl.addEventListener('click', () => addSequence({ refocus: true }));
+      btnAgregarEl.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        addSequence({ refocus: true, lockedScroll: { x: window.scrollX, y: window.scrollY } });
+      });
     }
 
     if (inputSecuenciaEl) {
+      const recordInputScroll = () => {
+        lastInputScroll = { x: window.scrollX, y: window.scrollY };
+      };
+      inputSecuenciaEl.addEventListener('focus', recordInputScroll);
+      inputSecuenciaEl.addEventListener('input', recordInputScroll);
+      window.addEventListener('scroll', () => {
+        if (document.activeElement === inputSecuenciaEl) {
+          recordInputScroll();
+        }
+      }, { passive: true });
+
       const handleKeyCommit = (e) => {
         const isEnter = e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter' || e.keyCode === 13;
         const isNextOrTab = e.key === 'Tab' || e.key === 'Next' || e.key === 'Go' || e.keyCode === 9;
@@ -616,28 +653,39 @@
 
         if (isEnter) {
           if (e.isComposing || e.keyCode === 229) return;
+          const lockedScroll = { x: window.scrollX, y: window.scrollY };
+          lastInputScroll = lockedScroll;
           e.preventDefault();
-          addSequence({ refocus: true });
+          e.stopPropagation();
+          addSequence({ refocus: true, lockedScroll });
           return;
         }
         if (isNextOrTab && rawVal !== '') {
+          const lockedScroll = { x: window.scrollX, y: window.scrollY };
+          lastInputScroll = lockedScroll;
           e.preventDefault();
-          addSequence({ refocus: true });
+          e.stopPropagation();
+          addSequence({ refocus: true, lockedScroll });
         }
       };
 
       inputSecuenciaEl.addEventListener('keydown', handleKeyCommit);
       inputSecuenciaEl.addEventListener('beforeinput', (e) => {
         if (e.inputType === 'insertLineBreak' || e.inputType === 'insertParagraph') {
+          const lockedScroll = { x: window.scrollX, y: window.scrollY };
+          lastInputScroll = lockedScroll;
           e.preventDefault();
-          addSequence({ refocus: true });
+          e.stopPropagation();
+          addSequence({ refocus: true, lockedScroll });
         }
       });
       inputSecuenciaEl.addEventListener('keypress', (e) => {
         if (e.key === 'Enter' || e.keyCode === 13) {
+          const lockedScroll = { x: window.scrollX, y: window.scrollY };
           e.preventDefault();
+          e.stopPropagation();
           if (String(inputSecuenciaEl.value || '').trim() !== '') {
-            addSequence({ refocus: true });
+            addSequence({ refocus: true, lockedScroll });
           }
         }
       });
@@ -653,9 +701,12 @@
           return;
         }
 
-        // Si no hubo toque manual reciente en otro elemento, fue la tecla "Sig." del teclado móvil -> mantener foco
+        // Si no hubo toque manual reciente en otro elemento, fue la tecla "Sig." del teclado móvil -> mantener foco y posición exacta
         const triggeredByKeyboardNext = !hadRecentPointerAnywhere() || wasRecentPointerOn(inputSecuenciaEl);
-        addSequence({ refocus: triggeredByKeyboardNext, silentEmpty: true });
+        const lockedScroll = triggeredByKeyboardNext
+          ? { x: lastInputScroll.x, y: lastInputScroll.y }
+          : { x: window.scrollX, y: window.scrollY };
+        addSequence({ refocus: triggeredByKeyboardNext, silentEmpty: true, lockedScroll });
       };
 
       inputSecuenciaEl.addEventListener('change', handleMobileNextCommit);

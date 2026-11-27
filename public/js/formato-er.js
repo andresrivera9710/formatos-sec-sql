@@ -133,24 +133,123 @@
       });
     }
 
+    // Helpers de scroll fijo y foco sin salto (PC y Móvil al dar Enter / Sig.)
+    let lastErPointerTarget = null;
+    let lastErPointerTimestamp = 0;
+    let lastErCaptureScroll = { x: window.scrollX, y: window.scrollY };
+
+    document.addEventListener('pointerdown', (e) => {
+      lastErPointerTarget = e.target;
+      lastErPointerTimestamp = Date.now();
+    }, true);
+
+    const wasRecentErPointerOn = (el) => {
+      if (!el || !lastErPointerTarget) return false;
+      if (Date.now() - lastErPointerTimestamp > 450) return false;
+      return lastErPointerTarget === el || (typeof el.contains === 'function' && el.contains(lastErPointerTarget));
+    };
+
+    const hadRecentErPointerAnywhere = () =>
+      Boolean(lastErPointerTarget) && (Date.now() - lastErPointerTimestamp <= 450);
+
+    const focusNoScrollEr = (el) => {
+      if (!el || typeof el.focus !== 'function') return;
+      if (window.SioFormatValidator && typeof window.SioFormatValidator.focusWithoutScroll === 'function') {
+        window.SioFormatValidator.focusWithoutScroll(el);
+        return;
+      }
+      try { el.focus({ preventScroll: true }); } catch (_) { el.focus(); }
+    };
+
+    const preserveScrollEr = (fn, lockedScroll = null) => {
+      const pos = lockedScroll || { x: window.scrollX, y: window.scrollY };
+      if (window.SioFormatValidator && typeof window.SioFormatValidator.preserveScroll === 'function') {
+        return window.SioFormatValidator.preserveScroll(fn, pos);
+      }
+      const out = typeof fn === 'function' ? fn() : undefined;
+      try {
+        window.scrollTo({ left: pos.x, top: pos.y, behavior: 'instant' });
+      } catch (_) {
+        window.scrollTo(pos.x, pos.y);
+      }
+      window.requestAnimationFrame(() => window.scrollTo(pos.x, pos.y));
+      return out;
+    };
+
     // Botón: Agregar equipaje desde el panel "Ingrese los Datos:" (btnAgregarAMatriz_1)
     const btnAgregarEquipaje = document.getElementById('btnAgregarEquipajeER');
     if (btnAgregarEquipaje) {
-      btnAgregarEquipaje.addEventListener('click', agregarDesdePanelCaptura);
+      btnAgregarEquipaje.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        agregarDesdePanelCaptura({ lockedScroll: { x: window.scrollX, y: window.scrollY } });
+      });
     }
 
-    const erLastCaptureEls = [
+    // Avance rápido sin salto de scroll en campos intermedios del panel "Ingrese los Datos"
+    const erCaptureChain = [
+      document.getElementById('erInputPasajero'),
+      document.getElementById('erInputSecuencia'),
+      document.getElementById('erInputColilla'),
+      document.getElementById('erInputDestino'),
+      document.getElementById('erInputHoraRevision'),
       document.getElementById('erInputAgenteAVSEC'),
-      document.getElementById('erInputAgenteSeguridad')
-    ].filter(Boolean);
-    erLastCaptureEls.forEach((inpEl) => {
+      !isAmxERFormat() ? document.getElementById('erInputAgenteSeguridad') : null
+    ].filter((el) => el && !el.readOnly && !el.disabled);
+
+    erCaptureChain.forEach((inpEl, idx) => {
+      const isLastCapture = idx === erCaptureChain.length - 1;
+      const recordScroll = () => {
+        lastErCaptureScroll = { x: window.scrollX, y: window.scrollY };
+      };
+      inpEl.addEventListener('focus', recordScroll);
+      inpEl.addEventListener('input', recordScroll);
+      window.addEventListener('scroll', () => {
+        if (document.activeElement === inpEl) recordScroll();
+      }, { passive: true });
+
       inpEl.addEventListener('keydown', (e) => {
         const isEnter = e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter' || e.keyCode === 13;
-        if (!isEnter) return;
+        const isNext = e.key === 'Next' || e.key === 'Go';
+        const isTabNext = e.key === 'Tab' && !e.shiftKey && isLastCapture && String(inpEl.value || '').trim() !== '';
+        if (!isEnter && !isNext && !isTabNext) return;
         if (e.isComposing || e.keyCode === 229) return;
+
+        const lockedScroll = { x: window.scrollX, y: window.scrollY };
+        lastErCaptureScroll = lockedScroll;
         e.preventDefault();
-        agregarDesdePanelCaptura();
+        e.stopPropagation();
+
+        if (isLastCapture) {
+          agregarDesdePanelCaptura({ lockedScroll });
+        } else {
+          const nextEl = erCaptureChain[idx + 1];
+          preserveScrollEr(() => focusNoScrollEr(nextEl), lockedScroll);
+        }
       });
+
+      if (isLastCapture) {
+        inpEl.addEventListener('beforeinput', (e) => {
+          if (e.inputType === 'insertLineBreak' || e.inputType === 'insertParagraph') {
+            const lockedScroll = { x: window.scrollX, y: window.scrollY };
+            lastErCaptureScroll = lockedScroll;
+            e.preventDefault();
+            e.stopPropagation();
+            agregarDesdePanelCaptura({ lockedScroll });
+          }
+        });
+
+        const handleErMobileNext = () => {
+          const val = String(inpEl.value || '').trim();
+          if (!val) return;
+          if (wasRecentErPointerOn(btnAgregarEquipaje)) return;
+          if (!hadRecentErPointerAnywhere() || wasRecentErPointerOn(inpEl)) {
+            agregarDesdePanelCaptura({ silentIncomplete: true, lockedScroll: { ...lastErCaptureScroll } });
+          }
+        };
+        inpEl.addEventListener('change', handleErMobileNext);
+        inpEl.addEventListener('blur', handleErMobileNext);
+      }
     });
 
     // Botón: Ver Datos Agregados (lblVerDatos_1 + icoVerDatosAgregados_1)
@@ -165,7 +264,7 @@
         const searchEl = document.getElementById('erBuscarPasajero');
         if (searchEl && _erRows.length > 0) {
           setTimeout(() => {
-            try { searchEl.focus({ preventScroll: true }); } catch (_e) {}
+            focusNoScrollEr(searchEl);
           }, 300);
         }
       });
@@ -182,9 +281,11 @@
     const btnLimpiarBusqueda = document.getElementById('btnLimpiarBusquedaER');
     if (btnLimpiarBusqueda && inputBuscar) {
       btnLimpiarBusqueda.addEventListener('click', () => {
-        inputBuscar.value = '';
-        filtrarFilasDOM('');
-        inputBuscar.focus();
+        preserveScrollEr(() => {
+          inputBuscar.value = '';
+          filtrarFilasDOM('');
+          focusNoScrollEr(inputBuscar);
+        });
       });
     }
 
@@ -194,6 +295,26 @@
       tbody.addEventListener('input', onGridInputChange);
       tbody.addEventListener('change', onGridInputChange);
       tbody.addEventListener('click', onGridButtonClick);
+      tbody.addEventListener('keydown', (e) => {
+        const isEnter = e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter' || e.keyCode === 13;
+        const isNext = e.key === 'Next' || e.key === 'Go';
+        if (!isEnter && !isNext) return;
+        if (e.isComposing || e.keyCode === 229) return;
+        const inp = e.target.closest('.er-cell-input');
+        if (!inp || inp.readOnly || inp.disabled) return;
+
+        const lockedScroll = { x: window.scrollX, y: window.scrollY };
+        e.preventDefault();
+        e.stopPropagation();
+
+        const rowEl = inp.closest('tr[data-uid]');
+        const editableCells = rowEl
+          ? Array.from(rowEl.querySelectorAll('.er-cell-input')).filter((c) => !c.readOnly && !c.disabled)
+          : [];
+        const curIdx = editableCells.indexOf(inp);
+        const nextCell = curIdx >= 0 && curIdx < editableCells.length - 1 ? editableCells[curIdx + 1] : inp;
+        preserveScrollEr(() => focusNoScrollEr(nextCell), lockedScroll);
+      });
     }
 
     // Botones de acción: Vista Preliminar y Guardar Definitivo
@@ -476,7 +597,9 @@
   /**
    * Valida y agrega un registro desde el panel superior "Ingrese los Datos"
    */
-  function agregarDesdePanelCaptura() {
+  function agregarDesdePanelCaptura(opts = {}) {
+    const silentIncomplete = Boolean(opts && opts.silentIncomplete);
+    const lockedScroll = (opts && opts.lockedScroll) ? opts.lockedScroll : { x: window.scrollX, y: window.scrollY };
     const elPasajero = document.getElementById('erInputPasajero');
     const elSecuencia = document.getElementById('erInputSecuencia');
     const elColilla = document.getElementById('erInputColilla');
@@ -524,24 +647,30 @@
     });
 
     if (panelErrors.length > 0) {
+      if (silentIncomplete) {
+        if (validator && typeof validator.lockScrollPosition === 'function') {
+          validator.lockScrollPosition(lockedScroll.x, lockedScroll.y);
+        }
+        return false;
+      }
       validator.notifyValidationErrors(panelErrors, 'Datos del Equipaje Incompletos');
-      return;
+      return false;
     }
 
-    _erRows.push({
-      uid: _nextUid++,
-      DetalleControlERId: 0,
-      Pasajero: String(elPasajero.value || '').trim(),
-      Secuencia: isDeltaER ? String(_erRows.length + 1) : String(elSecuencia?.value || '').trim(),
-      Colilla: String(elColilla.value || '').trim(),
-      Vuelo: String(_state.noVuelo || '').trim(),
-      Destino: String(elDestino?.value || '').trim(),
-      HoraRevision: normalizarHora5(elHora.value),
-      AgenteAVSEC: String(elAvsec.value || '').trim(),
-      AgenteSeguridad: isAmxER ? lockedAgenteVal : String(elSeguridad?.value || '').trim()
-    });
-
     const commitErRow = () => {
+      _erRows.push({
+        uid: _nextUid++,
+        DetalleControlERId: 0,
+        Pasajero: String(elPasajero.value || '').trim(),
+        Secuencia: isDeltaER ? String(_erRows.length + 1) : String(elSecuencia?.value || '').trim(),
+        Colilla: String(elColilla.value || '').trim(),
+        Vuelo: String(_state.noVuelo || '').trim(),
+        Destino: String(elDestino?.value || '').trim(),
+        HoraRevision: normalizarHora5(elHora.value),
+        AgenteAVSEC: String(elAvsec.value || '').trim(),
+        AgenteSeguridad: isAmxER ? lockedAgenteVal : String(elSeguridad?.value || '').trim()
+      });
+
       // 4. Limpiamos los campos igual que en Power Apps (conservando bloqueado el Agente en sesión para amx-er)
       elPasajero.value = '';
       if (elSecuencia) elSecuencia.value = '';
@@ -555,31 +684,41 @@
 
       renderizarCuadricula();
       window.SioOfflineManager?.notifyStateChange?.();
-      if (validator && typeof validator.focusWithoutScroll === 'function') {
-        validator.focusWithoutScroll(elPasajero);
-      } else {
-        try { elPasajero.focus({ preventScroll: true }); } catch (_) { elPasajero.focus(); }
+
+      const focusPasajero = () => {
+        if (validator && typeof validator.focusWithoutScroll === 'function') {
+          validator.focusWithoutScroll(elPasajero);
+        } else {
+          try { elPasajero.focus({ preventScroll: true }); } catch (_) { elPasajero.focus(); }
+        }
+      };
+      focusPasajero();
+      window.setTimeout(focusPasajero, 0);
+
+      if (typeof window.Swal !== 'undefined') {
+        window.Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: 'Pasajero agregado a la lista',
+          showConfirmButton: false,
+          timer: 1600,
+          timerProgressBar: true
+        });
       }
     };
 
     if (validator && typeof validator.preserveScroll === 'function') {
-      validator.preserveScroll(commitErRow);
+      validator.preserveScroll(commitErRow, lockedScroll);
     } else {
       commitErRow();
+      try {
+        window.scrollTo({ left: lockedScroll.x, top: lockedScroll.y, behavior: 'instant' });
+      } catch (_) {
+        window.scrollTo(lockedScroll.x, lockedScroll.y);
+      }
     }
-
-    if (typeof window.Swal !== 'undefined') {
-      window.Swal.fire({
-        toast: true,
-        position: 'top-end',
-        icon: 'success',
-        title: 'Pasajero agregado a la lista',
-        showConfirmButton: false,
-        returnFocus: false,
-        timer: 1600,
-        timerProgressBar: true
-      });
-    }
+    return true;
   }
 
   /**

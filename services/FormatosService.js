@@ -38,7 +38,8 @@ const EMPRESAS_CP_AMX = [
   'AEROEXPRESS',
   'OIRSA',
   'AEROMEXICO',
-  'LAATS'
+  'LAATS',
+  'OTROS'
 ];
 
 class FormatosService {
@@ -1264,10 +1265,18 @@ class FormatosService {
       : [];
 
     const isAmxCP = String(formatoMeta?.id || payload?.formatoId || '').trim().toLowerCase() === 'amx-cp';
-    const registros = (Array.isArray(cp.registros) ? cp.registros : []).map((r) => ({
-      ...r,
-      Nombre: isAmxCP ? String(r?.Nombre || '').trim().toUpperCase() : String(r?.Nombre || '').trim()
-    }));
+    const empresasFijasAmxCP = new Set(EMPRESAS_CP_AMX.filter((e) => e !== 'OTROS'));
+    const registros = (Array.isArray(cp.registros) ? cp.registros : []).map((r) => {
+      const rawEmp = String(r?.Empresa || '').trim();
+      const normEmp = isAmxCP && rawEmp && !empresasFijasAmxCP.has(rawEmp)
+        ? rawEmp.toUpperCase()
+        : rawEmp;
+      return {
+        ...r,
+        Nombre: isAmxCP ? String(r?.Nombre || '').trim().toUpperCase() : String(r?.Nombre || '').trim(),
+        Empresa: normEmp
+      };
+    });
     const pendientesSalida = registros.filter(r => !r.HoraSalida || String(r.HoraSalida).trim() === '');
 
     const resumenPreliminar = {

@@ -251,97 +251,226 @@ document.addEventListener('DOMContentLoaded', () => {
       .join('');
   }
 
+  // Helpers de foco y scroll fijo (0px salto en PC y Móvil al dar Enter / Sig.)
+  let lastCiecPointerTarget = null;
+  let lastCiecPointerTimestamp = 0;
+  let ciecShiftHeld = false;
+  let lastCiecMotivoScroll = { x: window.scrollX, y: window.scrollY };
+
+  document.addEventListener('pointerdown', (e) => {
+    lastCiecPointerTarget = e.target;
+    lastCiecPointerTimestamp = Date.now();
+  }, true);
+
+  const wasRecentCiecPointerOn = (el) => {
+    if (!el || !lastCiecPointerTarget) return false;
+    if (Date.now() - lastCiecPointerTimestamp > 450) return false;
+    return lastCiecPointerTarget === el || (typeof el.contains === 'function' && el.contains(lastCiecPointerTarget));
+  };
+
+  const hadRecentCiecPointerAnywhere = () =>
+    Boolean(lastCiecPointerTarget) && (Date.now() - lastCiecPointerTimestamp <= 450);
+
+  const focusNoScrollCiec = (el) => {
+    if (!el || typeof el.focus !== 'function') return;
+    if (Validator && typeof Validator.focusWithoutScroll === 'function') {
+      Validator.focusWithoutScroll(el);
+      return;
+    }
+    try {
+      el.focus({ preventScroll: true });
+    } catch (_) {
+      el.focus();
+    }
+  };
+
+  const preserveScrollCiec = (fn, lockedScroll = null) => {
+    const pos = lockedScroll || { x: window.scrollX, y: window.scrollY };
+    if (Validator && typeof Validator.preserveScroll === 'function') {
+      return Validator.preserveScroll(fn, pos);
+    }
+    const out = typeof fn === 'function' ? fn() : undefined;
+    try {
+      window.scrollTo({ left: pos.x, top: pos.y, behavior: 'instant' });
+    } catch (_) {
+      window.scrollTo(pos.x, pos.y);
+    }
+    window.requestAnimationFrame(() => window.scrollTo(pos.x, pos.y));
+    return out;
+  };
+
+  const agregarRegistroCiec = (opts = {}) => {
+    const silentIncomplete = Boolean(opts.silentIncomplete);
+    const lockedScroll = opts.lockedScroll || { x: window.scrollX, y: window.scrollY };
+    Validator?.clearValidationErrors(form);
+    const nombre = String(inputRegNombre?.value || '').trim();
+    const noTIA = String(inputRegNoTIA?.value || '').trim();
+    const horaIngreso = String(inputRegHoraIngreso?.value || '').trim();
+    let empresa = String(selectRegEmpresa?.value || '').trim();
+    if (empresa === 'OTROS...') {
+      empresa = String(inputRegEmpresaOtros?.value || '').trim();
+    }
+    const motivo = String(inputRegMotivo?.value || '').trim();
+
+    const errs = [];
+    if (!nombre) {
+      Validator?.markElementInvalid(inputRegNombre);
+      errs.push({ label: 'Nombre', message: 'El Nombre es obligatorio.', element: inputRegNombre });
+    }
+    if (!noTIA) {
+      Validator?.markElementInvalid(inputRegNoTIA);
+      errs.push({ label: 'No. TIA', message: 'El No. TIA es obligatorio.', element: inputRegNoTIA });
+    } else if (!/^\d+$/.test(noTIA)) {
+      Validator?.markElementInvalid(inputRegNoTIA);
+      errs.push({ label: 'No. TIA', message: 'El No. TIA debe ser estrictamente numérico (solo dígitos 0-9).', element: inputRegNoTIA });
+    }
+    if (!horaIngreso) {
+      Validator?.markElementInvalid(inputRegHoraIngreso);
+      errs.push({ label: 'Hora de Ingreso', message: 'La Hora de Ingreso es obligatoria.', element: inputRegHoraIngreso });
+    }
+    if (!empresa) {
+      Validator?.markElementInvalid(selectRegEmpresa);
+      errs.push({ label: 'Empresa', message: 'La Empresa es obligatoria.', element: selectRegEmpresa });
+    }
+    if (!motivo) {
+      Validator?.markElementInvalid(inputRegMotivo);
+      errs.push({ label: 'Motivo', message: 'El Motivo es obligatorio.', element: inputRegMotivo });
+    }
+
+    if (errs.length > 0) {
+      if (silentIncomplete) {
+        preserveScrollCiec(() => {}, lockedScroll);
+        return false;
+      }
+      Validator?.focusAndAlert({
+        title: 'Complete los datos del registro de ingreso a cabina',
+        errors: errs
+      });
+      return false;
+    }
+
+    preserveScrollCiec(() => {
+      registros.push({
+        DetalleCIECId: 0,
+        Nombre: nombre,
+        NoTIA: noTIA,
+        HoraIngreso: horaIngreso,
+        Empresa: empresa,
+        Motivo: motivo,
+        HoraSalida: ''
+      });
+
+      if (inputRegNombre) inputRegNombre.value = '';
+      if (inputRegNoTIA) inputRegNoTIA.value = '';
+      if (inputRegHoraIngreso) inputRegHoraIngreso.value = '';
+      if (selectRegEmpresa) selectRegEmpresa.value = '';
+      if (inputRegEmpresaOtros) inputRegEmpresaOtros.value = '';
+      if (grupoEmpresaOtros) grupoEmpresaOtros.style.display = 'none';
+      if (inputRegMotivo) inputRegMotivo.value = '';
+
+      renderRegistros();
+      window.SioOfflineManager?.notifyStateChange?.();
+      focusNoScrollCiec(inputRegNombre);
+      window.setTimeout(() => focusNoScrollCiec(inputRegNombre), 0);
+    }, lockedScroll);
+
+    return true;
+  };
+
   if (btnAgregarRegistro) {
-    btnAgregarRegistro.addEventListener('click', () => {
-      Validator?.clearValidationErrors(form);
-      const nombre = String(inputRegNombre?.value || '').trim();
-      const noTIA = String(inputRegNoTIA?.value || '').trim();
-      const horaIngreso = String(inputRegHoraIngreso?.value || '').trim();
-      let empresa = String(selectRegEmpresa?.value || '').trim();
-      if (empresa === 'OTROS...') {
-        empresa = String(inputRegEmpresaOtros?.value || '').trim();
-      }
-      const motivo = String(inputRegMotivo?.value || '').trim();
-
-      const errs = [];
-      if (!nombre) {
-        Validator?.markElementInvalid(inputRegNombre);
-        errs.push({ label: 'Nombre', message: 'El Nombre es obligatorio.', element: inputRegNombre });
-      }
-      if (!noTIA) {
-        Validator?.markElementInvalid(inputRegNoTIA);
-        errs.push({ label: 'No. TIA', message: 'El No. TIA es obligatorio.', element: inputRegNoTIA });
-      } else if (!/^\d+$/.test(noTIA)) {
-        Validator?.markElementInvalid(inputRegNoTIA);
-        errs.push({ label: 'No. TIA', message: 'El No. TIA debe ser estrictamente numérico (solo dígitos 0-9).', element: inputRegNoTIA });
-      }
-      if (!horaIngreso) {
-        Validator?.markElementInvalid(inputRegHoraIngreso);
-        errs.push({ label: 'Hora de Ingreso', message: 'La Hora de Ingreso es obligatoria.', element: inputRegHoraIngreso });
-      }
-      if (!empresa) {
-        Validator?.markElementInvalid(selectRegEmpresa);
-        errs.push({ label: 'Empresa', message: 'La Empresa es obligatoria.', element: selectRegEmpresa });
-      }
-      if (!motivo) {
-        Validator?.markElementInvalid(inputRegMotivo);
-        errs.push({ label: 'Motivo', message: 'El Motivo es obligatorio.', element: inputRegMotivo });
-      }
-
-      if (errs.length > 0) {
-        Validator?.focusAndAlert({
-          title: 'Complete los datos del registro de ingreso a cabina',
-          errors: errs
-        });
-        return;
-      }
-
-      const runUpdate = () => {
-        registros.push({
-          DetalleCIECId: 0,
-          Nombre: nombre,
-          NoTIA: noTIA,
-          HoraIngreso: horaIngreso,
-          Empresa: empresa,
-          Motivo: motivo,
-          HoraSalida: ''
-        });
-
-        if (inputRegNombre) inputRegNombre.value = '';
-        if (inputRegNoTIA) inputRegNoTIA.value = '';
-        if (inputRegHoraIngreso) inputRegHoraIngreso.value = '';
-        if (selectRegEmpresa) selectRegEmpresa.value = '';
-        if (inputRegEmpresaOtros) inputRegEmpresaOtros.value = '';
-        if (grupoEmpresaOtros) grupoEmpresaOtros.style.display = 'none';
-        if (inputRegMotivo) inputRegMotivo.value = '';
-
-        renderRegistros();
-        window.SioOfflineManager?.notifyStateChange?.();
-        Validator?.focusWithoutScroll?.(inputRegNombre);
-      };
-
-      if (Validator && typeof Validator.preserveScroll === 'function') {
-        Validator.preserveScroll(runUpdate);
-      } else {
-        runUpdate();
-      }
+    btnAgregarRegistro.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      agregarRegistroCiec({ lockedScroll: { x: window.scrollX, y: window.scrollY } });
     });
   }
 
-  if (inputRegMotivo && btnAgregarRegistro) {
-    inputRegMotivo.addEventListener('keydown', (e) => {
-      const isEnter = (e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter' || e.keyCode === 13) && !e.shiftKey;
-      if (!isEnter) return;
+  const focusCiecEmpresaOrMotivo = () => {
+    const currentEmp = String(selectRegEmpresa?.value || '').trim();
+    if (currentEmp && (currentEmp !== 'OTROS...' || String(inputRegEmpresaOtros?.value || '').trim())) {
+      focusNoScrollCiec(inputRegMotivo);
+      return;
+    }
+    const comboTrigger = selectRegEmpresa?.closest('.sio-select, .sio-combo, .sio-combo-wrapper')?.querySelector('button, .sio-select-trigger, .sio-combo-trigger');
+    focusNoScrollCiec(comboTrigger || selectRegEmpresa || inputRegMotivo);
+  };
+
+  const bindCiecEnterAdvance = (el, nextFn) => {
+    if (!el) return;
+    el.addEventListener('keydown', (e) => {
+      const isEnter = e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter' || e.keyCode === 13;
+      const isNext = e.key === 'Next' || e.key === 'Go';
+      if (!isEnter && !isNext) return;
       if (e.isComposing || e.keyCode === 229) return;
+      const lockedScroll = { x: window.scrollX, y: window.scrollY };
       e.preventDefault();
-      btnAgregarRegistro.click();
+      e.stopPropagation();
+      preserveScrollCiec(nextFn, lockedScroll);
     });
-    inputRegMotivo.addEventListener('beforeinput', (e) => {
-      if (e.inputType === 'insertLineBreak' || e.inputType === 'insertParagraph') {
+  };
+
+  bindCiecEnterAdvance(inputRegNombre, () => focusNoScrollCiec(inputRegNoTIA));
+  bindCiecEnterAdvance(inputRegNoTIA, () => focusNoScrollCiec(inputRegHoraIngreso));
+  bindCiecEnterAdvance(inputRegHoraIngreso, focusCiecEmpresaOrMotivo);
+  bindCiecEnterAdvance(inputRegEmpresaOtros, () => focusNoScrollCiec(inputRegMotivo));
+
+  if (inputRegMotivo) {
+    const recordMotivoScroll = () => {
+      lastCiecMotivoScroll = { x: window.scrollX, y: window.scrollY };
+    };
+    inputRegMotivo.addEventListener('focus', recordMotivoScroll);
+    inputRegMotivo.addEventListener('input', recordMotivoScroll);
+    window.addEventListener('scroll', () => {
+      if (document.activeElement === inputRegMotivo) recordMotivoScroll();
+    }, { passive: true });
+
+    inputRegMotivo.addEventListener('keydown', (e) => {
+      ciecShiftHeld = Boolean(e.shiftKey);
+      const isEnter = (e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter' || e.keyCode === 13) && !e.shiftKey;
+      const isNextKey = e.key === 'Next' || e.key === 'Go' || (e.key === 'Tab' && !e.shiftKey);
+      if (isEnter) {
+        if (e.isComposing || e.keyCode === 229) return;
+        const lockedScroll = { x: window.scrollX, y: window.scrollY };
+        lastCiecMotivoScroll = lockedScroll;
         e.preventDefault();
-        btnAgregarRegistro.click();
+        e.stopPropagation();
+        agregarRegistroCiec({ lockedScroll });
+        return;
+      }
+      if (isNextKey && String(inputRegMotivo.value || '').trim() !== '') {
+        const lockedScroll = { x: window.scrollX, y: window.scrollY };
+        lastCiecMotivoScroll = lockedScroll;
+        e.preventDefault();
+        e.stopPropagation();
+        agregarRegistroCiec({ lockedScroll });
       }
     });
+
+    inputRegMotivo.addEventListener('keyup', (e) => {
+      ciecShiftHeld = Boolean(e.shiftKey);
+    });
+
+    inputRegMotivo.addEventListener('beforeinput', (e) => {
+      if ((e.inputType === 'insertLineBreak' || e.inputType === 'insertParagraph') && !ciecShiftHeld) {
+        const lockedScroll = { x: window.scrollX, y: window.scrollY };
+        lastCiecMotivoScroll = lockedScroll;
+        e.preventDefault();
+        e.stopPropagation();
+        agregarRegistroCiec({ lockedScroll });
+      }
+    });
+
+    const handleCiecMotivoMobileNext = () => {
+      const motivoVal = String(inputRegMotivo.value || '').trim();
+      if (!motivoVal) return;
+      if (wasRecentCiecPointerOn(btnAgregarRegistro)) return;
+      if (!hadRecentCiecPointerAnywhere() || wasRecentCiecPointerOn(inputRegMotivo)) {
+        agregarRegistroCiec({ silentIncomplete: true, lockedScroll: { ...lastCiecMotivoScroll } });
+      }
+    };
+
+    inputRegMotivo.addEventListener('change', handleCiecMotivoMobileNext);
+    inputRegMotivo.addEventListener('blur', handleCiecMotivoMobileNext);
   }
 
   if (contRegistrosLista) {
@@ -353,10 +482,13 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!Number.isInteger(idx) || !registros[idx]) return;
 
       if (action === 'salida-ahora') {
-        registros[idx].HoraSalida = nowHHMM();
-        renderRegistros();
-        window.SioOfflineManager?.notifyStateChange?.();
+        preserveScrollCiec(() => {
+          registros[idx].HoraSalida = nowHHMM();
+          renderRegistros();
+          window.SioOfflineManager?.notifyStateChange?.();
+        });
       } else if (action === 'editar-salida') {
+        const lockedScroll = { x: window.scrollX, y: window.scrollY };
         const { value: nuevaHora } = await Swal.fire({
           title: `Hora de Salida — ${registros[idx].Nombre}`,
           input: 'time',
@@ -364,17 +496,22 @@ document.addEventListener('DOMContentLoaded', () => {
           showCancelButton: true,
           confirmButtonText: 'Guardar Salida',
           cancelButtonText: 'Cancelar',
-          confirmButtonColor: '#0F2744'
+          confirmButtonColor: '#0F2744',
+          returnFocus: false
         });
         if (nuevaHora !== undefined) {
-          registros[idx].HoraSalida = String(nuevaHora).trim();
-          renderRegistros();
-          window.SioOfflineManager?.notifyStateChange?.(true);
+          preserveScrollCiec(() => {
+            registros[idx].HoraSalida = String(nuevaHora).trim();
+            renderRegistros();
+            window.SioOfflineManager?.notifyStateChange?.(true);
+          }, lockedScroll);
         }
       } else if (action === 'eliminar-reg') {
-        registros.splice(idx, 1);
-        renderRegistros();
-        window.SioOfflineManager?.notifyStateChange?.();
+        preserveScrollCiec(() => {
+          registros.splice(idx, 1);
+          renderRegistros();
+          window.SioOfflineManager?.notifyStateChange?.();
+        });
       }
     });
   }

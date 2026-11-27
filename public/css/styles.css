@@ -1052,6 +1052,7 @@ body.dark-mode .cp-section-title {
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 16px;
   margin-top: 14px;
+  overflow-anchor: none;
 }
 
 .cp-reg-card {
@@ -1165,6 +1166,18 @@ body.dark-mode .cp-section-title {
   cursor: not-allowed;
 }
 
+.cp-icon-btn.edit {
+  color: #B45309;
+  border-color: rgba(212, 175, 55, 0.55);
+}
+
+.cp-icon-btn.edit:hover,
+.cp-icon-btn.edit.is-active {
+  background-color: var(--gold);
+  border-color: var(--gold);
+  color: #0F2744;
+}
+
 .cp-icon-btn.trash {
   color: var(--danger);
 }
@@ -1173,6 +1186,90 @@ body.dark-mode .cp-section-title {
   background-color: var(--danger);
   border-color: var(--danger);
   color: #FFFFFF;
+}
+
+#cpRegistroCard.is-editing-mode {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.24), var(--shadow-sm);
+}
+
+.cp-edit-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #78350F;
+  background-color: #FEF3C7;
+  border: 1px solid #F59E0B;
+}
+
+.cp-form-actions {
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cp-btn-save-edit {
+  background-color: #B45309;
+  border-color: #B45309;
+  color: #FFFFFF;
+}
+
+.cp-btn-save-edit:hover {
+  background-color: #92400E;
+  border-color: #92400E;
+}
+
+.cp-reg-card.is-editing {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.3), var(--shadow-sm);
+}
+
+.cp-reg-card.is-just-updated {
+  animation: cpCardUpdatedFlash 1.4s ease;
+}
+
+@keyframes cpCardUpdatedFlash {
+  0% {
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.45);
+    border-color: #16A34A;
+  }
+  100% {
+    box-shadow: var(--shadow-sm);
+    border-color: var(--border);
+  }
+}
+
+.cp-editing-pill {
+  background-color: #FEF3C7;
+  border-color: #F59E0B;
+  color: #92400E;
+}
+
+body.dark-mode .cp-icon-btn.edit,
+[data-theme="dark"] .cp-icon-btn.edit {
+  color: var(--gold);
+  border-color: rgba(212, 175, 55, 0.45);
+}
+
+body.dark-mode .cp-icon-btn.edit:hover,
+body.dark-mode .cp-icon-btn.edit.is-active,
+[data-theme="dark"] .cp-icon-btn.edit:hover,
+[data-theme="dark"] .cp-icon-btn.edit.is-active {
+  background-color: var(--gold);
+  border-color: var(--gold);
+  color: #0F172A;
+}
+
+body.dark-mode .cp-edit-mode-badge,
+body.dark-mode .cp-editing-pill,
+[data-theme="dark"] .cp-edit-mode-badge,
+[data-theme="dark"] .cp-editing-pill {
+  background-color: rgba(212, 175, 55, 0.18);
+  border-color: rgba(212, 175, 55, 0.55);
+  color: #FDE68A;
 }
 
 .cp-reg-tags {
@@ -1286,6 +1383,7 @@ body.dark-mode .cp-section-title {
   min-width: 0;
   max-height: 520px;
   overflow: auto;
+  overflow-anchor: none;
   -webkit-overflow-scrolling: touch;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -2454,6 +2552,7 @@ section {
   width: 100%;
   max-width: 100%;
   overflow-x: auto;
+  overflow-anchor: none;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface);
@@ -2837,6 +2936,16 @@ section {
     min-height: 44px;
     padding: 0 12px;
     font-size: 13px;
+  }
+
+  .cp-reg-actions {
+    gap: 8px;
+  }
+
+  .cp-icon-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 15px;
   }
 
   /* /login móvil: mantener paridad visual con escritorio sin desbordamiento */

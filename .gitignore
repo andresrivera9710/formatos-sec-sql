@@ -13,6 +13,10 @@ readmegithub.md
 **/readmegithub.md
 GEMINI.md
 **/GEMINI.md
+.agents/
+**/.agents/
+skills-lock.json
+**/skills-lock.json
 
 # Artefactos de compilación y despliegue
 dist/

@@ -57,6 +57,40 @@ document.addEventListener('DOMContentLoaded', () => {
     return res;
   };
 
+  const scrollToPersonaInput = (targetEl = null) => {
+    const el = targetEl || document.getElementById('cpRegNombre');
+    if (!el) return;
+    focusNoScroll(el);
+    window.requestAnimationFrame(() => {
+      try {
+        const rect = el.getBoundingClientRect();
+        const viewportH = window.innerHeight || document.documentElement.clientHeight || 768;
+        const viewportW = window.innerWidth || document.documentElement.clientWidth || 1024;
+        const desiredTop = viewportW <= 768
+          ? Math.round(Math.min(Math.max(viewportH * 0.22, 110), 170))
+          : Math.round(Math.min(Math.max(viewportH * 0.25, 140), 210));
+        const targetY = Math.max(0, window.scrollY + rect.top - desiredTop);
+        if (typeof window.scrollTo === 'function') {
+          window.scrollTo({ top: targetY, behavior: 'smooth' });
+        } else {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+        }
+      } catch (_) {
+        try {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+        } catch (__) {
+          el.scrollIntoView();
+        }
+      }
+      focusNoScroll(el);
+    });
+    window.setTimeout(() => {
+      if (document.activeElement !== el) {
+        focusNoScroll(el);
+      }
+    }, 90);
+  };
+
   // Cargar datos iniciales hidratados desde Azure SQL
   const bootstrapEl = document.getElementById('cpBootstrapData');
   let rawRegistros = [];
@@ -167,17 +201,29 @@ document.addEventListener('DOMContentLoaded', () => {
   const inputAgentesIds = document.getElementById('cpAgentesEmpleadoIds');
   const inputObservaciones = document.getElementById('cpObservaciones');
 
+  const cpRegistroCard = document.getElementById('cpRegistroCard');
+  const cpEditModeBadge = document.getElementById('cpEditModeBadge');
+  const cpEditModeNum = document.getElementById('cpEditModeNum');
   const inputRegNombre = document.getElementById('cpRegNombre');
   const inputRegNoTIA = document.getElementById('cpRegNoTIA');
   const inputRegHoraIngreso = document.getElementById('cpRegHoraIngreso');
+  const grupoHoraSalidaEdit = document.getElementById('grupoCpHoraSalidaEdit');
+  const inputRegHoraSalida = document.getElementById('cpRegHoraSalida');
   const grupoEmpresaOtros = document.getElementById('grupoCpEmpresaOtros');
   const inputRegEmpresaOtros = document.getElementById('cpRegEmpresaOtros');
   const inputRegMotivo = document.getElementById('cpRegMotivo');
+  const btnCancelarEdicion = document.getElementById('btnCpCancelarEdicion');
 
   const inputBuscador = document.getElementById('cpBuscador');
   const badgeEstadoEl = document.getElementById('cpRegistrosEstadoBadge');
   const listaRegistrosEl = document.getElementById('cpRegistrosLista');
   const listaAlerosEl = document.getElementById('cpAlerosLista');
+
+  let editingIndex = null;
+  let empresaAntesDeEdicion = '';
+  let empresaOtrosAntesDeEdicion = '';
+  let lastUpdatedIndex = -1;
+  let justUpdatedTimer = null;
 
   // Botones rápidos de reloj ("Ahora")
   const bindClockButton = (btnId, targetInput) => {
@@ -193,38 +239,67 @@ document.addEventListener('DOMContentLoaded', () => {
   bindClockButton('btnCpHoraAseguradaActual', inputHoraAsegurado);
   bindClockButton('btnCpHoraRevisionActual', inputHoraRevision);
   bindClockButton('btnCpHoraIngresoActual', inputRegHoraIngreso);
+  bindClockButton('btnCpHoraSalidaActual', inputRegHoraSalida);
 
-  // Regla AEROMEXICO CP: Nombre siempre en MAYÚSCULAS en tiempo real (Web + Móvil)
-  if (inputRegNombre && isAmxCP) {
-    const forceUppercaseNombre = () => {
-      const raw = inputRegNombre.value;
+  // Regla AEROMEXICO CP: Nombre y Empresa externa (OTROS) siempre en MAYÚSCULAS en tiempo real (Web + Móvil)
+  const bindUppercaseInput = (el) => {
+    if (!el || !isAmxCP) return;
+    const forceUpper = () => {
+      const raw = el.value;
       const upper = raw.toUpperCase();
       if (raw !== upper) {
-        const start = inputRegNombre.selectionStart;
-        const end = inputRegNombre.selectionEnd;
-        inputRegNombre.value = upper;
+        const start = el.selectionStart;
+        const end = el.selectionEnd;
+        el.value = upper;
         if (typeof start === 'number' && typeof end === 'number') {
           try {
-            inputRegNombre.setSelectionRange(start, end);
+            el.setSelectionRange(start, end);
           } catch (_) {}
         }
       }
     };
-    inputRegNombre.addEventListener('input', forceUppercaseNombre);
-    inputRegNombre.addEventListener('change', forceUppercaseNombre);
-  }
+    el.addEventListener('input', forceUpper);
+    el.addEventListener('change', forceUpper);
+  };
+  bindUppercaseInput(inputRegNombre);
+  bindUppercaseInput(inputRegEmpresaOtros);
 
-  // Toggle campo manual cuando Empresa === 'OTROS...'
+  const isOtrosEmpresaValue = (val) => {
+    const up = String(val || '').trim().toUpperCase();
+    return up === 'OTROS' || up === 'OTROS...';
+  };
+
+  const getOtrosOptionValue = () => {
+    if (!selEmpresa) return isAmxCP ? 'OTROS' : 'OTROS...';
+    const match = Array.from(selEmpresa.options).find((opt) => isOtrosEmpresaValue(opt.value));
+    return match ? match.value : (isAmxCP ? 'OTROS' : 'OTROS...');
+  };
+
+  const toggleEmpresaOtrosUI = (show, opts = {}) => {
+    const { clearOnHide = true, focusOnShow = false } = opts;
+    if (grupoEmpresaOtros) {
+      grupoEmpresaOtros.classList.toggle('sio-field-hidden', !show);
+      grupoEmpresaOtros.style.display = '';
+    }
+    if (inputRegEmpresaOtros) {
+      inputRegEmpresaOtros.required = Boolean(show);
+      if (!show && clearOnHide) {
+        inputRegEmpresaOtros.value = '';
+        inputRegEmpresaOtros.classList.remove('is-invalid', 'sio-field-invalid');
+      } else if (show && focusOnShow) {
+        focusNoScroll(inputRegEmpresaOtros);
+      }
+    }
+  };
+
+  // Toggle campo condicional cuando Empresa === 'OTROS' / 'OTROS...'
   if (selEmpresa && grupoEmpresaOtros) {
     selEmpresa.addEventListener('change', () => {
-      if (selEmpresa.value === 'OTROS...') {
-        grupoEmpresaOtros.style.display = 'block';
-        focusNoScroll(inputRegEmpresaOtros);
-      } else {
-        grupoEmpresaOtros.style.display = 'none';
-        if (inputRegEmpresaOtros) inputRegEmpresaOtros.value = '';
-      }
+      const isOtros = isOtrosEmpresaValue(selEmpresa.value);
+      toggleEmpresaOtrosUI(isOtros, { clearOnHide: true, focusOnShow: isOtros });
     });
+    // Sincronizar estado inicial (ej. si el navegador restauró valor)
+    toggleEmpresaOtrosUI(isOtrosEmpresaValue(selEmpresa.value), { clearOnHide: false, focusOnShow: false });
   }
 
   // Renderizado del listado de registros con filtro del buscador
@@ -263,12 +338,19 @@ document.addEventListener('DOMContentLoaded', () => {
     listaRegistrosEl.innerHTML = indexed.map(({ item, idx }) => {
       const hasSalida = Boolean(item.HoraSalida && item.HoraSalida.trim() !== '');
       const statusClass = hasSalida ? 'is-done' : 'is-pending';
+      const isEditing = editingIndex === idx;
+      const isJustUpdated = lastUpdatedIndex === idx;
+      const cardClasses = [
+        'cp-reg-card',
+        isEditing ? 'is-editing' : '',
+        isJustUpdated ? 'is-just-updated' : ''
+      ].filter(Boolean).join(' ');
       const salidaHtml = hasSalida
         ? `<span><i class="fas fa-sign-out-alt" style="color: var(--success);"></i> ${esc(item.HoraSalida)}</span>`
         : '<span class="cp-badge-pending"><i class="fas fa-exclamation-circle"></i> Pendiente</span>';
 
       return `
-        <div class="cp-reg-card" data-record-json="${esc(JSON.stringify(item))}">
+        <div class="${cardClasses}" data-index="${idx}" data-record-json="${esc(JSON.stringify(item))}">
           <div class="cp-reg-topbar ${statusClass}"></div>
           <div class="cp-reg-body">
             <div class="cp-reg-header">
@@ -284,6 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   <div class="cp-reg-tags" style="margin-top: 4px;">
                     <span class="cp-tag-pill"><i class="fas fa-id-badge"></i> TIA: ${esc(item.NoTIA)}</span>
                     <span class="cp-tag-pill"><i class="fas fa-building"></i> ${esc(item.Empresa)}</span>
+                    ${isEditing ? '<span class="cp-tag-pill cp-editing-pill"><i class="fas fa-pencil-alt"></i> Editando</span>' : ''}
                   </div>
                 </div>
               </div>
@@ -294,15 +377,26 @@ document.addEventListener('DOMContentLoaded', () => {
                   class="cp-icon-btn clock btn-cp-marcar-salida"
                   data-index="${idx}"
                   title="${hasSalida ? 'Hora de salida registrada' : 'Marcar hora de salida actual'}"
+                  aria-label="${hasSalida ? 'Hora de salida registrada' : `Marcar hora de salida para registro #${idx + 1}`}"
                   ${hasSalida ? 'disabled' : ''}
                 >
                   <i class="far fa-clock"></i>
                 </button>
                 <button
                   type="button"
+                  class="cp-icon-btn edit btn-cp-editar-registro${isEditing ? ' is-active' : ''}"
+                  data-index="${idx}"
+                  title="Editar registro"
+                  aria-label="Editar registro #${idx + 1}"
+                >
+                  <i class="fas fa-pencil-alt"></i>
+                </button>
+                <button
+                  type="button"
                   class="cp-icon-btn trash btn-cp-eliminar-registro"
                   data-index="${idx}"
                   title="Eliminar registro"
+                  aria-label="Eliminar registro #${idx + 1}"
                 >
                   <i class="fas fa-trash-alt"></i>
                 </button>
@@ -352,24 +446,173 @@ document.addEventListener('DOMContentLoaded', () => {
   const hadRecentCpPointerAnywhere = () =>
     Boolean(lastCpPointerTarget) && (Date.now() - lastCpPointerTimestamp <= 450);
 
+  // Helpers de modo edición para el subformulario REGISTRO
+  const clearLegacyEmpresaOption = () => {
+    if (!selEmpresa) return;
+    const legacyOpts = selEmpresa.querySelectorAll('option[data-cp-legacy-empresa="true"]');
+    legacyOpts.forEach((opt) => opt.remove());
+  };
+
+  const setEmpresaFieldValue = (empresaVal, otrosVal = '') => {
+    if (!selEmpresa) return;
+    clearLegacyEmpresaOption();
+    const cleanVal = String(empresaVal || '').trim();
+    const otrosOptVal = getOtrosOptionValue();
+    const hasOtrosOpt = Array.from(selEmpresa.options).some((opt) => isOtrosEmpresaValue(opt.value));
+    const hasFixedExactOpt = cleanVal !== '' && Array.from(selEmpresa.options).some(
+      (opt) => opt.value === cleanVal && !isOtrosEmpresaValue(opt.value)
+    );
+
+    if (!cleanVal) {
+      selEmpresa.value = '';
+      toggleEmpresaOtrosUI(false, { clearOnHide: true, focusOnShow: false });
+    } else if (isOtrosEmpresaValue(cleanVal) && hasOtrosOpt) {
+      selEmpresa.value = otrosOptVal;
+      toggleEmpresaOtrosUI(true, { clearOnHide: false, focusOnShow: false });
+      if (inputRegEmpresaOtros) {
+        const cleanOtros = String(otrosVal || '').trim();
+        inputRegEmpresaOtros.value = isAmxCP ? cleanOtros.toUpperCase() : cleanOtros;
+      }
+    } else if (hasFixedExactOpt) {
+      selEmpresa.value = cleanVal;
+      toggleEmpresaOtrosUI(false, { clearOnHide: true, focusOnShow: false });
+    } else if (hasOtrosOpt) {
+      selEmpresa.value = otrosOptVal;
+      toggleEmpresaOtrosUI(true, { clearOnHide: false, focusOnShow: false });
+      if (inputRegEmpresaOtros) {
+        inputRegEmpresaOtros.value = isAmxCP ? cleanVal.toUpperCase() : cleanVal;
+      }
+    } else {
+      const tempOpt = document.createElement('option');
+      tempOpt.value = cleanVal;
+      tempOpt.textContent = cleanVal;
+      tempOpt.setAttribute('data-cp-legacy-empresa', 'true');
+      selEmpresa.appendChild(tempOpt);
+      selEmpresa.value = cleanVal;
+      toggleEmpresaOtrosUI(false, { clearOnHide: true, focusOnShow: false });
+    }
+
+    if (comboEmpresa) {
+      if (typeof comboEmpresa.refresh === 'function') comboEmpresa.refresh();
+      if (typeof comboEmpresa.syncFromSelect === 'function') comboEmpresa.syncFromSelect();
+      if (typeof comboEmpresa.setInvalid === 'function') comboEmpresa.setInvalid(false);
+    }
+  };
+
+  const salirModoEdicion = (opts = {}) => {
+    const { resetForm = true, restoreEmpresa = true, skipRender = false } = opts;
+    const prevEmpresa = empresaAntesDeEdicion;
+    const prevEmpresaOtros = empresaOtrosAntesDeEdicion;
+
+    editingIndex = null;
+    empresaAntesDeEdicion = '';
+    empresaOtrosAntesDeEdicion = '';
+
+    clearLegacyEmpresaOption();
+
+    if (cpRegistroCard) cpRegistroCard.classList.remove('is-editing-mode');
+    if (cpEditModeBadge) cpEditModeBadge.classList.add('sio-field-hidden');
+    if (cpEditModeNum) cpEditModeNum.textContent = '';
+    if (grupoHoraSalidaEdit) grupoHoraSalidaEdit.classList.add('sio-field-hidden');
+    if (btnCancelarEdicion) btnCancelarEdicion.classList.add('sio-field-hidden');
+    if (btnAgregarRegistro) {
+      btnAgregarRegistro.innerHTML = '<i class="fas fa-plus-circle"></i> GUARDAR REGISTRO';
+      btnAgregarRegistro.classList.remove('cp-btn-save-edit');
+    }
+
+    if (resetForm) {
+      if (inputRegNombre) inputRegNombre.value = '';
+      if (inputRegNoTIA) inputRegNoTIA.value = '';
+      if (inputRegHoraIngreso) inputRegHoraIngreso.value = '';
+      if (inputRegHoraSalida) inputRegHoraSalida.value = '';
+      if (inputRegMotivo) inputRegMotivo.value = '';
+      if (restoreEmpresa) {
+        setEmpresaFieldValue(prevEmpresa, prevEmpresaOtros);
+      } else {
+        setEmpresaFieldValue('');
+      }
+      if (cpRegistroCard) Validator?.clearValidationErrors?.(cpRegistroCard);
+    }
+
+    if (!skipRender) {
+      renderRegistros();
+    }
+  };
+
+  const iniciarEdicionRegistro = (idx) => {
+    if (!Number.isFinite(idx) || idx < 0 || idx >= registros.length) return;
+    const item = registros[idx];
+
+    if (editingIndex === null) {
+      empresaAntesDeEdicion = String(selEmpresa?.value || '').trim();
+      empresaOtrosAntesDeEdicion = String(inputRegEmpresaOtros?.value || '').trim();
+    }
+
+    editingIndex = idx;
+
+    if (cpRegistroCard) Validator?.clearValidationErrors?.(cpRegistroCard);
+    if (inputRegNombre) inputRegNombre.value = normalizeCpNombre(item.Nombre);
+    if (inputRegNoTIA) inputRegNoTIA.value = String(item.NoTIA || '').trim();
+    if (inputRegHoraIngreso) inputRegHoraIngreso.value = extractHHMM(item.HoraIngreso);
+    if (inputRegHoraSalida) inputRegHoraSalida.value = extractHHMM(item.HoraSalida);
+    if (inputRegMotivo) inputRegMotivo.value = String(item.Motivo || '').trim();
+    setEmpresaFieldValue(item.Empresa);
+
+    if (cpRegistroCard) cpRegistroCard.classList.add('is-editing-mode');
+    if (cpEditModeNum) cpEditModeNum.textContent = String(idx + 1);
+    if (cpEditModeBadge) cpEditModeBadge.classList.remove('sio-field-hidden');
+    if (grupoHoraSalidaEdit) grupoHoraSalidaEdit.classList.remove('sio-field-hidden');
+    if (btnCancelarEdicion) btnCancelarEdicion.classList.remove('sio-field-hidden');
+    if (btnAgregarRegistro) {
+      btnAgregarRegistro.innerHTML = '<i class="fas fa-check-circle"></i> GUARDAR CAMBIOS';
+      btnAgregarRegistro.classList.add('cp-btn-save-edit');
+    }
+
+    renderRegistros();
+    scrollToPersonaInput(inputRegNombre);
+  };
+
   const agregarRegistroCP = (opts = {}) => {
     const silentIncomplete = Boolean(opts.silentIncomplete);
+    const shouldScrollToNombre = opts.scrollToNombre !== false;
+    const isEditing = editingIndex !== null && Boolean(registros[editingIndex]);
     const nombre = normalizeCpNombre(inputRegNombre?.value || '');
     const noTia = String(inputRegNoTIA?.value || '').trim();
     const horaIngreso = extractHHMM(inputRegHoraIngreso?.value || '');
+    const horaSalidaEdit = isEditing ? extractHHMM(inputRegHoraSalida?.value || '') : '';
     const empresaSel = String(selEmpresa?.value || '').trim();
-    const empresaFinal = empresaSel === 'OTROS...'
-      ? String(inputRegEmpresaOtros?.value || '').trim()
-      : empresaSel;
+    const isOtrosSel = isOtrosEmpresaValue(empresaSel);
+    const empresaOtrosRaw = String(inputRegEmpresaOtros?.value || '').trim();
+    const empresaOtrosNorm = isAmxCP ? empresaOtrosRaw.toUpperCase() : empresaOtrosRaw;
+    if (isOtrosSel && inputRegEmpresaOtros && isAmxCP && inputRegEmpresaOtros.value !== empresaOtrosNorm) {
+      inputRegEmpresaOtros.value = empresaOtrosNorm;
+    }
+    const empresaFinal = isOtrosSel ? empresaOtrosNorm : empresaSel;
     const motivo = String(inputRegMotivo?.value || '').trim();
+
+    if (isOtrosSel && (!empresaOtrosNorm || isOtrosEmpresaValue(empresaOtrosNorm))) {
+      if (silentIncomplete) return false;
+      Validator?.markElementInvalid(inputRegEmpresaOtros);
+      Swal.fire({
+        icon: 'warning',
+        title: 'Especifique Otra Empresa',
+        text: 'Ha seleccionado OTROS. Por favor escriba el nombre real de la empresa externa antes de continuar.',
+        confirmButtonColor: '#275B88',
+        returnFocus: false
+      });
+      focusNoScroll(inputRegEmpresaOtros);
+      return false;
+    }
 
     if (!nombre || !noTia || !horaIngreso || !empresaFinal || !motivo) {
       if (silentIncomplete) return false;
       if (!empresaSel && comboEmpresa) comboEmpresa.setInvalid(true);
       Swal.fire({
         icon: 'warning',
-        title: 'Campos Incompletos en Registro',
-        text: 'Por favor complete Nombre, No. TIA, Hora de Ingreso, Empresa y Motivo antes de agregar.',
+        title: isEditing ? 'Campos Incompletos al Editar' : 'Campos Incompletos en Registro',
+        text: isEditing
+          ? 'Por favor complete Nombre, No. TIA, Hora de Ingreso, Empresa y Motivo antes de guardar los cambios.'
+          : 'Por favor complete Nombre, No. TIA, Hora de Ingreso, Empresa y Motivo antes de agregar.',
         confirmButtonColor: '#275B88',
         returnFocus: false
       });
@@ -390,46 +633,118 @@ document.addEventListener('DOMContentLoaded', () => {
       return false;
     }
 
-    preserveViewportScroll(() => {
-      registros.push({
-        DetalleCPId: 0,
+    if (isEditing) {
+      const targetIdx = editingIndex;
+      const prev = registros[targetIdx];
+      registros[targetIdx] = {
+        ...prev,
+        DetalleCPId: parseInt(prev.DetalleCPId, 10) || 0,
         Nombre: nombre,
         NoTIA: noTia,
         HoraIngreso: horaIngreso,
         Empresa: empresaFinal,
         Motivo: motivo,
-        HoraSalida: ''
-      });
+        HoraSalida: horaSalidaEdit
+      };
 
-      // Reseteo selectivo: limpia todos los campos de captura EXCEPTUANDO Empresa
-      if (inputRegNombre) inputRegNombre.value = '';
-      if (inputRegNoTIA) inputRegNoTIA.value = '';
-      if (inputRegHoraIngreso) inputRegHoraIngreso.value = '';
-      if (inputRegMotivo) inputRegMotivo.value = '';
-      if (empresaSel !== 'OTROS...') {
-        if (inputRegEmpresaOtros) inputRegEmpresaOtros.value = '';
-        if (grupoEmpresaOtros) grupoEmpresaOtros.style.display = 'none';
+      lastUpdatedIndex = targetIdx;
+      if (justUpdatedTimer) window.clearTimeout(justUpdatedTimer);
+      justUpdatedTimer = window.setTimeout(() => {
+        lastUpdatedIndex = -1;
+      }, 1700);
+
+      salirModoEdicion({ resetForm: true, restoreEmpresa: true, skipRender: true });
+      renderRegistros();
+      window.SioOfflineManager?.notifyStateChange?.(true);
+
+      if (shouldScrollToNombre) {
+        scrollToPersonaInput(inputRegNombre);
+      } else {
+        focusNoScroll(inputRegNombre);
       }
 
-      renderRegistros();
-      window.SioOfflineManager?.notifyStateChange?.();
-      focusNoScroll(inputRegNombre);
+      if (window.Swal) {
+        window.Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: `Registro #${targetIdx + 1} actualizado`,
+          showConfirmButton: false,
+          timer: 1800,
+          timerProgressBar: true
+        });
+      }
+
+      return true;
+    }
+
+    registros.push({
+      DetalleCPId: 0,
+      Nombre: nombre,
+      NoTIA: noTia,
+      HoraIngreso: horaIngreso,
+      Empresa: empresaFinal,
+      Motivo: motivo,
+      HoraSalida: ''
     });
+
+    // Reseteo selectivo: limpia todos los campos de captura EXCEPTUANDO Empresa (y el nombre escrito si es OTROS)
+    if (inputRegNombre) inputRegNombre.value = '';
+    if (inputRegNoTIA) inputRegNoTIA.value = '';
+    if (inputRegHoraIngreso) inputRegHoraIngreso.value = '';
+    if (inputRegHoraSalida) inputRegHoraSalida.value = '';
+    if (inputRegMotivo) inputRegMotivo.value = '';
+    if (!isOtrosSel) {
+      toggleEmpresaOtrosUI(false, { clearOnHide: true, focusOnShow: false });
+    } else if (inputRegEmpresaOtros) {
+      inputRegEmpresaOtros.classList.remove('is-invalid', 'sio-field-invalid');
+    }
+
+    renderRegistros();
+    window.SioOfflineManager?.notifyStateChange?.();
+
+    if (shouldScrollToNombre) {
+      scrollToPersonaInput(inputRegNombre);
+    } else {
+      preserveViewportScroll(() => focusNoScroll(inputRegNombre));
+    }
 
     return true;
   };
 
   if (btnAgregarRegistro) {
     btnAgregarRegistro.addEventListener('click', () => {
-      agregarRegistroCP();
+      agregarRegistroCP({ scrollToNombre: true });
+    });
+  }
+
+  if (btnCancelarEdicion) {
+    btnCancelarEdicion.addEventListener('click', () => {
+      salirModoEdicion({ resetForm: true, restoreEmpresa: true });
+      scrollToPersonaInput(inputRegNombre);
+    });
+  }
+
+  if (cpRegistroCard) {
+    cpRegistroCard.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && editingIndex !== null) {
+        if (document.querySelector('.sio-select.is-open, .swal2-container')) return;
+        e.preventDefault();
+        salirModoEdicion({ resetForm: true, restoreEmpresa: true });
+      }
     });
   }
 
   // Avance rápido sin saltos de scroll entre campos de REGISTRO + Guardado automático al dar Enter o Sig. en Motivo
   const focusEmpresaOrMotivo = () => {
     const currentEmp = String(selEmpresa?.value || '').trim();
-    if (currentEmp && (currentEmp !== 'OTROS...' || String(inputRegEmpresaOtros?.value || '').trim())) {
+    const isOtrosCur = isOtrosEmpresaValue(currentEmp);
+    if (currentEmp && (!isOtrosCur || String(inputRegEmpresaOtros?.value || '').trim())) {
       focusNoScroll(inputRegMotivo);
+      return;
+    }
+    if (isOtrosCur && inputRegEmpresaOtros) {
+      focusNoScroll(inputRegEmpresaOtros);
       return;
     }
     const comboTrigger = selEmpresa?.closest('.sio-select, .sio-combo, .sio-combo-wrapper')?.querySelector('button, .sio-select-trigger, .sio-combo-trigger');
@@ -449,7 +764,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   bindEnterAdvance(inputRegNombre, () => focusNoScroll(inputRegNoTIA));
   bindEnterAdvance(inputRegNoTIA, () => focusNoScroll(inputRegHoraIngreso));
-  bindEnterAdvance(inputRegHoraIngreso, focusEmpresaOrMotivo);
+  bindEnterAdvance(inputRegHoraIngreso, () => {
+    if (editingIndex !== null && inputRegHoraSalida && grupoHoraSalidaEdit && !grupoHoraSalidaEdit.classList.contains('sio-field-hidden')) {
+      focusNoScroll(inputRegHoraSalida);
+      return;
+    }
+    focusEmpresaOrMotivo();
+  });
+  bindEnterAdvance(inputRegHoraSalida, focusEmpresaOrMotivo);
   bindEnterAdvance(inputRegEmpresaOtros, () => focusNoScroll(inputRegMotivo));
 
   if (inputRegMotivo) {
@@ -461,13 +783,13 @@ document.addEventListener('DOMContentLoaded', () => {
       if (isEnter) {
         if (e.isComposing || e.keyCode === 229) return;
         e.preventDefault();
-        agregarRegistroCP();
+        agregarRegistroCP({ scrollToNombre: true });
         return;
       }
 
       if (isNextKey && String(inputRegMotivo.value || '').trim() !== '') {
         e.preventDefault();
-        agregarRegistroCP();
+        agregarRegistroCP({ scrollToNombre: true });
       }
     });
 
@@ -479,17 +801,18 @@ document.addEventListener('DOMContentLoaded', () => {
     inputRegMotivo.addEventListener('beforeinput', (e) => {
       if ((e.inputType === 'insertLineBreak' || e.inputType === 'insertParagraph') && !cpShiftHeld) {
         e.preventDefault();
-        agregarRegistroCP();
+        agregarRegistroCP({ scrollToNombre: true });
       }
     });
 
     // Soporte tecla móvil "Sig." cuando desplaza el foco fuera de Motivo sin disparar Enter
     const handleMotivoMobileNext = () => {
+      if (editingIndex !== null) return;
       const motivoVal = String(inputRegMotivo.value || '').trim();
       if (!motivoVal) return;
-      if (wasRecentCpPointerOn(btnAgregarRegistro)) return;
+      if (wasRecentCpPointerOn(btnAgregarRegistro) || wasRecentCpPointerOn(btnCancelarEdicion)) return;
       if (!hadRecentCpPointerAnywhere() || wasRecentCpPointerOn(inputRegMotivo)) {
-        agregarRegistroCP({ silentIncomplete: true });
+        agregarRegistroCP({ silentIncomplete: true, scrollToNombre: true });
       }
     };
 
@@ -497,7 +820,7 @@ document.addEventListener('DOMContentLoaded', () => {
     inputRegMotivo.addEventListener('blur', handleMotivoMobileNext);
   }
 
-  // Delegación de eventos en tarjetas de Registro (Marcar salida / Eliminar)
+  // Delegación de eventos en tarjetas de Registro (Marcar salida / Editar / Eliminar)
   if (listaRegistrosEl) {
     listaRegistrosEl.addEventListener('click', (e) => {
       const btnSalida = e.target.closest('.btn-cp-marcar-salida');
@@ -505,8 +828,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const idx = parseInt(btnSalida.dataset.index, 10);
         if (Number.isFinite(idx) && registros[idx] && !registros[idx].HoraSalida) {
           registros[idx].HoraSalida = nowHHMM();
+          if (editingIndex === idx && inputRegHoraSalida) {
+            inputRegHoraSalida.value = registros[idx].HoraSalida;
+          }
           renderRegistros();
           window.SioOfflineManager?.notifyStateChange?.();
+        }
+        return;
+      }
+
+      const btnEditar = e.target.closest('.btn-cp-editar-registro');
+      if (btnEditar) {
+        const idx = parseInt(btnEditar.dataset.index, 10);
+        if (Number.isFinite(idx) && registros[idx]) {
+          iniciarEdicionRegistro(idx);
         }
         return;
       }
@@ -529,6 +864,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }).then((result) => {
           if (result.isConfirmed) {
             registros.splice(idx, 1);
+            if (editingIndex !== null) {
+              if (editingIndex === idx) {
+                salirModoEdicion({ resetForm: true, restoreEmpresa: true, skipRender: true });
+              } else if (idx < editingIndex) {
+                editingIndex -= 1;
+                if (cpEditModeNum) cpEditModeNum.textContent = String(editingIndex + 1);
+              }
+            }
             renderRegistros();
             window.SioOfflineManager?.notifyStateChange?.(true);
           }
@@ -905,12 +1248,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }),
     restore: (saved) => {
       if (!saved || typeof saved !== 'object') return;
+      if (editingIndex !== null) salirModoEdicion({ resetForm: true, restoreEmpresa: false, skipRender: true });
       if (Array.isArray(saved.registros)) registros = normalizeCpRegistros(saved.registros);
       if (Array.isArray(saved.aleros)) aleros = normalizeCpAleros(saved.aleros);
+      toggleEmpresaOtrosUI(isOtrosEmpresaValue(selEmpresa?.value), { clearOnHide: false, focusOnShow: false });
       renderRegistros();
       renderAleros();
     },
     reset: () => {
+      if (editingIndex !== null) salirModoEdicion({ resetForm: true, restoreEmpresa: false, skipRender: true });
       registros = initialRegistrosBaseline.map((r) => ({ ...r }));
       aleros = initialAlerosBaseline.map((a) => ({ ...a }));
       renderRegistros();

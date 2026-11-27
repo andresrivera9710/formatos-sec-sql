@@ -40,7 +40,7 @@ function runSecurityChecks() {
   const gitignorePath = path.join(ROOT_DIR, '.gitignore');
   assert(fs.existsSync(gitignorePath), 'Falta archivo .gitignore en la raíz del proyecto.');
   const gitignore = fs.readFileSync(gitignorePath, 'utf8');
-  for (const requiredRule of ['.env', '.env.*', 'readmegithub.md', 'GEMINI.md', 'node_modules/']) {
+  for (const requiredRule of ['.env', '.env.*', 'readmegithub.md', 'GEMINI.md', '.agents/', 'skills-lock.json', 'node_modules/']) {
     assert(gitignore.includes(requiredRule), `Regla faltante en .gitignore: ${requiredRule}`);
   }
 
@@ -70,6 +70,9 @@ function runSecurityChecks() {
         base.startsWith('.env.') ||
         base.toLowerCase() === 'readmegithub.md' ||
         base === 'GEMINI.md' ||
+        base === 'skills-lock.json' ||
+        f === '.agents' ||
+        f.startsWith('.agents/') ||
         base === 'netlify.toml' ||
         f === 'public/_redirects'
       );
@@ -1569,12 +1572,12 @@ async function runUnitChecks() {
   assert.strictEqual(cpAlphaTia.statusCode, 400);
   assert(cpAlphaTia.errors.some(e => e.field === 'NoTIA'), 'validarControlCP debe reportar error en campo NoTIA');
 
-  // Validar reglas exclusivas de AEROMEXICO CP (amx-cp): Nombre en MAYÚSCULAS + Catálogo exacto de 6 empresas
+  // Validar reglas exclusivas de AEROMEXICO CP (amx-cp): Nombre y Empresa externa en MAYÚSCULAS + Catálogo con OTROS
   const FormatosService = require(path.join(ROOT_DIR, 'services', 'FormatosService'));
   assert.deepStrictEqual(
     FormatosService.EMPRESAS_CP_AMX,
-    ['ODA', 'ODA (Combustible)', 'AEROEXPRESS', 'OIRSA', 'AEROMEXICO', 'LAATS'],
-    'EMPRESAS_CP_AMX debe contener exactamente las 6 empresas autorizadas (incluyendo ambos registros de ODA)'
+    ['ODA', 'ODA (Combustible)', 'AEROEXPRESS', 'OIRSA', 'AEROMEXICO', 'LAATS', 'OTROS'],
+    'EMPRESAS_CP_AMX debe contener las 6 empresas fijas autorizadas más OTROS al final'
   );
   const cpAmxUpperAndOdaOk = FormatoValidationService.validarControlCP(
     {
@@ -1587,7 +1590,8 @@ async function runUnitChecks() {
           supervisorEmpleadoId: 289,
           registros: [
             { Nombre: 'juan carlos pérez', NoTIA: '789', Empresa: 'ODA', HoraIngreso: '10:46', Motivo: 'Rampa', HoraSalida: '10:55' },
-            { Nombre: 'maría lópez', NoTIA: '790', Empresa: 'ODA (Combustible)', HoraIngreso: '10:47', Motivo: 'Abastecimiento', HoraSalida: '10:58' }
+            { Nombre: 'maría lópez', NoTIA: '790', Empresa: 'ODA (Combustible)', HoraIngreso: '10:47', Motivo: 'Abastecimiento', HoraSalida: '10:58' },
+            { Nombre: 'carlos díaz', NoTIA: '791', Empresa: 'servi rampa externa s.a.', HoraIngreso: '10:48', Motivo: 'Soporte técnico', HoraSalida: '10:59' }
           ]
         }
       }
@@ -1595,11 +1599,13 @@ async function runUnitChecks() {
     userMock,
     { itinerarioId: 39901, FechaItinerado: '2026-01-01' }
   );
-  assert.strictEqual(cpAmxUpperAndOdaOk.valido, true, 'amx-cp debe aceptar ODA y ODA (Combustible)');
+  assert.strictEqual(cpAmxUpperAndOdaOk.valido, true, 'amx-cp debe aceptar ODA, ODA (Combustible) y empresas externas vía OTROS');
   assert.strictEqual(cpAmxUpperAndOdaOk.normalized.registros[0].Nombre, 'JUAN CARLOS PÉREZ', 'amx-cp debe transformar Nombre a MAYÚSCULAS en backend');
   assert.strictEqual(cpAmxUpperAndOdaOk.normalized.registros[1].Nombre, 'MARÍA LÓPEZ', 'amx-cp debe transformar Nombre a MAYÚSCULAS en backend');
+  assert.strictEqual(cpAmxUpperAndOdaOk.normalized.registros[1].Empresa, 'ODA (Combustible)', 'amx-cp debe conservar intacta la opción fija ODA (Combustible)');
+  assert.strictEqual(cpAmxUpperAndOdaOk.normalized.registros[2].Empresa, 'SERVI RAMPA EXTERNA S.A.', 'amx-cp debe normalizar a MAYÚSCULAS la empresa externa ingresada vía OTROS');
 
-  const cpAmxForbiddenEmpresa = FormatoValidationService.validarControlCP(
+  const cpAmxLiteralOtros = FormatoValidationService.validarControlCP(
     {
       formatoId: 'amx-cp',
       itinerarioId: 39901,
@@ -1609,7 +1615,7 @@ async function runUnitChecks() {
           horaInicio: '10:45',
           supervisorEmpleadoId: 289,
           registros: [
-            { Nombre: 'Pedro', NoTIA: '123', Empresa: 'GODARD(Cocinas)', HoraIngreso: '10:46', Motivo: 'Cocina', HoraSalida: '10:55' }
+            { Nombre: 'Pedro', NoTIA: '123', Empresa: 'OTROS', HoraIngreso: '10:46', Motivo: 'Cocina', HoraSalida: '10:55' }
           ]
         }
       }
@@ -1617,8 +1623,8 @@ async function runUnitChecks() {
     userMock,
     { itinerarioId: 39901, FechaItinerado: '2026-01-01' }
   );
-  assert.strictEqual(cpAmxForbiddenEmpresa.valido, false, 'amx-cp debe rechazar empresas fuera de las 6 autorizadas');
-  assert(cpAmxForbiddenEmpresa.errors.some(e => e.field === 'Empresa'), 'amx-cp debe reportar error en campo Empresa');
+  assert.strictEqual(cpAmxLiteralOtros.valido, false, 'amx-cp debe rechazar el texto genérico literal "OTROS" sin nombre de empresa');
+  assert(cpAmxLiteralOtros.errors.some(e => e.field === 'Empresa'), 'amx-cp debe reportar error en campo Empresa cuando llega literal OTROS');
 
   // Validar preservación de secuencia original + X roja superpuesta en vistas preliminares (EB, CEC y CIEC)
   const ebWithdrawnVars = HtmlPreviewService.buildAeromexicoOtherData({

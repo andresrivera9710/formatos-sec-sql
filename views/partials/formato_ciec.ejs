@@ -220,18 +220,18 @@
     <div class="sio-grid-auto">
       <div class="form-group">
         <label for="ciecRegNombre">Nombre <span class="sio-required-star">*</span></label>
-        <input type="text" id="ciecRegNombre" class="form-control" placeholder="Ingrese Nombre" autocomplete="off">
+        <input type="text" id="ciecRegNombre" class="form-control" placeholder="Ingrese Nombre" autocomplete="off" enterkeyhint="next">
       </div>
 
       <div class="form-group">
         <label for="ciecRegNoTIA">No. TIA <span class="sio-required-star">*</span></label>
-        <input type="text" id="ciecRegNoTIA" class="form-control" inputmode="numeric" pattern="[0-9]*" data-numeric-only="true" maxlength="20" placeholder="Ingrese No. TIA (solo números)" autocomplete="off">
+        <input type="text" id="ciecRegNoTIA" class="form-control" inputmode="numeric" pattern="[0-9]*" data-numeric-only="true" maxlength="20" placeholder="Ingrese No. TIA (solo números)" autocomplete="off" enterkeyhint="next">
       </div>
 
       <div class="form-group">
         <label for="ciecRegHoraIngreso">Hora de Ingreso <span class="sio-required-star">*</span></label>
         <div class="cp-time-row">
-          <input type="time" id="ciecRegHoraIngreso" class="form-control">
+          <input type="time" id="ciecRegHoraIngreso" class="form-control" enterkeyhint="next">
           <button type="button" class="cp-clock-btn" data-clock-target="ciecRegHoraIngreso">
             <i class="far fa-clock"></i> Ahora
           </button>
@@ -250,13 +250,13 @@
 
       <div class="form-group sio-field-hidden" id="grupoCiecEmpresaOtros">
         <label for="ciecRegEmpresaOtros">Especificar Nueva Empresa <span class="sio-required-star">*</span></label>
-        <input type="text" id="ciecRegEmpresaOtros" class="form-control" placeholder="Ingrese la nueva empresa" autocomplete="off">
+        <input type="text" id="ciecRegEmpresaOtros" class="form-control" placeholder="Ingrese la nueva empresa" autocomplete="off" enterkeyhint="next">
       </div>
     </div>
 
     <div class="form-group sio-mt-14">
       <label for="ciecRegMotivo">Motivo <span class="sio-required-star">*</span></label>
-      <textarea id="ciecRegMotivo" rows="2" class="form-control" placeholder="Ingrese Motivo de ingreso a cabina..."></textarea>
+      <textarea id="ciecRegMotivo" rows="2" class="form-control" placeholder="Ingrese Motivo de ingreso a cabina..." enterkeyhint="done"></textarea>
     </div>
 
     <div class="sio-form-actions-end">

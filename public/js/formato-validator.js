@@ -497,14 +497,43 @@
     }
   }
 
-  function preserveScroll(fn) {
-    const sx = window.scrollX;
-    const sy = window.scrollY;
-    const result = typeof fn === 'function' ? fn() : undefined;
-    window.scrollTo(sx, sy);
-    if (typeof window.requestAnimationFrame === 'function') {
-      window.requestAnimationFrame(() => window.scrollTo(sx, sy));
+  function restoreScrollInstant(sx, sy) {
+    try {
+      window.scrollTo({ left: sx, top: sy, behavior: 'instant' });
+    } catch (_) {
+      window.scrollTo(sx, sy);
     }
+  }
+
+  function lockScrollPosition(sx, sy, durationMs = 150) {
+    let cancelled = false;
+    const cancel = () => { cancelled = true; };
+    const restore = () => {
+      if (cancelled) return;
+      restoreScrollInstant(sx, sy);
+    };
+    const cancelEvents = ['wheel', 'touchmove', 'pointerdown'];
+    cancelEvents.forEach((ev) => window.addEventListener(ev, cancel, { passive: true, once: true }));
+    restore();
+    if (typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(() => {
+        restore();
+        window.requestAnimationFrame(restore);
+      });
+    }
+    window.setTimeout(restore, 0);
+    window.setTimeout(restore, 45);
+    window.setTimeout(() => {
+      restore();
+      cancelEvents.forEach((ev) => window.removeEventListener(ev, cancel));
+    }, durationMs);
+  }
+
+  function preserveScroll(fn, lockedPos = null) {
+    const sx = lockedPos && typeof lockedPos.x === 'number' ? lockedPos.x : window.scrollX;
+    const sy = lockedPos && typeof lockedPos.y === 'number' ? lockedPos.y : window.scrollY;
+    const result = typeof fn === 'function' ? fn() : undefined;
+    lockScrollPosition(sx, sy);
     return result;
   }
 
@@ -536,7 +565,11 @@
         return;
       }
 
+      const sx = window.scrollX;
+      const sy = window.scrollY;
       e.preventDefault();
+      e.stopPropagation();
+      lockScrollPosition(sx, sy);
     });
   }
 
@@ -570,6 +603,7 @@
     focusAndScrollToElement,
     focusWithoutScroll,
     preserveScroll,
+    lockScrollPosition,
     sanitizeNumericValue
   };
 })(window);
